@@ -1,0 +1,30 @@
+#!/bin/bash
+#
+# gcc-hooks.bldconf - file containing global information necessary to build
+#                     PARSEC with hooks API
+#
+# Copyright (C) 2006-2007 Princeton University
+# Written by Christian Bienia
+# SIMD Version by Juan M. Cebrian, NTNU - 2013.
+
+source ${PARSECDIR}/config/gcc-pthreads.bldconf
+
+
+PROTABILITY_FLAGS="${PORTABILITY_FLAGS}"
+
+#JMCG
+EXTRA_CFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+EXTRA_CXXFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+
+# Enable PARSEC hooks
+CFLAGS="${CFLAGS} ${PROTABILITY_FLAGS} -DENABLE_PARSEC_HOOKS -I${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/include ${EXTRA_CFLAGS}"
+CXXFLAGS="${CXXFLAGS} ${PROTABILITY_FLAGS} -DENABLE_PARSEC_HOOKS -I${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/include ${EXTRA_CXXFLAGS}"
+LDFLAGS="${LDFLAGS} -L${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib ${EXTRA_LDFLAGS}"
+LIBS="${LIBS} -pthread -lhooks -lm"
+
+# Add directory with hooks library to library search path
+if [ -z "${LD_LIBRARY_PATH}" ]; then
+  export LD_LIBRARY_PATH="${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib"
+else
+  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib"
+fi

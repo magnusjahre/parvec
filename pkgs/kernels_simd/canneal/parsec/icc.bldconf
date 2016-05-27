@@ -1,0 +1,4 @@
+#!/bin/bash
+
+source ${PARSECDIR}/pkgs/kernels_simd/canneal/parsec/gcc.bldconf
+

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster -c gcc-hooks -i native >> output_scalar_hooks
+./parsecmgmt -a run -p parsec.simd.x264 parsec.simd.canneal -c gcc-hooks -i native >> output_scalar_hooks
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-sse-hooks -i native >> output_sse_hooks
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-avx-hooks -i native >> output_avx_hooks
+
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster -c gcc-hooks -i native -n 4 >> output_scalar_hooks_4threads
+./parsecmgmt -a run -p parsec.simd.x264 parsec.simd.canneal -c gcc-hooks -i native -n 4 >> output_scalar_hooks_4threads
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-sse-hooks -i native -n 4 >> output_sse_hooks_4threads
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-avx-hooks -i native -n 4 >> output_avx_hooks_4threads
+
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster -c gcc -i native >> output_scalar
+./parsecmgmt -a run -p parsec.simd.x264 parsec.simd.canneal -c gcc -i native >> output_scalar
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-sse -i native >> output_sse
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-avx -i native >> output_avx

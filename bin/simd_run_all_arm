@@ -1,0 +1,10 @@
+#!/bin/bash
+
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster -c gcc-hooks -i native >> output_scalar_hooks
+./parsecmgmt -a run -p parsec.simd.x264 parsec.simd.canneal -c gcc-hooks -i native >> output_scalar_hooks
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-neon-hooks -i native >> output_neon_hooks
+
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster -c gcc -i native >> output_scalar
+./parsecmgmt -a run -p parsec.simd.x264 parsec.simd.canneal -c gcc -i native >> output_scalar
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-neon -i native >> output_neon
+

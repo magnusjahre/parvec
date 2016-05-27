@@ -1,0 +1,11 @@
+#!/bin/bash
+
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster -c gcc-hooks
+./parsecmgmt -a build -p parsec.simd.x264 parsec.simd.canneal -c gcc-hooks
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-sse-hooks
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-avx-hooks
+
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster -c gcc
+./parsecmgmt -a build -p parsec.simd.x264 parsec.simd.canneal -c gcc
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-sse
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-avx

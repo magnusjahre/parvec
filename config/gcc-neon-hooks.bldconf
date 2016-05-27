@@ -1,0 +1,19 @@
+#!/bin/bash
+#
+# gcc-hooks.bldconf - file containing global information necessary to build
+#                     PARSEC with NEON and hooks API
+#
+# Copyright (C) 2006-2007 Princeton University
+# SIMD Version by Juan M. Cebrian, NTNU - 2013.
+
+source ${PARSECDIR}/config/gcc-hooks.bldconf
+
+PROTABILITY_FLAGS="-DPARSEC_USE_NEON ${PORTABILITY_FLAGS}"
+
+EXTRA_CFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+EXTRA_CXXFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+
+CFLAGS="-mfpu=neon ${CFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CFLAGS}"
+CXXFLAGS="-mfpu=neon ${CXXFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CXXFLAGS}"
+LDFLAGS="${LDFLAGS} ${EXTRA_LDFLAGS}"
+LIBS="${LIBS} -pthread -lm"

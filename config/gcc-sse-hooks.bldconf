@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# gcc-hooks.bldconf - file containing global information necessary to build
+#                     PARSEC with SSE and hooks API
+#
+# Copyright (C) 2006-2007 Princeton University
+# SIMD Version by Juan M. Cebrian, NTNU - 2013.
+
+source ${PARSECDIR}/config/gcc-hooks.bldconf
+
+PROTABILITY_FLAGS="-DPARSEC_USE_SSE ${PORTABILITY_FLAGS}"
+
+EXTRA_CFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+EXTRA_CXXFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+
+CFLAGS="-msse4.2 ${CFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CFLAGS}"
+CXXFLAGS="-msse4.2 ${CXXFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CXXFLAGS}"
+LDFLAGS="${LDFLAGS} ${EXTRA_LDFLAGS}"
+LIBS="${LIBS} -pthread -lm"
+
+

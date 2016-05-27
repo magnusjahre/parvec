@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./parsecmgmt -a fulluninstall -p all libs tools; ./parsecmgmt -a fullclean -p all libs tools
