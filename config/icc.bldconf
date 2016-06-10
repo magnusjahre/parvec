@@ -6,6 +6,7 @@
 # Copyright (C) 2006-2009 Princeton University
 # Written by Christian Bienia (Initial version)
 #            Christian Fensch (Sparc/Solaris port)
+#            SIMD/ARM tests by Juan M. Cebrian, NTNU - 2013. (JMCG TAG)
 
 # Compilation and linking options
 # These are the global options we'll use to build the benchmark suite. Each
@@ -27,11 +28,11 @@ case "${OSTYPE}" in
   export SFW_HOME="/usr/sfw"
 
   # CC_HOME is the installation root of the C compiler
-  export CC_HOME="/opt/intel/cc/latest"
+  export CC_HOME="/apps/INTEL-2017"
   # GCC_HOME is installation root of the GNU C compiler
-  export GCC_HOME="/usr/local/gcc-4.2.1"
+  export GCC_HOME="/usr"
   # BINUTIL_HOME is installation root of the GNU binutils
-  export BINUTIL_HOME="/usr/local"
+  export BINUTIL_HOME="/usr"
   # GNUTOOL_HOME is installation root of the GNU tools
   export GNUTOOL_HOME="${SFW_HOME}"
   # BINARY_PREFIX is the string which is used as prefix for the GNU binaries
@@ -41,11 +42,11 @@ case "${OSTYPE}" in
   # Linux + default case
 
   # CC_HOME is installation root of the C compiler
-  export CC_HOME="/opt/intel/cc/latest"
+  export CC_HOME="/apps/INTEL-2017"
   # GCC_HOME is installation root of the GNU C compiler
-  export GCC_HOME="/usr/local/gcc-4.2.1"
+  export GCC_HOME="/usr"
   # BINUTIL_HOME is installation root of the GNU binutils
-  export BINUTIL_HOME="/usr/local"
+  export BINUTIL_HOME="/usr"
   # GNUTOOL_HOME is installation root of the GNU tools
   export GNUTOOL_HOME="/usr"
   # BINARY_PREFIX is the string which is used as prefix for the GNU binaries
@@ -56,7 +57,8 @@ esac
 # Compilers and preprocessors
 export CC="${CC_HOME}/bin/icc"
 export CXX="${CC_HOME}/bin/icpc"
-export CPP="${CC_HOME}/bin/cpp"
+export CPP=""
+#export CPP="${CC_HOME}/bin/icc"
 export CXXCPP=""
 
 # GNU Binutils
@@ -68,16 +70,33 @@ export STRIP="${BINUTIL_HOME}/bin/${BINARY_PREFIX}strip"
 
 # GNU Tools
 export M4="${GNUTOOL_HOME}/bin/${BINARY_PREFIX}m4"
-export MAKE="${GNUTOOL_HOME}/bin/${BINARY_PREFIX}make"
+#export MAKE="${GNUTOOL_HOME}/bin/${BINARY_PREFIX}make"
+#JMCG Parallel make
+export MAKE="${GNUTOOL_HOME}/bin/${BINARY_PREFIX}make -j4"
 
+# Flags for increased portability of binaries (Intel)
+#PORTABILITY_FLAGS="-static-libgcc -Wl,--hash-style=both,--as-needed"
+# Flags for increased portability of binaries (ARM)
+#PORTABILITY_FLAGS="-static-libgcc -Wl,--hash-style=both,--as-needed -Wa,-mimplicit-it=thumb"
+#JMCG BEGIN
+system_info=`uname -a`
+if [[ "$system_info" == *arm* ]]
+then
+    PORTABILITY_FLAGS="-static-libgcc -Wl,--hash-style=both,--as-needed -Wa,-mimplicit-it=thumb"
+else
+    PORTABILITY_FLAGS="-static-libgcc -Wl,--hash-style=both,--as-needed"
+fi
 # Arguments to use
-export CFLAGS="-gcc-name=${GCC_HOME}/bin/gcc -gcc -I${GCC_HOME}/include/c++/4.2.1 -O3 -funroll-loops -opt-prefetch"
-export CXXFLAGS="-gcc-name=${GCC_HOME}/bin/gcc -gcc -I${GCC_HOME}/include/c++/4.2.1 -O3 -funroll-loops -opt-prefetch -fpermissive -fno-exceptions"
+export CFLAGS="-gcc-name=${GCC_HOME}/bin/gcc -gcc -O3 -no-vec -funroll-loops -qopt-prefetch"
+export CXXFLAGS="-gcc-name=${GCC_HOME}/bin/gcc -gcc -O3 -no-vec -funroll-loops -qopt-prefetch -fpermissive -fno-exceptions"
+EXTRA_CFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+EXTRA_CXXFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
 export CPPFLAGS=""
 export CXXCPPFLAGS=""
 export LDFLAGS="-L${CC_HOME}/lib64 -L${CC_HOME}/lib"
 export LIBS=""
 export EXTRA_LIBS=""
+export PARMACS_MACRO_FILE="pthreads"
 
 # OS-specific arguments
 case "${OSTYPE}" in
@@ -90,8 +109,8 @@ esac
 
 # Add PARSEC version to compiler flags
 if [ -f "${PARSECDIR}/version" ]; then
-  CFLAGS="${CFLAGS} -DPARSEC_VERSION=$(${CAT} ${PARSECDIR}/version)"
-  CXXFLAGS="${CXXFLAGS} -DPARSEC_VERSION=$(${CAT} ${PARSECDIR}/version)"
+  CFLAGS="${CFLAGS} -DPARSEC_VERSION=$(${CAT} ${PARSECDIR}/version) ${EXTRA_CFLAGS}" # JMCG Added EXTRA_CFLAGS
+  CXXFLAGS="${CXXFLAGS} -DPARSEC_VERSION=$(${CAT} ${PARSECDIR}/version) ${EXTRA_CXXFLAGS}" # JMCG Added EXTRA_CXXFLAGS
 fi
 
 # Java
@@ -99,8 +118,23 @@ export JAVA_HOME="/usr"
 export JAVAC="${JAVA_HOME}/bin/javac"
 
 # Version numbers
+if [ -x ${CC} ]; then
 CC_ver=$(${CC} --version)
+else
+  CC_ver=""
+fi
+if [ -x ${CXX} ]; then
 CXX_ver=$(${CXX} --version)
+else
+  CXX_ver=""
+fi
+if [ -x ${LD} ]; then
 LD_ver=$(${LD} --version)
+else
+  LD_ver=""
+fi
+if [ -x ${JAVAC} ]; then
 JAVAC_ver=$(${JAVAC} -version 2>&1)
-
+else
+  JAVAC_ver=""
+fi

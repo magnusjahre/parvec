@@ -1,0 +1,3 @@
+#!/bin/bash
+
+source ${PARSECDIR}/pkgs/apps_simd/blackscholes/parsec/icc.bldconf

@@ -1,0 +1,11 @@
+#!/bin/bash
+
+#./parsecmgmt -a run -p parsec.simd.vips parsec.simd.x264 -c icc-mic-hooks -i native # Vips does not build with the -xMIC-AVX512 flag because glib does not pass tests when crosscompiling
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster parsec.simd.canneal -c icc-mic-hooks -i native
+#./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster parsec.simd.canneal -c icc-mic-sse-hooks -i native
+#./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster parsec.simd.canneal -c icc-mic-avx-hooks -i native
+
+#./parsecmgmt -a run -p parsec.simd.vips parsec.simd.x264 -c icc-mic -i native # Vips does not build with the -xMIC-AVX512 flag because glib does not pass tests when crosscompiling
+./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster parsec.simd.canneal -c icc-mic -i native
+#./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster parsec.simd.canneal -c icc-mic-sse -i native
+#./parsecmgmt -a run -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster parsec.simd.canneal -c icc-mic-avx -i native
