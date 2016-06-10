@@ -1,7 +1,7 @@
 /*****************************************************************************
  * common.c: misc common functions
  *****************************************************************************
- * Copyright (C) 2003-2013 x264 project
+ * Copyright (C) 2003-2016 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -26,11 +26,13 @@
 
 #include "common.h"
 
-#include <stdarg.h>
 #include <ctype.h>
 
 #if HAVE_MALLOC_H
 #include <malloc.h>
+#endif
+#if HAVE_THP
+#include <sys/mman.h>
 #endif
 
 const int x264_bit_depth = BIT_DEPTH;
@@ -342,7 +344,7 @@ static int x264_param_apply_tune( x264_param_t *param, const char *tune )
             param->analyse.i_luma_deadzone[1] = 6;
             param->rc.f_qcompress = 0.8;
         }
-        else if( !strncasecmp( s, "stillimage", 5 ) )
+        else if( !strncasecmp( s, "stillimage", 10 ) )
         {
             if( psy_tuning_used++ ) goto psy_failure;
             param->i_deblocking_filter_alphac0 = -3;
@@ -514,7 +516,7 @@ int x264_param_apply_profile( x264_param_t *param, const char *profile )
 static int parse_enum( const char *arg, const char * const *names, int *dst )
 {
     for( int i = 0; names[i]; i++ )
-        if( !strcmp( arg, names[i] ) )
+        if( !strcasecmp( arg, names[i] ) )
         {
             *dst = i;
             return 0;
@@ -537,12 +539,12 @@ static int parse_cqm( const char *str, uint8_t *cqm, int length )
 static int x264_atobool( const char *str, int *b_error )
 {
     if( !strcmp(str, "1") ||
-        !strcmp(str, "true") ||
-        !strcmp(str, "yes") )
+        !strcasecmp(str, "true") ||
+        !strcasecmp(str, "yes") )
         return 1;
     if( !strcmp(str, "0") ||
-        !strcmp(str, "false") ||
-        !strcmp(str, "no") )
+        !strcasecmp(str, "false") ||
+        !strcasecmp(str, "no") )
         return 0;
     *b_error = 1;
     return 0;
@@ -576,9 +578,9 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
 {
     char *name_buf = NULL;
     int b_error = 0;
+    int errortype = X264_PARAM_BAD_VALUE;
     int name_was_bool;
     int value_was_null = !value;
-    int i;
 
     if( !name )
         return X264_PARAM_BAD_NAME;
@@ -592,15 +594,18 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
     {
         char *c;
         name_buf = strdup(name);
+        if( !name_buf )
+            return X264_PARAM_BAD_NAME;
         while( (c = strchr( name_buf, '_' )) )
             *c = '-';
         name = name_buf;
     }
 
-    if( (!strncmp( name, "no-", 3 ) && (i = 3)) ||
-        (!strncmp( name, "no", 2 ) && (i = 2)) )
+    if( !strncmp( name, "no", 2 ) )
     {
-        name += i;
+        name += 2;
+        if( name[0] == '-' )
+            name++;
         value = atobool(value) ? "false" : "true";
     }
     name_was_bool = 0;
@@ -611,35 +616,40 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
     OPT("asm")
     {
         p->cpu = isdigit(value[0]) ? atoi(value) :
-                 !strcmp(value, "auto") || atobool(value) ? x264_cpu_detect() : 0;
+                 !strcasecmp(value, "auto") || atobool(value) ? x264_cpu_detect() : 0;
         if( b_error )
         {
-            char *buf = strdup(value);
-            char *tok, UNUSED *saveptr=NULL, *init;
-            b_error = 0;
-            p->cpu = 0;
-            for( init=buf; (tok=strtok_r(init, ",", &saveptr)); init=NULL )
+            char *buf = strdup( value );
+            if( buf )
             {
-                for( i=0; x264_cpu_names[i].flags && strcasecmp(tok, x264_cpu_names[i].name); i++ );
-                p->cpu |= x264_cpu_names[i].flags;
-                if( !x264_cpu_names[i].flags )
-                    b_error = 1;
+                char *tok, UNUSED *saveptr=NULL, *init;
+                b_error = 0;
+                p->cpu = 0;
+                for( init=buf; (tok=strtok_r(init, ",", &saveptr)); init=NULL )
+                {
+                    int i = 0;
+                    while( x264_cpu_names[i].flags && strcasecmp(tok, x264_cpu_names[i].name) )
+                        i++;
+                    p->cpu |= x264_cpu_names[i].flags;
+                    if( !x264_cpu_names[i].flags )
+                        b_error = 1;
+                }
+                free( buf );
+                if( (p->cpu&X264_CPU_SSSE3) && !(p->cpu&X264_CPU_SSE2_IS_SLOW) )
+                    p->cpu |= X264_CPU_SSE2_IS_FAST;
             }
-            free( buf );
-            if( (p->cpu&X264_CPU_SSSE3) && !(p->cpu&X264_CPU_SSE2_IS_SLOW) )
-                p->cpu |= X264_CPU_SSE2_IS_FAST;
         }
     }
     OPT("threads")
     {
-        if( !strcmp(value, "auto") )
+        if( !strcasecmp(value, "auto") )
             p->i_threads = X264_THREADS_AUTO;
         else
             p->i_threads = atoi(value);
     }
     OPT("lookahead-threads")
     {
-        if( !strcmp(value, "auto") )
+        if( !strcasecmp(value, "auto") )
             p->i_lookahead_threads = X264_THREADS_AUTO;
         else
             p->i_lookahead_threads = atoi(value);
@@ -648,7 +658,7 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
         p->b_sliced_threads = atobool(value);
     OPT("sync-lookahead")
     {
-        if( !strcmp(value, "auto") )
+        if( !strcasecmp(value, "auto") )
             p->i_sync_lookahead = X264_SYNC_LOOKAHEAD_AUTO;
         else
             p->i_sync_lookahead = atoi(value);
@@ -668,6 +678,8 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
     }
     OPT("bluray-compat")
         p->b_bluray_compat = atobool(value);
+    OPT("avcintra-class")
+        p->i_avcintra_class = atoi(value);
     OPT("sar")
     {
         b_error = ( 2 != sscanf( value, "%d:%d", &p->vui.i_sar_width, &p->vui.i_sar_height ) &&
@@ -692,14 +704,12 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
     }
     OPT("fps")
     {
-        if( sscanf( value, "%u/%u", &p->i_fps_num, &p->i_fps_den ) == 2 )
-            ;
-        else
+        if( sscanf( value, "%u/%u", &p->i_fps_num, &p->i_fps_den ) != 2 )
         {
-            float fps = atof(value);
-            if( fps > 0 && fps <= INT_MAX/1000 )
+            double fps = atof(value);
+            if( fps > 0.0 && fps <= INT_MAX/1000.0 )
             {
-                p->i_fps_num = (int)(fps * 1000 + .5);
+                p->i_fps_num = (int)(fps * 1000.0 + .5);
                 p->i_fps_den = 1000;
             }
             else
@@ -876,10 +886,6 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
     }
     OPT("log")
         p->i_log_level = atoi(value);
-#if HAVE_VISUALIZE
-    OPT("visualize")
-        p->b_visualize = atobool(value);
-#endif
     OPT("dump-yuv")
         p->psz_dump_yuv = strdup(value);
     OPT2("analyse", "partitions")
@@ -1031,12 +1037,16 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
         p->b_vfr_input = !atobool(value);
     OPT("nal-hrd")
         b_error |= parse_enum( value, x264_nal_hrd_names, &p->i_nal_hrd );
+    OPT("filler")
+        p->rc.b_filler = atobool(value);
     OPT("pic-struct")
         p->b_pic_struct = atobool(value);
     OPT("fake-interlaced")
         p->b_fake_interlaced = atobool(value);
     OPT("frame-packing")
         p->i_frame_packing = atoi(value);
+    OPT("stitchable")
+        p->b_stitchable = atobool(value);
     OPT("opencl")
         p->b_opencl = atobool( value );
     OPT("opencl-clbin")
@@ -1044,7 +1054,10 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
     OPT("opencl-device")
         p->i_opencl_device = atoi( value );
     else
-        return X264_PARAM_BAD_NAME;
+    {
+        b_error = 1;
+        errortype = X264_PARAM_BAD_NAME;
+    }
 #undef OPT
 #undef OPT2
 #undef atobool
@@ -1055,7 +1068,7 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
         free( name_buf );
 
     b_error |= value_was_null && !name_was_bool;
-    return b_error ? X264_PARAM_BAD_VALUE : 0;
+    return b_error ? errortype : 0;
 }
 
 /****************************************************************************
@@ -1097,7 +1110,7 @@ static void x264_log_default( void *p_unused, int i_level, const char *psz_fmt, 
             break;
     }
     fprintf( stderr, "x264 [%s]: ", psz_prefix );
-    vfprintf( stderr, psz_fmt, arg );
+    x264_vfprintf( stderr, psz_fmt, arg );
 }
 
 /****************************************************************************
@@ -1128,6 +1141,7 @@ int x264_picture_alloc( x264_picture_t *pic, int i_csp, int i_width, int i_heigh
         [X264_CSP_I420] = { 3, { 256*1, 256/2, 256/2 }, { 256*1, 256/2, 256/2 } },
         [X264_CSP_YV12] = { 3, { 256*1, 256/2, 256/2 }, { 256*1, 256/2, 256/2 } },
         [X264_CSP_NV12] = { 2, { 256*1, 256*1 },        { 256*1, 256/2 },       },
+        [X264_CSP_NV21] = { 2, { 256*1, 256*1 },        { 256*1, 256/2 },       },
         [X264_CSP_I422] = { 3, { 256*1, 256/2, 256/2 }, { 256*1, 256*1, 256*1 } },
         [X264_CSP_YV16] = { 3, { 256*1, 256/2, 256/2 }, { 256*1, 256*1, 256*1 } },
         [X264_CSP_NV16] = { 2, { 256*1, 256*1 },        { 256*1, 256*1 },       },
@@ -1139,7 +1153,7 @@ int x264_picture_alloc( x264_picture_t *pic, int i_csp, int i_width, int i_heigh
     };
 
     int csp = i_csp & X264_CSP_MASK;
-    if( csp <= X264_CSP_NONE || csp >= X264_CSP_MAX )
+    if( csp <= X264_CSP_NONE || csp >= X264_CSP_MAX || csp == X264_CSP_V210 )
         return -1;
     x264_picture_init( pic );
     pic->img.i_csp = i_csp;
@@ -1181,7 +1195,25 @@ void *x264_malloc( int i_size )
 {
     uint8_t *align_buf = NULL;
 #if HAVE_MALLOC_H
-    align_buf = memalign( NATIVE_ALIGN, i_size );
+#if HAVE_THP
+#define HUGE_PAGE_SIZE 2*1024*1024
+#define HUGE_PAGE_THRESHOLD HUGE_PAGE_SIZE*7/8 /* FIXME: Is this optimal? */
+    /* Attempt to allocate huge pages to reduce TLB misses. */
+    if( i_size >= HUGE_PAGE_THRESHOLD )
+    {
+        align_buf = memalign( HUGE_PAGE_SIZE, i_size );
+        if( align_buf )
+        {
+            /* Round up to the next huge page boundary if we are close enough. */
+            size_t madv_size = (i_size + HUGE_PAGE_SIZE - HUGE_PAGE_THRESHOLD) & ~(HUGE_PAGE_SIZE-1);
+            madvise( align_buf, madv_size, MADV_HUGEPAGE );
+        }
+    }
+    else
+#undef HUGE_PAGE_SIZE
+#undef HUGE_PAGE_THRESHOLD
+#endif
+        align_buf = memalign( NATIVE_ALIGN, i_size );
 #else
     uint8_t *buf = malloc( i_size + (NATIVE_ALIGN-1) + sizeof(void **) );
     if( buf )
@@ -1242,29 +1274,36 @@ REDUCE_FRACTION( x264_reduce_fraction64, uint64_t )
 char *x264_slurp_file( const char *filename )
 {
     int b_error = 0;
-    size_t i_size;
+    int64_t i_size;
     char *buf;
-    FILE *fh = fopen( filename, "rb" );
+    FILE *fh = x264_fopen( filename, "rb" );
     if( !fh )
         return NULL;
+
     b_error |= fseek( fh, 0, SEEK_END ) < 0;
     b_error |= ( i_size = ftell( fh ) ) <= 0;
+    if( WORD_SIZE == 4 )
+        b_error |= i_size > INT32_MAX;
     b_error |= fseek( fh, 0, SEEK_SET ) < 0;
     if( b_error )
         goto error;
+
     buf = x264_malloc( i_size+2 );
     if( !buf )
         goto error;
+
     b_error |= fread( buf, 1, i_size, fh ) != i_size;
-    if( buf[i_size-1] != '\n' )
-        buf[i_size++] = '\n';
-    buf[i_size] = 0;
     fclose( fh );
     if( b_error )
     {
         x264_free( buf );
         return NULL;
     }
+
+    if( buf[i_size-1] != '\n' )
+        buf[i_size++] = '\n';
+    buf[i_size] = '\0';
+
     return buf;
 error:
     fclose( fh );
@@ -1330,6 +1369,8 @@ char *x264_param2string( x264_param_t *p, int b_res )
     s += sprintf( s, " decimate=%d", p->analyse.b_dct_decimate );
     s += sprintf( s, " interlaced=%s", p->b_interlaced ? p->b_tff ? "tff" : "bff" : p->b_fake_interlaced ? "fake" : "0" );
     s += sprintf( s, " bluray_compat=%d", p->b_bluray_compat );
+    if( p->b_stitchable )
+        s += sprintf( s, " stitchable=%d", p->b_stitchable );
 
     s += sprintf( s, " constrained_intra=%d", p->b_constrained_intra );
 
@@ -1379,7 +1420,7 @@ char *x264_param2string( x264_param_t *p, int b_res )
         s += sprintf( s, " qp=%d", p->rc.i_qp_constant );
 
     if( p->rc.i_vbv_buffer_size )
-        s += sprintf( s, " nal_hrd=%s", x264_nal_hrd_names[p->i_nal_hrd] );
+        s += sprintf( s, " nal_hrd=%s filler=%d", x264_nal_hrd_names[p->i_nal_hrd], p->rc.b_filler );
     if( p->crop_rect.i_left | p->crop_rect.i_top | p->crop_rect.i_right | p->crop_rect.i_bottom )
         s += sprintf( s, " crop_rect=%u,%u,%u,%u", p->crop_rect.i_left, p->crop_rect.i_top,
                                                    p->crop_rect.i_right, p->crop_rect.i_bottom );

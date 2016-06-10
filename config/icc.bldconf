@@ -113,6 +113,17 @@ if [ -f "${PARSECDIR}/version" ]; then
   CXXFLAGS="${CXXFLAGS} -DPARSEC_VERSION=$(${CAT} ${PARSECDIR}/version) ${EXTRA_CXXFLAGS}" # JMCG Added EXTRA_CXXFLAGS
 fi
 
+if [ -z "${LD_LIBRARY_PATH}" ]; then
+  export LD_LIBRARY_PATH="${CC_HOME}/lib/intel64_lin"
+else
+  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${CC_HOME}/lib/intel64_lin"
+fi
+if [ -z "${LD_RUN_PATH}" ]; then
+  export LD_RUN_PATH="${CC_HOME}/lib/intel64_lin:${CC_HOME}/bin"
+else
+  export LD_RUN_PATH="${LD_RUN_PATH}:${CC_HOME}/lib/intel64_lin:${CC_HOME}/bin"
+fi
+
 # Java
 export JAVA_HOME="/usr"
 export JAVAC="${JAVA_HOME}/bin/javac"

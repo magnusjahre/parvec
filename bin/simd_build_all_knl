@@ -1,13 +1,9 @@
 #!/bin/bash
 
-./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster -c icc-mic-hooks
-./parsecmgmt -a build -p parsec.simd.vips parsec.simd.x264 -c icc-mic-hooks # Vips does not build with the -xMIC-AVX512 flag because glib does not pass tests when crosscompiling
-./parsecmgmt -a build -p parsec.simd.canneal -c icc-mic-hooks
-#./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c icc-mic-sse-hooks
-#./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c icc-mic-avx-hooks
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster parsec.simd.vips parsec.simd.x264 parsec.simd.canneal -c icc-mic-hooks
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c icc-mic-sse-hooks
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c icc-mic-avx-hooks
 
-./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster -c icc-mic
-./parsecmgmt -a build -p parsec.simd.vips parsec.simd.x264 -c icc-mic # Vips does not build with the -xMIC-AVX512 flag because glib does not pass tests when crosscompiling
-./parsecmgmt -a build -p  parsec.simd.canneal -c icc-mic
+./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.streamcluster parsec.simd.canneal parsec.simd.vips parsec.simd.x264 -c icc-mic
 ./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c icc-mic-sse
 ./parsecmgmt -a build -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c icc-mic-avx

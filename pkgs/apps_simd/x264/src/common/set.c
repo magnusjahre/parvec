@@ -1,7 +1,7 @@
 /*****************************************************************************
  * set.c: quantization init
  *****************************************************************************
- * Copyright (C) 2005-2013 x264 project
+ * Copyright (C) 2005-2016 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *
@@ -23,7 +23,6 @@
  * For more information, contact us at licensing@x264.com.
  *****************************************************************************/
 
-#define _ISOC99_SOURCE
 #include "common.h"
 
 #define SHIFT(x,s) ((s)<=0 ? (x)<<-(s) : ((x)+(1<<((s)-1)))>>(s))
@@ -105,9 +104,9 @@ int x264_cqm_init( x264_t *h )
         }\
         else\
         {\
-            CHECKED_MALLOC( h->  quant##w##_mf[i], (QP_MAX+1)*size*sizeof(udctcoef) );\
+            CHECKED_MALLOC( h->  quant##w##_mf[i], (QP_MAX_SPEC+1)*size*sizeof(udctcoef) );\
             CHECKED_MALLOC( h->dequant##w##_mf[i],  6*size*sizeof(int) );\
-            CHECKED_MALLOC( h->unquant##w##_mf[i], (QP_MAX+1)*size*sizeof(int) );\
+            CHECKED_MALLOC( h->unquant##w##_mf[i], (QP_MAX_SPEC+1)*size*sizeof(int) );\
         }\
         for( j = 0; j < i; j++ )\
             if( deadzone[j] == deadzone[i] &&\
@@ -120,8 +119,8 @@ int x264_cqm_init( x264_t *h )
         }\
         else\
         {\
-            CHECKED_MALLOC( h->quant##w##_bias[i], (QP_MAX+1)*size*sizeof(udctcoef) );\
-            CHECKED_MALLOC( h->quant##w##_bias0[i], (QP_MAX+1)*size*sizeof(udctcoef) );\
+            CHECKED_MALLOC( h->quant##w##_bias[i], (QP_MAX_SPEC+1)*size*sizeof(udctcoef) );\
+            CHECKED_MALLOC( h->quant##w##_bias0[i], (QP_MAX_SPEC+1)*size*sizeof(udctcoef) );\
         }\
     }
 
@@ -159,7 +158,7 @@ int x264_cqm_init( x264_t *h )
                      quant8_mf[i_list][q][i] = DIV(def_quant8[q][i] * 16, h->pps->scaling_list[4+i_list][i]);
             }
     }
-    for( int q = 0; q < QP_MAX+1; q++ )
+    for( int q = 0; q <= QP_MAX_SPEC; q++ )
     {
         int j;
         for( int i_list = 0; i_list < 4; i_list++ )

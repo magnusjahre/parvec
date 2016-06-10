@@ -1,7 +1,7 @@
 /*****************************************************************************
  * mc.c: motion compensation
  *****************************************************************************
- * Copyright (C) 2003-2013 x264 project
+ * Copyright (C) 2003-2016 x264 project
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Loren Merritt <lorenm@u.washington.edu>
@@ -34,6 +34,12 @@
 #endif
 #if ARCH_ARM
 #include "arm/mc.h"
+#endif
+#if ARCH_AARCH64
+#include "aarch64/mc.h"
+#endif
+#if ARCH_MIPS
+#include "mips/mc.h"
 #endif
 
 
@@ -186,8 +192,8 @@ static void hpel_filter( pixel *dsth, pixel *dstv, pixel *dstc, pixel *src,
     }
 }
 
-static const uint8_t hpel_ref0[16] = {0,1,1,1,0,1,1,1,2,3,3,3,0,1,1,1};
-static const uint8_t hpel_ref1[16] = {0,0,0,0,2,2,3,2,2,2,3,2,2,2,3,2};
+const uint8_t x264_hpel_ref0[16] = {0,1,1,1,0,1,1,1,2,3,3,3,0,1,1,1};
+const uint8_t x264_hpel_ref1[16] = {0,0,1,0,2,2,3,2,2,2,3,2,2,2,3,2};
 
 static void mc_luma( pixel *dst,    intptr_t i_dst_stride,
                      pixel *src[4], intptr_t i_src_stride,
@@ -196,11 +202,11 @@ static void mc_luma( pixel *dst,    intptr_t i_dst_stride,
 {
     int qpel_idx = ((mvy&3)<<2) + (mvx&3);
     int offset = (mvy>>2)*i_src_stride + (mvx>>2);
-    pixel *src1 = src[hpel_ref0[qpel_idx]] + offset + ((mvy&3) == 3) * i_src_stride;
+    pixel *src1 = src[x264_hpel_ref0[qpel_idx]] + offset + ((mvy&3) == 3) * i_src_stride;
 
     if( qpel_idx & 5 ) /* qpel interpolation needed */
     {
-        pixel *src2 = src[hpel_ref1[qpel_idx]] + offset + ((mvx&3) == 3);
+        pixel *src2 = src[x264_hpel_ref1[qpel_idx]] + offset + ((mvx&3) == 3);
         pixel_avg( dst, i_dst_stride, src1, i_src_stride,
                    src2, i_src_stride, i_width, i_height );
         if( weight->weightfn )
@@ -219,11 +225,11 @@ static pixel *get_ref( pixel *dst,   intptr_t *i_dst_stride,
 {
     int qpel_idx = ((mvy&3)<<2) + (mvx&3);
     int offset = (mvy>>2)*i_src_stride + (mvx>>2);
-    pixel *src1 = src[hpel_ref0[qpel_idx]] + offset + ((mvy&3) == 3) * i_src_stride;
+    pixel *src1 = src[x264_hpel_ref0[qpel_idx]] + offset + ((mvy&3) == 3) * i_src_stride;
 
     if( qpel_idx & 5 ) /* qpel interpolation needed */
     {
-        pixel *src2 = src[hpel_ref1[qpel_idx]] + offset + ((mvx&3) == 3);
+        pixel *src2 = src[x264_hpel_ref1[qpel_idx]] + offset + ((mvx&3) == 3);
         pixel_avg( dst, *i_dst_stride, src1, i_src_stride,
                    src2, i_src_stride, i_width, i_height );
         if( weight->weightfn )
@@ -296,6 +302,17 @@ void x264_plane_copy_c( pixel *dst, intptr_t i_dst,
     }
 }
 
+void x264_plane_copy_swap_c( pixel *dst, intptr_t i_dst,
+                             pixel *src, intptr_t i_src, int w, int h )
+{
+    for( int y=0; y<h; y++, dst+=i_dst, src+=i_src )
+        for( int x=0; x<2*w; x+=2 )
+        {
+            dst[x]   = src[x+1];
+            dst[x+1] = src[x];
+        }
+}
+
 void x264_plane_copy_interleave_c( pixel *dst,  intptr_t i_dst,
                                    pixel *srcu, intptr_t i_srcu,
                                    pixel *srcv, intptr_t i_srcv, int w, int h )
@@ -333,6 +350,34 @@ static void x264_plane_copy_deinterleave_rgb_c( pixel *dsta, intptr_t i_dsta,
             dstb[x] = src[x*pw+1];
             dstc[x] = src[x*pw+2];
         }
+    }
+}
+
+void x264_plane_copy_deinterleave_v210_c( pixel *dsty, intptr_t i_dsty,
+                                          pixel *dstc, intptr_t i_dstc,
+                                          uint32_t *src, intptr_t i_src, int w, int h )
+{
+    for( int l = 0; l < h; l++ )
+    {
+        pixel *dsty0 = dsty;
+        pixel *dstc0 = dstc;
+        uint32_t *src0 = src;
+
+        for( int n = 0; n < w; n += 3 )
+        {
+            *(dstc0++) = *src0 & 0x03FF;
+            *(dsty0++) = ( *src0 >> 10 ) & 0x03FF;
+            *(dstc0++) = ( *src0 >> 20 ) & 0x03FF;
+            src0++;
+            *(dsty0++) = *src0 & 0x03FF;
+            *(dstc0++) = ( *src0 >> 10 ) & 0x03FF;
+            *(dsty0++) = ( *src0 >> 20 ) & 0x03FF;
+            src0++;
+        }
+
+        dsty += i_dsty;
+        dstc += i_dstc;
+        src  += i_src;
     }
 }
 
@@ -455,18 +500,106 @@ static void frame_init_lowres_core( pixel *src0, pixel *dst0, pixel *dsth, pixel
 
 /* Estimate the total amount of influence on future quality that could be had if we
  * were to improve the reference samples used to inter predict any given macroblock. */
-static void mbtree_propagate_cost( int *dst, uint16_t *propagate_in, uint16_t *intra_costs,
+static void mbtree_propagate_cost( int16_t *dst, uint16_t *propagate_in, uint16_t *intra_costs,
                                    uint16_t *inter_costs, uint16_t *inv_qscales, float *fps_factor, int len )
 {
-    float fps = *fps_factor / 256.f;
+    float fps = *fps_factor;
     for( int i = 0; i < len; i++ )
     {
-        float intra_cost       = intra_costs[i] * inv_qscales[i];
-        float propagate_amount = propagate_in[i] + intra_cost*fps;
-        float propagate_num    = intra_costs[i] - (inter_costs[i] & LOWRES_COST_MASK);
-        float propagate_denom  = intra_costs[i];
-        dst[i] = (int)(propagate_amount * propagate_num / propagate_denom + 0.5f);
+        int intra_cost = intra_costs[i];
+        int inter_cost = X264_MIN(intra_costs[i], inter_costs[i] & LOWRES_COST_MASK);
+        float propagate_intra  = intra_cost * inv_qscales[i];
+        float propagate_amount = propagate_in[i] + propagate_intra*fps;
+        float propagate_num    = intra_cost - inter_cost;
+        float propagate_denom  = intra_cost;
+        dst[i] = X264_MIN((int)(propagate_amount * propagate_num / propagate_denom + 0.5f), 32767);
     }
+}
+
+static void mbtree_propagate_list( x264_t *h, uint16_t *ref_costs, int16_t (*mvs)[2],
+                                   int16_t *propagate_amount, uint16_t *lowres_costs,
+                                   int bipred_weight, int mb_y, int len, int list )
+{
+    unsigned stride = h->mb.i_mb_stride;
+    unsigned width = h->mb.i_mb_width;
+    unsigned height = h->mb.i_mb_height;
+
+    for( unsigned i = 0; i < len; i++ )
+    {
+        int lists_used = lowres_costs[i]>>LOWRES_COST_SHIFT;
+
+        if( !(lists_used & (1 << list)) )
+            continue;
+
+        int listamount = propagate_amount[i];
+        /* Apply bipred weighting. */
+        if( lists_used == 3 )
+            listamount = (listamount * bipred_weight + 32) >> 6;
+
+        /* Early termination for simple case of mv0. */
+        if( !M32( mvs[i] ) )
+        {
+            MC_CLIP_ADD( ref_costs[mb_y*stride + i], listamount );
+            continue;
+        }
+
+        int x = mvs[i][0];
+        int y = mvs[i][1];
+        unsigned mbx = (x>>5)+i;
+        unsigned mby = (y>>5)+mb_y;
+        unsigned idx0 = mbx + mby * stride;
+        unsigned idx2 = idx0 + stride;
+        x &= 31;
+        y &= 31;
+        int idx0weight = (32-y)*(32-x);
+        int idx1weight = (32-y)*x;
+        int idx2weight = y*(32-x);
+        int idx3weight = y*x;
+        idx0weight = (idx0weight * listamount + 512) >> 10;
+        idx1weight = (idx1weight * listamount + 512) >> 10;
+        idx2weight = (idx2weight * listamount + 512) >> 10;
+        idx3weight = (idx3weight * listamount + 512) >> 10;
+
+        if( mbx < width-1 && mby < height-1 )
+        {
+            MC_CLIP_ADD( ref_costs[idx0+0], idx0weight );
+            MC_CLIP_ADD( ref_costs[idx0+1], idx1weight );
+            MC_CLIP_ADD( ref_costs[idx2+0], idx2weight );
+            MC_CLIP_ADD( ref_costs[idx2+1], idx3weight );
+        }
+        else
+        {
+            /* Note: this takes advantage of unsigned representation to
+             * catch negative mbx/mby. */
+            if( mby < height )
+            {
+                if( mbx < width )
+                    MC_CLIP_ADD( ref_costs[idx0+0], idx0weight );
+                if( mbx+1 < width )
+                    MC_CLIP_ADD( ref_costs[idx0+1], idx1weight );
+            }
+            if( mby+1 < height )
+            {
+                if( mbx < width )
+                    MC_CLIP_ADD( ref_costs[idx2+0], idx2weight );
+                if( mbx+1 < width )
+                    MC_CLIP_ADD( ref_costs[idx2+1], idx3weight );
+            }
+        }
+    }
+}
+
+/* Conversion between float and Q8.8 fixed point (big-endian) for storage */
+static void mbtree_fix8_pack( uint16_t *dst, float *src, int count )
+{
+    for( int i = 0; i < count; i++ )
+        dst[i] = endian_fix16( (int16_t)(src[i] * 256.0f) );
+}
+
+static void mbtree_fix8_unpack( float *dst, uint16_t *src, int count )
+{
+    for( int i = 0; i < count; i++ )
+        dst[i] = (int16_t)endian_fix16( src[i] ) * (1.0f/256.0f);
 }
 
 void x264_mc_init( int cpu, x264_mc_functions_t *pf, int cpu_independent )
@@ -504,9 +637,11 @@ void x264_mc_init( int cpu, x264_mc_functions_t *pf, int cpu_independent )
     pf->load_deinterleave_chroma_fdec = load_deinterleave_chroma_fdec;
 
     pf->plane_copy = x264_plane_copy_c;
+    pf->plane_copy_swap = x264_plane_copy_swap_c;
     pf->plane_copy_interleave = x264_plane_copy_interleave_c;
     pf->plane_copy_deinterleave = x264_plane_copy_deinterleave_c;
     pf->plane_copy_deinterleave_rgb = x264_plane_copy_deinterleave_rgb_c;
+    pf->plane_copy_deinterleave_v210 = x264_plane_copy_deinterleave_v210_c;
 
     pf->hpel_filter = hpel_filter;
 
@@ -523,6 +658,9 @@ void x264_mc_init( int cpu, x264_mc_functions_t *pf, int cpu_independent )
     pf->integral_init8v = integral_init8v;
 
     pf->mbtree_propagate_cost = mbtree_propagate_cost;
+    pf->mbtree_propagate_list = mbtree_propagate_list;
+    pf->mbtree_fix8_pack      = mbtree_fix8_pack;
+    pf->mbtree_fix8_unpack    = mbtree_fix8_unpack;
 
 #if HAVE_MMX
     x264_mc_init_mmx( cpu, pf );
@@ -534,9 +672,19 @@ void x264_mc_init( int cpu, x264_mc_functions_t *pf, int cpu_independent )
 #if HAVE_ARMV6
     x264_mc_init_arm( cpu, pf );
 #endif
+#if ARCH_AARCH64
+    x264_mc_init_aarch64( cpu, pf );
+#endif
+#if HAVE_MSA
+    if( cpu&X264_CPU_MSA )
+        x264_mc_init_mips( cpu, pf );
+#endif
 
     if( cpu_independent )
+    {
         pf->mbtree_propagate_cost = mbtree_propagate_cost;
+        pf->mbtree_propagate_list = mbtree_propagate_list;
+    }
 }
 
 void x264_frame_filter( x264_t *h, x264_frame_t *frame, int mb_y, int b_end )

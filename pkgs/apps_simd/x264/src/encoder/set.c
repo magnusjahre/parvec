@@ -1,7 +1,7 @@
 /*****************************************************************************
  * set: header writing
  *****************************************************************************
- * Copyright (C) 2003-2013 x264 project
+ * Copyright (C) 2003-2016 x264 project
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Loren Merritt <lorenm@u.washington.edu>
@@ -31,6 +31,7 @@
 
 // Indexed by pic_struct values
 static const uint8_t num_clock_ts[10] = { 0, 1, 1, 1, 2, 2, 3, 3, 2, 3 };
+const static uint8_t avcintra_uuid[] = {0xF7, 0x49, 0x3E, 0xB3, 0xD4, 0x00, 0x47, 0x96, 0x86, 0x86, 0xC9, 0x70, 0x7B, 0x64, 0x37, 0x2A};
 
 static void transpose( uint8_t *buf, int w )
 {
@@ -91,7 +92,7 @@ void x264_sei_write( bs_t *s, uint8_t *payload, int payload_size, int payload_ty
     bs_write( s, 8, payload_size-i );
 
     for( i = 0; i < payload_size; i++ )
-        bs_write(s, 8, payload[i] );
+        bs_write( s, 8, payload[i] );
 
     bs_rbsp_trailing( s );
     bs_flush( s );
@@ -165,7 +166,7 @@ void x264_sps_init( x264_sps_t *sps, int i_id, x264_param_t *param )
     while( (1 << sps->i_log2_max_frame_num) <= max_frame_num )
         sps->i_log2_max_frame_num++;
 
-    sps->i_poc_type = param->i_bframe || param->b_interlaced ? 0 : 2;
+    sps->i_poc_type = param->i_bframe || param->b_interlaced || param->i_avcintra_class ? 0 : 2;
     if( sps->i_poc_type == 0 )
     {
         int max_delta_poc = (param->i_bframe + 2) * (!!param->i_bframe_pyramid + 1) * 2;
@@ -208,9 +209,9 @@ void x264_sps_init( x264_sps_t *sps, int i_id, x264_param_t *param )
                            ( csp >= X264_CSP_BGR ? 1 : 0 ) );
     sps->vui.b_color_description_present = 0;
 
-    sps->vui.i_colorprim = ( param->vui.i_colorprim >= 0 && param->vui.i_colorprim <=  8 ? param->vui.i_colorprim : 2 );
-    sps->vui.i_transfer  = ( param->vui.i_transfer  >= 0 && param->vui.i_transfer  <= 10 ? param->vui.i_transfer  : 2 );
-    sps->vui.i_colmatrix = ( param->vui.i_colmatrix >= 0 && param->vui.i_colmatrix <=  8 ? param->vui.i_colmatrix :
+    sps->vui.i_colorprim = ( param->vui.i_colorprim >= 0 && param->vui.i_colorprim <=  9 ? param->vui.i_colorprim : 2 );
+    sps->vui.i_transfer  = ( param->vui.i_transfer  >= 0 && param->vui.i_transfer  <= 15 ? param->vui.i_transfer  : 2 );
+    sps->vui.i_colmatrix = ( param->vui.i_colmatrix >= 0 && param->vui.i_colmatrix <= 10 ? param->vui.i_colmatrix :
                            ( csp >= X264_CSP_BGR ? 0 : 2 ) );
     if( sps->vui.i_colorprim != 2 ||
         sps->vui.i_transfer  != 2 ||
@@ -227,7 +228,8 @@ void x264_sps_init( x264_sps_t *sps, int i_id, x264_param_t *param )
     }
 
     /* FIXME: not sufficient for interlaced video */
-    sps->vui.b_chroma_loc_info_present = param->vui.i_chroma_loc > 0 && param->vui.i_chroma_loc <= 5;
+    sps->vui.b_chroma_loc_info_present = param->vui.i_chroma_loc > 0 && param->vui.i_chroma_loc <= 5 &&
+                                         sps->i_chroma_format_idc == CHROMA_420;
     if( sps->vui.b_chroma_loc_info_present )
     {
         sps->vui.i_chroma_loc_top = param->vui.i_chroma_loc;
@@ -249,7 +251,7 @@ void x264_sps_init( x264_sps_t *sps, int i_id, x264_param_t *param )
 
     // NOTE: HRD related parts of the SPS are initialised in x264_ratecontrol_init_reconfigurable
 
-    sps->vui.b_bitstream_restriction = 1;
+    sps->vui.b_bitstream_restriction = param->i_keyint_max > 1;
     if( sps->vui.b_bitstream_restriction )
     {
         sps->vui.b_motion_vectors_over_pic_boundaries = 1;
@@ -421,7 +423,7 @@ void x264_pps_init( x264_pps_t *pps, int i_id, x264_param_t *param, x264_sps_t *
     pps->i_sps_id = sps->i_id;
     pps->b_cabac = param->b_cabac;
 
-    pps->b_pic_order = param->b_interlaced;
+    pps->b_pic_order = !param->i_avcintra_class && param->b_interlaced;
     pps->i_num_slice_groups = 1;
 
     pps->i_num_ref_idx_l0_default_active = param->i_frame_reference;
@@ -430,7 +432,7 @@ void x264_pps_init( x264_pps_t *pps, int i_id, x264_param_t *param, x264_sps_t *
     pps->b_weighted_pred = param->analyse.i_weighted_pred > 0;
     pps->b_weighted_bipred = param->analyse.b_weighted_bipred ? 2 : 0;
 
-    pps->i_pic_init_qp = param->rc.i_rc_method == X264_RC_ABR ? 26 + QP_BD_OFFSET : SPEC_QP( param->rc.i_qp_constant );
+    pps->i_pic_init_qp = param->rc.i_rc_method == X264_RC_ABR || param->b_stitchable ? 26 + QP_BD_OFFSET : SPEC_QP( param->rc.i_qp_constant );
     pps->i_pic_init_qs = 26 + QP_BD_OFFSET;
 
     pps->i_chroma_qp_index_offset = param->analyse.i_chroma_qp_offset;
@@ -541,7 +543,8 @@ void x264_pps_write( bs_t *s, x264_sps_t *sps, x264_pps_t *pps )
 void x264_sei_recovery_point_write( x264_t *h, bs_t *s, int recovery_frame_cnt )
 {
     bs_t q;
-    uint8_t tmp_buf[100];
+    ALIGNED_4( uint8_t tmp_buf[100] );
+    M32( tmp_buf ) = 0; // shut up gcc
     bs_init( &q, tmp_buf, 100 );
 
     bs_realign( &q );
@@ -575,7 +578,7 @@ int x264_sei_version_write( x264_t *h, bs_t *s )
 
     memcpy( payload, uuid, 16 );
     sprintf( payload+16, "x264 - core %d%s - H.264/MPEG-4 AVC codec - "
-             "Copy%s 2003-2013 - http://www.videolan.org/x264.html - options: %s",
+             "Copy%s 2003-2016 - http://www.videolan.org/x264.html - options: %s",
              X264_BUILD, X264_VERSION, HAVE_GPL?"left":"right", opts );
     length = strlen(payload)+1;
 
@@ -593,7 +596,8 @@ void x264_sei_buffering_period_write( x264_t *h, bs_t *s )
 {
     x264_sps_t *sps = h->sps;
     bs_t q;
-    uint8_t tmp_buf[100];
+    ALIGNED_4( uint8_t tmp_buf[100] );
+    M32( tmp_buf ) = 0; // shut up gcc
     bs_init( &q, tmp_buf, 100 );
 
     bs_realign( &q );
@@ -615,7 +619,8 @@ void x264_sei_pic_timing_write( x264_t *h, bs_t *s )
 {
     x264_sps_t *sps = h->sps;
     bs_t q;
-    uint8_t tmp_buf[100];
+    ALIGNED_4( uint8_t tmp_buf[100] );
+    M32( tmp_buf ) = 0; // shut up gcc
     bs_init( &q, tmp_buf, 100 );
 
     bs_realign( &q );
@@ -646,7 +651,8 @@ void x264_sei_frame_packing_write( x264_t *h, bs_t *s )
 {
     int quincunx_sampling_flag = h->param.i_frame_packing == 0;
     bs_t q;
-    uint8_t tmp_buf[100];
+    ALIGNED_4( uint8_t tmp_buf[100] );
+    M32( tmp_buf ) = 0; // shut up gcc
     bs_init( &q, tmp_buf, 100 );
 
     bs_realign( &q );
@@ -657,7 +663,7 @@ void x264_sei_frame_packing_write( x264_t *h, bs_t *s )
     bs_write1( &q, quincunx_sampling_flag );      // quincunx_sampling_flag
 
     // 0: views are unrelated, 1: left view is on the left, 2: left view is on the right
-    bs_write ( &q, 6, 1 );                        // content_interpretation_type
+    bs_write ( &q, 6, h->param.i_frame_packing != 6 ); // content_interpretation_type
 
     bs_write1( &q, 0 );                           // spatial_flipping_flag
     bs_write1( &q, 0 );                           // frame0_flipped_flag
@@ -673,7 +679,9 @@ void x264_sei_frame_packing_write( x264_t *h, bs_t *s )
         bs_write( &q, 4, 0 );                     // frame1_grid_position_y
     }
     bs_write( &q, 8, 0 );                         // frame_packing_arrangement_reserved_byte
-    bs_write_ue( &q, 1 );                         // frame_packing_arrangement_repetition_period
+    // "frame_packing_arrangement_repetition_period equal to 1 specifies that the frame packing arrangement SEI message persists in output"
+    // for (i_frame_packing == 5) this will undermine current_frame_is_frame0_flag which must alternate every view sequence
+    bs_write_ue( &q, h->param.i_frame_packing != 5 ); // frame_packing_arrangement_repetition_period
     bs_write1( &q, 0 );                           // frame_packing_arrangement_extension_flag
 
     bs_align_10( &q );
@@ -697,7 +705,8 @@ void x264_sei_dec_ref_pic_marking_write( x264_t *h, bs_t *s )
 {
     x264_slice_header_t *sh = &h->sh_backup;
     bs_t q;
-    uint8_t tmp_buf[100];
+    ALIGNED_4( uint8_t tmp_buf[100] );
+    M32( tmp_buf ) = 0; // shut up gcc
     bs_init( &q, tmp_buf, 100 );
 
     bs_realign( &q );
@@ -723,6 +732,53 @@ void x264_sei_dec_ref_pic_marking_write( x264_t *h, bs_t *s )
     bs_flush( &q );
 
     x264_sei_write( s, tmp_buf, bs_pos( &q ) / 8, SEI_DEC_REF_PIC_MARKING );
+}
+
+int x264_sei_avcintra_umid_write( x264_t *h, bs_t *s )
+{
+    uint8_t data[512];
+    const char *msg = "UMID";
+    const int len = 497;
+
+    memset( data, 0xff, len );
+    memcpy( data, avcintra_uuid, sizeof(avcintra_uuid) );
+    memcpy( data+16, msg, strlen(msg) );
+
+    data[20] = 0x13;
+    /* These bytes appear to be some sort of frame/seconds counter in certain applications,
+     * but others jump around, so leave them as zero for now */
+    data[22] = data[23] = data[25] = data[26] = 0;
+    data[28] = 0x14;
+    data[30] = data[31] = data[33] = data[34] = 0;
+    data[36] = 0x60;
+    data[41] = 0x22; /* Believed to be some sort of end of basic UMID identifier */
+    data[60] = 0x62;
+    data[62] = data[63] = data[65] = data[66] = 0;
+    data[68] = 0x63;
+    data[70] = data[71] = data[73] = data[74] = 0;
+
+    x264_sei_write( &h->out.bs, data, len, SEI_USER_DATA_UNREGISTERED );
+
+    return 0;
+}
+
+int x264_sei_avcintra_vanc_write( x264_t *h, bs_t *s, int len )
+{
+    uint8_t data[6000];
+    const char *msg = "VANC";
+    if( len > sizeof(data) )
+    {
+        x264_log( h, X264_LOG_ERROR, "AVC-Intra SEI is too large (%d)\n", len );
+        return -1;
+    }
+
+    memset( data, 0xff, len );
+    memcpy( data, avcintra_uuid, sizeof(avcintra_uuid) );
+    memcpy( data+16, msg, strlen(msg) );
+
+    x264_sei_write( &h->out.bs, data, len, SEI_USER_DATA_UNREGISTERED );
+
+    return 0;
 }
 
 const x264_level_t x264_levels[] =

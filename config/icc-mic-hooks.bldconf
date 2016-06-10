@@ -25,12 +25,7 @@ LIBS="${LIBS} -pthread -lhooks -lm"
 
 # Add directory with hooks library to library search path
 if [ -z "${LD_LIBRARY_PATH}" ]; then
-  export LD_LIBRARY_PATH="${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib:${CC_HOME}/lib/intel64_lin"
+  export LD_LIBRARY_PATH="${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib"
 else
-  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib:${CC_HOME}/lib/intel64_lin"
-fi
-if [ -z "${LD_RUN_PATH}" ]; then
-  export LD_RUN_PATH="${CC_HOME}/lib/intel64_lin"
-else
-  export LD_RUN_PATH="${LD_RUN_PATH}:${CC_HOME}/lib/intel64_lin"
+  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib"
 fi

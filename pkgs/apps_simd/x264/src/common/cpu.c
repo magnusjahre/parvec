@@ -1,11 +1,11 @@
 /*****************************************************************************
  * cpu.c: cpu detection
  *****************************************************************************
- * Copyright (C) 2003-2013 x264 project
+ * Copyright (C) 2003-2016 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *          Laurent Aimar <fenrir@via.ecp.fr>
- *          Jason Garrett-Glaser <darkshikari@gmail.com>
+ *          Fiona Glaser <fiona@x264.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,9 +25,7 @@
  * For more information, contact us at licensing@x264.com.
  *****************************************************************************/
 
-#define _GNU_SOURCE // for sched_getaffinity
 #include "common.h"
-#include "cpu.h"
 
 #if HAVE_POSIXTHREAD && SYS_LINUX
 #include <sched.h>
@@ -67,14 +65,13 @@ const x264_cpu_name_t x264_cpu_names[] =
     {"AVX",         AVX},
     {"XOP",         AVX|X264_CPU_XOP},
     {"FMA4",        AVX|X264_CPU_FMA4},
-    {"AVX2",        AVX|X264_CPU_AVX2},
     {"FMA3",        AVX|X264_CPU_FMA3},
+    {"AVX2",        AVX|X264_CPU_FMA3|X264_CPU_AVX2},
 #undef AVX
 #undef SSE2
 #undef MMX2
     {"Cache32",         X264_CPU_CACHELINE_32},
     {"Cache64",         X264_CPU_CACHELINE_64},
-    {"SSEMisalign",     X264_CPU_SSE_MISALIGN},
     {"LZCNT",           X264_CPU_LZCNT},
     {"BMI1",            X264_CPU_BMI1},
     {"BMI2",            X264_CPU_BMI1|X264_CPU_BMI2},
@@ -90,6 +87,11 @@ const x264_cpu_name_t x264_cpu_names[] =
     {"ARMv6",           X264_CPU_ARMV6},
     {"NEON",            X264_CPU_NEON},
     {"FastNeonMRC",     X264_CPU_FAST_NEON_MRC},
+#elif ARCH_AARCH64
+    {"ARMv8",           X264_CPU_ARMV8},
+    {"NEON",            X264_CPU_NEON},
+#elif ARCH_MIPS
+    {"MSA",             X264_CPU_MSA},
 #endif
     {"", 0},
 };
@@ -123,7 +125,7 @@ uint32_t x264_cpu_detect( void )
     uint32_t cpu = 0;
     uint32_t eax, ebx, ecx, edx;
     uint32_t vendor[4] = {0};
-    uint32_t max_extended_cap;
+    uint32_t max_extended_cap, max_basic_cap;
     int cache;
 
 #if !ARCH_X86_64
@@ -132,7 +134,8 @@ uint32_t x264_cpu_detect( void )
 #endif
 
     x264_cpu_cpuid( 0, &eax, vendor+0, vendor+2, vendor+1 );
-    if( eax == 0 )
+    max_basic_cap = eax;
+    if( max_basic_cap == 0 )
         return 0;
 
     x264_cpu_cpuid( 1, &eax, &ebx, &ecx, &edx );
@@ -156,7 +159,6 @@ uint32_t x264_cpu_detect( void )
         cpu |= X264_CPU_SSE4;
     if( ecx&0x00100000 )
         cpu |= X264_CPU_SSE42;
-#ifndef DISABLE_AVX
     /* Check OXSAVE and AVX bits */
     if( (ecx&0x18000000) == 0x18000000 )
     {
@@ -169,19 +171,21 @@ uint32_t x264_cpu_detect( void )
                 cpu |= X264_CPU_FMA3;
         }
     }
-#endif
-    x264_cpu_cpuid( 7, &eax, &ebx, &ecx, &edx );
-    /* AVX2 requires OS support, but BMI1/2 don't. */
-#ifndef DISABLE_AVX
-    if( (cpu&X264_CPU_AVX) && (ebx&0x00000020) )
-        cpu |= X264_CPU_AVX2;
-    if( ebx&0x00000008 )
+
+    if( max_basic_cap >= 7 )
     {
-        cpu |= X264_CPU_BMI1;
-        if( ebx&0x00000100 )
-            cpu |= X264_CPU_BMI2;
+        x264_cpu_cpuid( 7, &eax, &ebx, &ecx, &edx );
+        /* AVX2 requires OS support, but BMI1/2 don't. */
+        if( (cpu&X264_CPU_AVX) && (ebx&0x00000020) )
+            cpu |= X264_CPU_AVX2;
+        if( ebx&0x00000008 )
+        {
+            cpu |= X264_CPU_BMI1;
+            if( ebx&0x00000100 )
+                cpu |= X264_CPU_BMI2;
+        }
     }
-#endif
+
     if( cpu & X264_CPU_SSSE3 )
         cpu |= X264_CPU_SSE2_IS_FAST;
 
@@ -210,12 +214,6 @@ uint32_t x264_cpu_detect( void )
                                                 * compared to alternate instruction sequences that this
                                                 * is equal or faster on almost all such functions. */
             }
-        }
-
-        if( ecx&0x00000080 ) /* Misalign SSE */
-        {
-            cpu |= X264_CPU_SSE_MISALIGN;
-            x264_cpu_mask_misalign_sse();
         }
 
         if( cpu & X264_CPU_AVX )
@@ -276,7 +274,7 @@ uint32_t x264_cpu_detect( void )
             x264_cpu_cpuid( 0x80000006, &eax, &ebx, &ecx, &edx );
             cache = ecx&0xff; // cacheline size
         }
-        if( !cache )
+        if( !cache && max_basic_cap >= 2 )
         {
             // Cache and TLB Information
             static const char cache32_ids[] = { 0x0a, 0x0c, 0x41, 0x42, 0x43, 0x44, 0x45, 0x82, 0x83, 0x84, 0x85, 0 };
@@ -309,16 +307,16 @@ uint32_t x264_cpu_detect( void )
             x264_log( NULL, X264_LOG_WARNING, "unable to determine cacheline size\n" );
     }
 
-#if BROKEN_STACK_ALIGNMENT
+#if STACK_ALIGNMENT < 16
     cpu |= X264_CPU_STACK_MOD4;
 #endif
 
     return cpu;
 }
 
-#elif ARCH_PPC
+#elif ARCH_PPC && HAVE_ALTIVEC
 
-#if SYS_MACOSX || SYS_OPENBSD
+#if SYS_MACOSX || SYS_OPENBSD || SYS_FREEBSD
 #include <sys/sysctl.h>
 uint32_t x264_cpu_detect( void )
 {
@@ -326,12 +324,16 @@ uint32_t x264_cpu_detect( void )
     uint32_t cpu = 0;
 #if SYS_OPENBSD
     int      selectors[2] = { CTL_MACHDEP, CPU_ALTIVEC };
-#else
+#elif SYS_MACOSX
     int      selectors[2] = { CTL_HW, HW_VECTORUNIT };
 #endif
     int      has_altivec = 0;
     size_t   length = sizeof( has_altivec );
+#if SYS_MACOSX || SYS_OPENBSD
     int      error = sysctl( selectors, 2, &has_altivec, &length, NULL, 0 );
+#else
+    int      error = sysctlbyname( "hw.altivec", &has_altivec, &length, NULL, 0 );
+#endif
 
     if( error == 0 && has_altivec != 0 )
         cpu |= X264_CPU_ALTIVEC;
@@ -343,6 +345,9 @@ uint32_t x264_cpu_detect( void )
 
 uint32_t x264_cpu_detect( void )
 {
+#ifdef __NO_FPRS__
+    return 0;
+#else
     static void (*oldsig)( int );
 
     oldsig = signal( SIGILL, sigill_handler );
@@ -362,6 +367,7 @@ uint32_t x264_cpu_detect( void )
     signal( SIGILL, oldsig );
 
     return X264_CPU_ALTIVEC;
+#endif
 }
 #endif
 
@@ -410,6 +416,24 @@ uint32_t x264_cpu_detect( void )
     return flags;
 }
 
+#elif ARCH_AARCH64
+
+uint32_t x264_cpu_detect( void )
+{
+    return X264_CPU_ARMV8 | X264_CPU_NEON;
+}
+
+#elif ARCH_MIPS
+
+uint32_t x264_cpu_detect( void )
+{
+    uint32_t flags = 0;
+#if HAVE_MSA
+    flags |= X264_CPU_MSA;
+#endif
+    return flags;
+}
+
 #else
 
 uint32_t x264_cpu_detect( void )
@@ -431,6 +455,10 @@ int x264_cpu_num_processors( void )
     return sysconf( _SC_NPROCESSORS_ONLN );
 
 #elif SYS_LINUX
+#ifdef __ANDROID__
+    // Android NDK does not expose sched_getaffinity
+    return sysconf( _SC_NPROCESSORS_CONF );
+#else
     cpu_set_t p_aff;
     memset( &p_aff, 0, sizeof(p_aff) );
     if( sched_getaffinity( 0, sizeof(p_aff), &p_aff ) )
@@ -442,6 +470,7 @@ int x264_cpu_num_processors( void )
     for( unsigned int bit = 0; bit < 8 * sizeof(p_aff); bit++ )
         np += (((uint8_t *)&p_aff)[bit / 8] >> (bit % 8)) & 1;
     return np;
+#endif
 #endif
 
 #elif SYS_BEOS

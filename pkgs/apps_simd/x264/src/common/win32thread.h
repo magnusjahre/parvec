@@ -1,7 +1,7 @@
 /*****************************************************************************
  * win32thread.h: windows threading
  *****************************************************************************
- * Copyright (C) 2010-2013 x264 project
+ * Copyright (C) 2010-2016 x264 project
  *
  * Authors: Steven Walters <kemuri9@gmail.com>
  *
@@ -26,7 +26,6 @@
 #ifndef X264_WIN32THREAD_H
 #define X264_WIN32THREAD_H
 
-#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 /* the following macro is used within x264 */
 #undef ERROR
@@ -46,12 +45,14 @@ typedef CRITICAL_SECTION x264_pthread_mutex_t;
 #define X264_PTHREAD_MUTEX_INITIALIZER {0}
 #define x264_pthread_mutexattr_t int
 
-/* This is the CONDITIONAL_VARIABLE typedef for using Window's native conditional variables on kernels 6.0+.
- * MinGW does not currently have this typedef. */
+#if HAVE_WINRT
+typedef CONDITION_VARIABLE x264_pthread_cond_t;
+#else
 typedef struct
 {
-    void *ptr;
+    void *Ptr;
 } x264_pthread_cond_t;
+#endif
 #define x264_pthread_condattr_t int
 
 int x264_pthread_create( x264_pthread_t *thread, const x264_pthread_attr_t *attr,

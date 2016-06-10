@@ -1,10 +1,11 @@
 /*****************************************************************************
  * osdep.c: platform-specific code
  *****************************************************************************
- * Copyright (C) 2003-2013 x264 project
+ * Copyright (C) 2003-2016 x264 project
  *
  * Authors: Steven Walters <kemuri9@gmail.com>
  *          Laurent Aimar <fenrir@via.ecp.fr>
+ *          Henrik Gramner <henrik@gramner.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +27,11 @@
 
 #include "common.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#include <io.h>
+#endif
+
 #if SYS_WINDOWS
 #include <sys/types.h>
 #include <sys/timeb.h>
@@ -35,8 +41,6 @@
 #include <time.h>
 
 #if PTW32_STATIC_LIB
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
 /* this is a global in pthread-win32 to indicate if it has been initialized or not */
 extern int ptw32_processInitialized;
 #endif
@@ -90,47 +94,113 @@ int x264_threading_init( void )
 }
 #endif
 
-#if HAVE_MMX
-#ifdef __INTEL_COMPILER
-/* Agner's patch to Intel's CPU dispatcher from pages 131-132 of
- * http://agner.org/optimize/optimizing_cpp.pdf (2011-01-30)
- * adapted to x264's cpu schema. */
-
-// Global variable indicating cpu
-int __intel_cpu_indicator = 0;
-// CPU dispatcher function
-void x264_intel_cpu_indicator_init( void )
+#ifdef _WIN32
+/* Functions for dealing with Unicode on Windows. */
+FILE *x264_fopen( const char *filename, const char *mode )
 {
-    unsigned int cpu = x264_cpu_detect();
-    if( cpu&X264_CPU_AVX )
-        __intel_cpu_indicator = 0x20000;
-    else if( cpu&X264_CPU_SSE42 )
-        __intel_cpu_indicator = 0x8000;
-    else if( cpu&X264_CPU_SSE4 )
-        __intel_cpu_indicator = 0x2000;
-    else if( cpu&X264_CPU_SSSE3 )
-        __intel_cpu_indicator = 0x1000;
-    else if( cpu&X264_CPU_SSE3 )
-        __intel_cpu_indicator = 0x800;
-    else if( cpu&X264_CPU_SSE2 && !(cpu&X264_CPU_SSE2_IS_SLOW) )
-        __intel_cpu_indicator = 0x200;
-    else if( cpu&X264_CPU_SSE )
-        __intel_cpu_indicator = 0x80;
-    else if( cpu&X264_CPU_MMX2 )
-        __intel_cpu_indicator = 8;
-    else
-        __intel_cpu_indicator = 1;
+    wchar_t filename_utf16[MAX_PATH];
+    wchar_t mode_utf16[16];
+    if( utf8_to_utf16( filename, filename_utf16 ) && utf8_to_utf16( mode, mode_utf16 ) )
+        return _wfopen( filename_utf16, mode_utf16 );
+    return NULL;
 }
 
-/* __intel_cpu_indicator_init appears to have a non-standard calling convention that
- * assumes certain registers aren't preserved, so we'll route it through a function
- * that backs up all the registers. */
-void __intel_cpu_indicator_init( void )
+int x264_rename( const char *oldname, const char *newname )
 {
-    x264_safe_intel_cpu_indicator_init();
+    wchar_t oldname_utf16[MAX_PATH];
+    wchar_t newname_utf16[MAX_PATH];
+    if( utf8_to_utf16( oldname, oldname_utf16 ) && utf8_to_utf16( newname, newname_utf16 ) )
+    {
+        /* POSIX says that rename() removes the destination, but Win32 doesn't. */
+        _wunlink( newname_utf16 );
+        return _wrename( oldname_utf16, newname_utf16 );
+    }
+    return -1;
 }
-#else
-void x264_intel_cpu_indicator_init( void )
-{}
+
+int x264_stat( const char *path, x264_struct_stat *buf )
+{
+    wchar_t path_utf16[MAX_PATH];
+    if( utf8_to_utf16( path, path_utf16 ) )
+        return _wstati64( path_utf16, buf );
+    return -1;
+}
+
+#if !HAVE_WINRT
+int x264_vfprintf( FILE *stream, const char *format, va_list arg )
+{
+    HANDLE console = NULL;
+    DWORD mode;
+
+    if( stream == stdout )
+        console = GetStdHandle( STD_OUTPUT_HANDLE );
+    else if( stream == stderr )
+        console = GetStdHandle( STD_ERROR_HANDLE );
+
+    /* Only attempt to convert to UTF-16 when writing to a non-redirected console screen buffer. */
+    if( GetConsoleMode( console, &mode ) )
+    {
+        char buf[4096];
+        wchar_t buf_utf16[4096];
+        va_list arg2;
+
+        va_copy( arg2, arg );
+        int length = vsnprintf( buf, sizeof(buf), format, arg2 );
+        va_end( arg2 );
+
+        if( length > 0 && length < sizeof(buf) )
+        {
+            /* WriteConsoleW is the most reliable way to output Unicode to a console. */
+            int length_utf16 = MultiByteToWideChar( CP_UTF8, 0, buf, length, buf_utf16, sizeof(buf_utf16)/sizeof(wchar_t) );
+            DWORD written;
+            WriteConsoleW( console, buf_utf16, length_utf16, &written, NULL );
+            return length;
+        }
+    }
+    return vfprintf( stream, format, arg );
+}
+
+int x264_is_pipe( const char *path )
+{
+    wchar_t path_utf16[MAX_PATH];
+    if( utf8_to_utf16( path, path_utf16 ) )
+        return WaitNamedPipeW( path_utf16, 0 );
+    return 0;
+}
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER < 1900
+/* MSVC pre-VS2015 has broken snprintf/vsnprintf implementations which are incompatible with C99. */
+int x264_snprintf( char *s, size_t n, const char *fmt, ... )
+{
+    va_list arg;
+    va_start( arg, fmt );
+    int length = x264_vsnprintf( s, n, fmt, arg );
+    va_end( arg );
+    return length;
+}
+
+int x264_vsnprintf( char *s, size_t n, const char *fmt, va_list arg )
+{
+    int length = -1;
+
+    if( n )
+    {
+        va_list arg2;
+        va_copy( arg2, arg );
+        length = _vsnprintf( s, n, fmt, arg2 );
+        va_end( arg2 );
+
+        /* _(v)snprintf adds a null-terminator only if the length is less than the buffer size. */
+        if( length < 0 || length >= n )
+            s[n-1] = '\0';
+    }
+
+    /* _(v)snprintf returns a negative number if the length is greater than the buffer size. */
+    if( length < 0 )
+        return _vscprintf( fmt, arg );
+
+    return length;
+}
 #endif
 #endif

@@ -1,10 +1,10 @@
 ;*****************************************************************************
 ;* cabac-a.asm: x86 cabac
 ;*****************************************************************************
-;* Copyright (C) 2008-2013 x264 project
+;* Copyright (C) 2008-2016 x264 project
 ;*
 ;* Authors: Loren Merritt <lorenm@u.washington.edu>
-;*          Jason Garrett-Glaser <darkshikari@gmail.com>
+;*          Fiona Glaser <fiona@x264.com>
 ;*          Holger Lubitz <holger@lubitz.org>
 ;*
 ;* This program is free software; you can redistribute it and/or modify
@@ -62,6 +62,9 @@ cextern coeff_last64_sse2
 cextern coeff_last64_sse2_lzcnt
 cextern coeff_last64_avx2_lzcnt
 
+%ifdef PIC
+SECTION .data
+%endif
 coeff_last_sse2:       COEFF_LAST_TABLE       mmx2,       sse2,       sse2, 16, 15, 16, 4, 15, 64, 16, 15, 16, 64, 16, 15, 16, 64
 coeff_last_sse2_lzcnt: COEFF_LAST_TABLE mmx2_lzcnt, sse2_lzcnt, sse2_lzcnt, 16, 15, 16, 4, 15, 64, 16, 15, 16, 64, 16, 15, 16, 64
 coeff_last_avx2_lzcnt: COEFF_LAST_TABLE mmx2_lzcnt, avx2_lzcnt, sse2_lzcnt, 16, 15, 16, 4, 15, 64, 16, 15, 16, 64, 16, 15, 16, 64

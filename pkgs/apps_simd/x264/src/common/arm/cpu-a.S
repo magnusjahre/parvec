@@ -1,7 +1,7 @@
 /*****************************************************************************
  * cpu-a.S: arm cpu detection
  *****************************************************************************
- * Copyright (C) 2009-2013 x264 project
+ * Copyright (C) 2009-2016 x264 project
  *
  * Authors: David Conrad <lessen42@gmail.com>
  *
@@ -25,20 +25,19 @@
 
 #include "asm.S"
 
-.fpu neon
-.align
+.align 2
 
 // done in gas because .fpu neon overrides the refusal to assemble
 // instructions the selected -march/-mcpu doesn't support
 function x264_cpu_neon_test
     vadd.i16    q0, q0, q0
     bx          lr
-.endfunc
+endfunc
 
 // return: 0 on success
 //         1 if counters were already enabled
 //         9 if lo-res counters were already enabled
-function x264_cpu_enable_armv7_counter
+function x264_cpu_enable_armv7_counter, export=0
     mrc         p15, 0, r2, c9, c12, 0      // read PMNC
     ands        r0, r2, #1
     andne       r0, r2, #9
@@ -49,14 +48,14 @@ function x264_cpu_enable_armv7_counter
     mov         r2, #1 << 31                // enable cycle counter
     mcr         p15, 0, r2, c9, c12, 1      // write CNTENS
     bx          lr
-.endfunc
+endfunc
 
-function x264_cpu_disable_armv7_counter
+function x264_cpu_disable_armv7_counter, export=0
     mrc         p15, 0, r0, c9, c12, 0      // read PMNC
     bic         r0, r0, #1                  // disable counters
     mcr         p15, 0, r0, c9, c12, 0      // write PMNC
     bx          lr
-.endfunc
+endfunc
 
 
 .macro READ_TIME r
@@ -95,7 +94,7 @@ average_loop:
     sub         r2, r2, r1
     cmpgt       r2, #30 << 3    // assume context switch if it took over 30 cycles
     addle       r3, r3, r2
-    subles      ip, ip, #1
+    subsle      ip, ip, #1
     bgt         average_loop
 
     // disable counters if we enabled them
@@ -106,4 +105,4 @@ average_loop:
     cmp         r0, #10
     movgt       r0, #0
     pop         {r4-r6,pc}
-.endfunc
+endfunc

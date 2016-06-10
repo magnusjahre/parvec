@@ -1,11 +1,11 @@
 /*****************************************************************************
  * cavlc.c: cavlc bitstream writing
  *****************************************************************************
- * Copyright (C) 2003-2013 x264 project
+ * Copyright (C) 2003-2016 x264 project
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Loren Merritt <lorenm@u.washington.edu>
- *          Jason Garrett-Glaser <darkshikari@gmail.com>
+ *          Fiona Glaser <fiona@x264.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -213,11 +213,14 @@ static void x264_cavlc_qp_delta( x264_t *h )
     bs_t *s = &h->out.bs;
     int i_dqp = h->mb.i_qp - h->mb.i_last_qp;
 
-    /* Avoid writing a delta quant if we have an empty i16x16 block, e.g. in a completely flat background area */
+    /* Avoid writing a delta quant if we have an empty i16x16 block, e.g. in a completely
+     * flat background area. Don't do this if it would raise the quantizer, since that could
+     * cause unexpected deblocking artifacts. */
     if( h->mb.i_type == I_16x16 && !(h->mb.i_cbp_luma | h->mb.i_cbp_chroma)
         && !h->mb.cache.non_zero_count[x264_scan8[LUMA_DC]]
         && !h->mb.cache.non_zero_count[x264_scan8[CHROMA_DC+0]]
-        && !h->mb.cache.non_zero_count[x264_scan8[CHROMA_DC+1]] )
+        && !h->mb.cache.non_zero_count[x264_scan8[CHROMA_DC+1]]
+        && h->mb.i_qp > h->mb.i_last_qp )
     {
 #if !RDO_SKIP_BS
         h->mb.i_qp = h->mb.i_last_qp;
@@ -286,6 +289,7 @@ static ALWAYS_INLINE void x264_cavlc_macroblock_luma_residual( x264_t *h, int pl
                 x264_cavlc_block_residual( h, DCT_LUMA_4x4, i4+i8*4+p*16, h->dct.luma4x4[i4+i8*4+p*16] );
 }
 
+#if RDO_SKIP_BS
 static ALWAYS_INLINE void x264_cavlc_partition_luma_residual( x264_t *h, int i8, int p )
 {
     if( h->mb.b_transform_8x8 && h->mb.cache.non_zero_count[x264_scan8[i8*4]] )
@@ -296,6 +300,7 @@ static ALWAYS_INLINE void x264_cavlc_partition_luma_residual( x264_t *h, int i8,
         for( int i4 = 0; i4 < 4; i4++ )
             x264_cavlc_block_residual( h, DCT_LUMA_4x4, i4+i8*4+p*16, h->dct.luma4x4[i4+i8*4+p*16] );
 }
+#endif
 
 static void x264_cavlc_mb_header_i( x264_t *h, int i_mb_type, int i_mb_i_offset, int chroma )
 {
@@ -497,6 +502,9 @@ void x264_macroblock_write_cavlc( x264_t *h )
         && (!(h->mb.i_mb_y & 1) || IS_SKIP(h->mb.type[h->mb.i_mb_xy - h->mb.i_mb_stride])) )
     {
         bs_write1( s, MB_INTERLACED );
+#if !RDO_SKIP_BS
+        h->mb.field_decoding_flag = MB_INTERLACED;
+#endif
     }
 
 #if !RDO_SKIP_BS

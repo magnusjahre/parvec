@@ -1,10 +1,11 @@
 /*****************************************************************************
  * ffms.c: ffmpegsource input
  *****************************************************************************
- * Copyright (C) 2009-2013 x264 project
+ * Copyright (C) 2009-2016 x264 project
  *
  * Authors: Mike Gurlitz <mike.gurlitz@gmail.com>
  *          Steven Walters <kemuri9@gmail.com>
+ *          Henrik Gramner <henrik@gramner.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,9 +35,9 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#else
-#define SetConsoleTitle(t)
 #endif
+
+#define PROGRESS_LENGTH 36
 
 typedef struct
 {
@@ -57,10 +58,10 @@ static int FFMS_CC update_progress( int64_t current, int64_t total, void *privat
         return 0;
     *update_time = newtime;
 
-    char buf[200];
-    sprintf( buf, "ffms [info]: indexing input file [%.1f%%]", 100.0 * current / total );
-    fprintf( stderr, "%s  \r", buf+5 );
-    SetConsoleTitle( buf );
+    char buf[PROGRESS_LENGTH+5+1];
+    snprintf( buf, sizeof(buf), "ffms [info]: indexing input file [%.1f%%]", 100.0 * current / total );
+    fprintf( stderr, "%-*s\r", PROGRESS_LENGTH, buf+5 );
+    x264_cli_set_console_title( buf );
     fflush( stderr );
     return 0;
 }
@@ -70,9 +71,9 @@ static int handle_jpeg( int csp, int *fullrange )
 {
     switch( csp )
     {
-        case PIX_FMT_YUVJ420P: *fullrange = 1; return PIX_FMT_YUV420P;
-        case PIX_FMT_YUVJ422P: *fullrange = 1; return PIX_FMT_YUV422P;
-        case PIX_FMT_YUVJ444P: *fullrange = 1; return PIX_FMT_YUV444P;
+        case AV_PIX_FMT_YUVJ420P: *fullrange = 1; return AV_PIX_FMT_YUV420P;
+        case AV_PIX_FMT_YUVJ422P: *fullrange = 1; return AV_PIX_FMT_YUV422P;
+        case AV_PIX_FMT_YUVJ444P: *fullrange = 1; return AV_PIX_FMT_YUV444P;
         default:                               return csp;
     }
 }
@@ -82,7 +83,8 @@ static int open_file( char *psz_filename, hnd_t *p_handle, video_info_t *info, c
     ffms_hnd_t *h = calloc( 1, sizeof(ffms_hnd_t) );
     if( !h )
         return -1;
-    FFMS_Init( 0, 0 );
+
+    FFMS_Init( 0, 1 );
     FFMS_ErrorInfo e;
     e.BufferSize = 0;
     int seekmode = opt->seek ? FFMS_SEEK_NORMAL : FFMS_SEEK_LINEAR_NO_RW;
@@ -90,34 +92,41 @@ static int open_file( char *psz_filename, hnd_t *p_handle, video_info_t *info, c
     FFMS_Index *idx = NULL;
     if( opt->index_file )
     {
-        struct stat index_s, input_s;
-        if( !stat( opt->index_file, &index_s ) && !stat( psz_filename, &input_s ) &&
-            input_s.st_mtime < index_s.st_mtime )
+        x264_struct_stat index_s, input_s;
+        if( !x264_stat( opt->index_file, &index_s ) && !x264_stat( psz_filename, &input_s ) && input_s.st_mtime < index_s.st_mtime )
+        {
             idx = FFMS_ReadIndex( opt->index_file, &e );
+            if( idx && FFMS_IndexBelongsToFile( idx, psz_filename, &e ) )
+            {
+                FFMS_DestroyIndex( idx );
+                idx = NULL;
+            }
+        }
     }
     if( !idx )
     {
+        FFMS_Indexer *indexer = FFMS_CreateIndexer( psz_filename, &e );
+        FAIL_IF_ERROR( !indexer, "could not create indexer\n" )
+
         if( opt->progress )
-        {
-            idx = FFMS_MakeIndex( psz_filename, 0, 0, NULL, NULL, 0, update_progress, &h->time, &e );
-            fprintf( stderr, "                                            \r" );
-        }
-        else
-            idx = FFMS_MakeIndex( psz_filename, 0, 0, NULL, NULL, 0, NULL, NULL, &e );
+            FFMS_SetProgressCallback( indexer, update_progress, &h->time );
+
+        idx = FFMS_DoIndexing2( indexer, FFMS_IEH_ABORT, &e );
+        fprintf( stderr, "%*c", PROGRESS_LENGTH+1, '\r' );
         FAIL_IF_ERROR( !idx, "could not create index\n" )
+
         if( opt->index_file && FFMS_WriteIndex( opt->index_file, idx, &e ) )
             x264_cli_log( "ffms", X264_LOG_WARNING, "could not write index file\n" );
     }
 
     int trackno = FFMS_GetFirstTrackOfType( idx, FFMS_TYPE_VIDEO, &e );
-    FAIL_IF_ERROR( trackno < 0, "could not find video track\n" )
+    if( trackno >= 0 )
+        h->video_source = FFMS_CreateVideoSource( psz_filename, trackno, idx, 1, seekmode, &e );
+    FFMS_DestroyIndex( idx );
 
-    h->video_source = FFMS_CreateVideoSource( psz_filename, trackno, idx, 1, seekmode, &e );
+    FAIL_IF_ERROR( trackno < 0, "could not find video track\n" )
     FAIL_IF_ERROR( !h->video_source, "could not create video source\n" )
 
-    h->track = FFMS_GetTrackFromVideo( h->video_source );
-
-    FFMS_DestroyIndex( idx );
     const FFMS_VideoProperties *videop = FFMS_GetVideoProperties( h->video_source );
     info->num_frames   = h->num_frames = videop->NumFrames;
     info->sar_height   = videop->SARDen;
@@ -143,6 +152,7 @@ static int open_file( char *psz_filename, hnd_t *p_handle, video_info_t *info, c
      * so we need to reduce large timebases to prevent overflow */
     if( h->vfr_input )
     {
+        h->track = FFMS_GetTrackFromVideo( h->video_source );
         const FFMS_TrackTimeBase *timebase = FFMS_GetTimeBase( h->track );
         int64_t timebase_num = timebase->Num;
         int64_t timebase_den = timebase->Den * 1000;
@@ -162,10 +172,11 @@ static int open_file( char *psz_filename, hnd_t *p_handle, video_info_t *info, c
     return 0;
 }
 
-static int picture_alloc( cli_pic_t *pic, int csp, int width, int height )
+static int picture_alloc( cli_pic_t *pic, hnd_t handle, int csp, int width, int height )
 {
-    if( x264_cli_pic_alloc( pic, csp, width, height ) )
+    if( x264_cli_pic_alloc( pic, X264_CSP_NONE, width, height ) )
         return -1;
+    pic->img.csp = csp;
     pic->img.planes = 4;
     return 0;
 }
@@ -195,7 +206,7 @@ static int read_frame( cli_pic_t *pic, hnd_t handle, int i_frame )
     return 0;
 }
 
-static void picture_clean( cli_pic_t *pic )
+static void picture_clean( cli_pic_t *pic, hnd_t handle )
 {
     memset( pic, 0, sizeof(cli_pic_t) );
 }
