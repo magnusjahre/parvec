@@ -15,6 +15,7 @@ PROTABILITY_FLAGS="${PORTABILITY_FLAGS}"
 #JMCG
 EXTRA_CFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
 EXTRA_CXXFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+EXTRA_LDFLAGS="-Wl,-rpath,${CC_HOME}/lib/intel64_lin,-rpath,${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib"
 
 # Enable PARSEC hooks
 CFLAGS="${CFLAGS} ${PROTABILITY_FLAGS} -DENABLE_PARSEC_HOOKS -I${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/include ${EXTRA_CFLAGS}"
@@ -24,7 +25,12 @@ LIBS="${LIBS} -pthread -lhooks -lm"
 
 # Add directory with hooks library to library search path
 if [ -z "${LD_LIBRARY_PATH}" ]; then
-  export LD_LIBRARY_PATH="${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib"
+  export LD_LIBRARY_PATH="${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib:${CC_HOME}/lib/intel64_lin"
 else
-  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib"
+  export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PARSECDIR}/pkgs/libs/hooks/inst/${PARSECPLAT}/lib:${CC_HOME}/lib/intel64_lin"
+fi
+if [ -z "${LD_RUN_PATH}" ]; then
+  export LD_RUN_PATH="${CC_HOME}/lib/intel64_lin"
+else
+  export LD_RUN_PATH="${LD_RUN_PATH}:${CC_HOME}/lib/intel64_lin"
 fi
