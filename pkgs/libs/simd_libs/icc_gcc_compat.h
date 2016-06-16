@@ -25,8 +25,4 @@
 
 #endif
 
-#ifdef __INTEL_COMPILER
-extern int posix_memalign (void **, size_t, size_t);
-#endif
-
 #endif

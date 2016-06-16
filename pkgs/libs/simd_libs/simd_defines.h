@@ -30,6 +30,7 @@
 #include "icc_gcc_compat.h"
 #include <stdio.h>
 #include <math.h>
+#include <stdint.h>
 
 /* JMCG */
 
@@ -37,28 +38,39 @@
 #ifdef DFTYPE
 
 #ifdef PARSEC_USE_SSE
-//#include <xmmintrin.h> // SSE
-//#include <emmintrin.h> // SSE 2
-//#include <pmmintrin.h> // SSE 3
-//#include <smmintrin.h> // SSE 4.1
 #include <immintrin.h> // ALL SSE and AVX
 
 #define _MM_ALIGNMENT 16
+#define _MM_MANTISSA_BITS 52
+#define _MM_MANTISSA_MASK 0x000fffffffffffffL
+#define _MM_EXP_MASK 0x7ff0000000000000L
+#define _MM_EXP_BIAS 0x00000000000003ffL
+#define _MM_MINNORMPOS (1 << 20)
 #define _MM_TYPE __m128d
 #define _MM_TYPE_I __m128i
+#define _MM_SCALAR_TYPE double
+#define SIMD_WIDTH 2
 #define _MM_SETZERO _mm_setzero_pd
+#define _MM_SETZERO_I _mm_setzero_si128
 #define _MM_ABS _mm_abs_pd
 #define _MM_NEG _mm_neg_pd
-#define SIMD_WIDTH 2
-#define _MM_LOG log_pd
-#define _MM_EXP exp_pd
+#define _MM_LOG simd_log
+#define _MM_EXP simd_exp
 #define _MM_CMPGT _mm_cmpgt_pd
 #define _MM_CMPLT _mm_cmplt_pd
+#define _MM_CMPLE _mm_cmple_pd
 #define _MM_CMPEQ _mm_cmpeq_pd
-#define _MM_CMPEQ_SIG _mm_cmpeq_epi32
+#define _MM_CMPEQ_SIG _mm_cmpeq_epi64
+#define _MM_SRLI_I _mm_srli_epi64
+#define _MM_SLLI_I _mm_slli_epi64
+#define _MM_ADD_I _mm_add_epi64
+#define _MM_SUB_I _mm_sub_epi64
+#define _MM_CAST_FP_TO_I _mm_castpd_si128
+#define _MM_CAST_I_TO_FP _mm_castsi128_pd
 #define _MM_OR  _mm_or_pd
 #define _MM_AND  _mm_and_pd
 #define _MM_ANDNOT  _mm_andnot_pd
+#define _MM_FLOOR _mm_floor_pd
 #define _MM_LOAD  _mm_load_pd
 #define _MM_LOADU  _mm_loadu_pd
 #define _MM_LOAD3 _mm_load_st3
@@ -73,12 +85,17 @@
 #define _MM_RHADD _mm_hadd_pd // JMCG REAL HADD, totally horizontal
 #define _MM_FULL_HADD _mm_fullhadd_f64
 #define _MM_CVT_F _mm_cvtsd_f64
-#define _MM_SET(A)  _mm_set_pd(A,A)
+#define _MM_CVT_I_TO_FP _mm_cvtepi64_pd
+#define _MM_CVT_FP_TO_I _mm_cvtpd_epi64
+#define _MM_SET(A)  _mm_set1_pd(A)
 #define _MM_SETM(A,B)  _mm_set_pd(A,B)
+#define _MM_SET_I(A)  _mm_set1_epi64x(A)
+#define _MM_SETM_I(A,B)  _mm_set_epi64x(A,B)
 #define _MM_SETR  _mm_setr_pd
 #define _MM_MOVEMASK _mm_movemask_pd
 #define _MM_MASK_TRUE 3 // 2 bits at 1
 #define _MM_MAX _mm_max_pd
+#define _MM_MIN _mm_min_pd
 #define _MM_ATAN _mm_atan_pd
 #define _MM_BLENDV _mm_blendv_pd
 #define _MM_COPYSIGN _mm_copysign_pd // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
@@ -92,12 +109,22 @@
 #define _MM_REVERSE _mm_reverse_pd
 #define _MM_FMA _mm_fmadd_pd
 #define _MM_PRINT_XMM print_xmm
+#define _MM_PRINT_XMM_I print_xmm_i
 
 #ifdef __GNUC__
 #define _MM_ALIGN __attribute__((aligned (16)))
 #define MUSTINLINE __attribute__((always_inline))
 #else
 #define MUSTINLINE __forceinline
+#endif
+
+#if !defined (__AVX512VL__) && !defined (__AVX512DQ__)
+static inline _MM_TYPE _mm_cvtepi64_pd(_MM_TYPE_I A) {
+  return _mm_cvtepi32_pd(_mm_shuffle_epi32(A, _MM_SHUFFLE (3, 3, 2, 0)));
+}
+static inline _MM_TYPE_I _mm_cvtpd_epi64(_MM_TYPE A) {
+  return _mm_cvtepi32_epi64(_mm_cvtpd_epi32(A));
+}
 #endif
 
 // For debugging
@@ -112,6 +139,20 @@ static inline void print_xmm(_MM_TYPE in, char* s) {
   }
   printf("\n");
 }
+
+static inline void print_xmm_i(_MM_TYPE_I in, char* s) {
+  int i;
+  int64_t val[SIMD_WIDTH];
+
+  _mm_storeu_si128((__m128i*)&val[0], in);
+  printf("%s: ", s);
+  for (i=0; i<SIMD_WIDTH; i++) {
+    printf("%ld ", val[i]);
+  }
+  printf("\n");
+}
+
+
 
 __attribute__((aligned (16))) static const int absmask_double[] = { 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff};
 #define _mm_abs_pd(x) _mm_and_pd((x), *(const __m128d*)absmask_double)
@@ -209,21 +250,36 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #include <immintrin.h> // ALL SSE and AVX
 
 #define _MM_ALIGNMENT 32
+#define _MM_MANTISSA_BITS 52
+#define _MM_MANTISSA_MASK 0x000fffffffffffffL
+#define _MM_EXP_MASK 0x7ff0000000000000L
+#define _MM_EXP_BIAS 0x00000000000003ffL
+#define _MM_MINNORMPOS (1 << 20)
+#define _MM_TYPE  __m256d
+#define _MM_TYPE_I __m256i
+#define _MM_SCALAR_TYPE double
 #define SIMD_WIDTH 4
 #define _MM_SETZERO _mm256_setzero_pd
+#define _MM_SETZERO_I _mm256_setzero_si256
 #define _MM_ABS _mm256_abs_pd
 #define _MM_NEG _mm256_neg_pd
-#define _MM_LOG log256_pd
-#define _MM_EXP exp256_pd
+#define _MM_LOG simd_log
+#define _MM_EXP simd_exp
 #define _MM_CMPGT _mm256_cmpgt_pd
 #define _MM_CMPLT _mm256_cmplt_pd
+#define _MM_CMPLE _mm256_cmple_pd
 #define _MM_CMPEQ _mm256_cmpeq_pd
 #define _MM_CMPEQ_SIG _mm256_cmpeq_epi64
+#define _MM_SRLI_I _mm256_srli_epi64
+#define _MM_SLLI_I _mm256_slli_epi64
+#define _MM_ADD_I _mm256_add_epi64
+#define _MM_SUB_I _mm256_sub_epi64
+#define _MM_CAST_FP_TO_I _mm256_castpd_si256
+#define _MM_CAST_I_TO_FP _mm256_castsi256_pd
 #define _MM_OR  _mm256_or_pd
 #define _MM_AND  _mm256_and_pd
 #define _MM_ANDNOT  _mm256_andnot_pd
-#define _MM_TYPE  __m256d
-#define _MM_TYPE_I __m256i
+#define _MM_FLOOR _mm256_floor_pd
 #define _MM_LOAD  _mm256_load_pd
 #define _MM_LOADU  _mm256_loadu_pd
 #define _MM_LOAD3 _mm_load_st3
@@ -238,19 +294,25 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #define _MM_RHADD _mm256_rhadd_pd // JMCG REAL HADD, totally horizontal
 #define _MM_FULL_HADD _mm256_fullhadd_f64
 #define _MM_CVT_F _mm_cvtsd_f64
-#define _MM_SET(A)  _mm256_set_pd(A,A,A,A)
+#define _MM_CVT_I_TO_FP _mm256_cvtepi64_pd
+#define _MM_CVT_FP_TO_I _mm256_cvtpd_epi64
+#define _MM_SET(A)  _mm256_set1_pd(A)
 #define _MM_SETM(A,B,C,D)  _mm256_set_pd(A,B,C,D)
+#define _MM_SET_I(A)  _mm256_set1_epi64x(A)
+#define _MM_SETM_I(A,B,C,D)  _mm256_set_epi64x(A,B,C,D)
 #define _MM_SETR  _mm256_setr_pd
 #define _MM_BROADCAST  _mm256_broadcast_pd
 #define _MM_MOVEMASK _mm256_movemask_pd
 #define _MM_MASK_TRUE 15 // 4 bits at 1
 #define _MM_MAX _mm256_max_pd
+#define _MM_MIN _mm256_min_pd
 #define _MM_ATAN _mm256_atan_pd
 #define _MM_BLENDV _mm256_blendv_pd
 #define _MM_COPYSIGN _mm256_copysign_pd // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_FMA _mm256_fmadd_pd
 #define _MM_PRINT_XMM print_xmm
+#define _MM_PRINT_XMM_I print_xmm_i
 
 // Only for doubles, create code for floats
 #define _MM_SHIFT_LEFT _mm256_shift_left_pd
@@ -267,6 +329,59 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #define MUSTINLINE __forceinline
 #endif
 
+#if !defined (__AVX512VL__) && !defined (__AVX512DQ__)
+static inline _MM_TYPE _mm256_cvtepi64_pd(_MM_TYPE_I x) {
+  _MM_TYPE output;
+  __m128i emm01 = _mm_shuffle_epi32(_mm256_extractf128_si256(x, 0), _MM_SHUFFLE (3, 3, 2, 0));
+  __m128i emm02 = _mm_shuffle_epi32(_mm256_extractf128_si256(x, 1), _MM_SHUFFLE (3, 3, 2, 0));
+  output = _mm256_insertf128_pd(output, _mm_cvtepi32_pd(emm01), 0);
+  output = _mm256_insertf128_pd(output, _mm_cvtepi32_pd(emm02), 1);
+  return output;
+}
+static inline _MM_TYPE_I _mm256_cvtpd_epi64(_MM_TYPE x) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_cvtpd_epi32(_mm256_extractf128_pd(x, 0));
+  __m128i emm02 = _mm_cvtpd_epi32(_mm256_extractf128_pd(x, 1));
+  output = _mm256_insertf128_si256(output, _mm_cvtepi32_epi64(emm01), 0);
+  output = _mm256_insertf128_si256(output, _mm_cvtepi32_epi64(emm02), 1);
+  return output;
+}
+#endif
+
+#ifndef __AVX2__
+static inline _MM_TYPE_I _mm256_srli_epi64(_MM_TYPE_I x, uint32_t imm8) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_srli_epi64(_mm256_extractf128_si256(x, 0), imm8);
+  __m128i emm02 = _mm_srli_epi64(_mm256_extractf128_si256(x, 1), imm8);
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+static inline _MM_TYPE_I _mm256_slli_epi64(_MM_TYPE_I x, uint32_t imm8) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_slli_epi64(_mm256_extractf128_si256(x, 0), imm8);
+  __m128i emm02 = _mm_slli_epi64(_mm256_extractf128_si256(x, 1), imm8);
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+static inline _MM_TYPE_I _mm256_add_epi64(_MM_TYPE_I x, _MM_TYPE_I y) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_add_epi64(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
+  __m128i emm02 = _mm_add_epi64(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+static inline _MM_TYPE_I _mm256_sub_epi64(_MM_TYPE_I x, _MM_TYPE_I y) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_sub_epi64(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
+  __m128i emm02 = _mm_sub_epi64(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+#endif
 
 #ifndef __FMA3__
 static inline _MM_TYPE _mm256_fmadd_pd(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
@@ -295,6 +410,19 @@ static inline void print_xmm(_MM_TYPE in, char* s) {
   }
   printf("\n");
 }
+
+static inline void print_xmm_i(_MM_TYPE_I in, char* s) {
+  int i;
+  int64_t val[SIMD_WIDTH];
+
+  _mm256_storeu_si256((__m256i*)&val[0], in);
+  printf("%s: ", s);
+  for (i=0; i<SIMD_WIDTH; i++) {
+    printf("%ld ", val[i]);
+  }
+  printf("\n");
+}
+
 
 
 static inline _MM_TYPE _mm256_reverse_pd(_MM_TYPE A) {
@@ -444,21 +572,36 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #include <immintrin.h> // ALL SSE and AVX
 
 #define _MM_ALIGNMENT 16
+#define _MM_MANTISSA_BITS 23
+#define _MM_MANTISSA_MASK 0x007fffff
+#define _MM_EXP_MASK 0x7f800000
+#define _MM_EXP_BIAS 0x7f
+#define _MM_MINNORMPOS (1 << _MM_MANTISSA_BITS)
+#define _MM_TYPE  __m128
+#define _MM_TYPE_I __m128i
+#define _MM_SCALAR_TYPE float
 #define SIMD_WIDTH 4
 #define _MM_SETZERO _mm_setzero_ps
+#define _MM_SETZERO_I _mm_setzero_si128
 #define _MM_ABS _mm_abs_ps
 #define _MM_NEG _mm_neg_ps
-#define _MM_LOG log_ps
-#define _MM_EXP exp_ps
+#define _MM_LOG simd_log
+#define _MM_EXP simd_exp
 #define _MM_CMPGT _mm_cmpgt_ps
 #define _MM_CMPLT _mm_cmplt_ps
+#define _MM_CMPLE _mm_cmple_ps
 #define _MM_CMPEQ _mm_cmpeq_ps
 #define _MM_CMPEQ_SIG _mm_cmpeq_epi32
+#define _MM_SRLI_I _mm_srli_epi32
+#define _MM_SLLI_I _mm_slli_epi32
+#define _MM_ADD_I _mm_add_epi32
+#define _MM_SUB_I _mm_sub_epi32
+#define _MM_CAST_FP_TO_I _mm_castps_si128
+#define _MM_CAST_I_TO_FP _mm_castsi128_ps
 #define _MM_OR  _mm_or_ps
 #define _MM_AND  _mm_and_ps
 #define _MM_ANDNOT  _mm_andnot_ps
-#define _MM_TYPE  __m128
-#define _MM_TYPE_I __m128i
+#define _MM_FLOOR _mm_floor_ps
 #define _MM_LOAD  _mm_load_ps
 #define _MM_LOADU  _mm_loadu_ps
 #define _MM_LOAD3 _mm_load_st3
@@ -473,18 +616,24 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #define _MM_RHADD _mm_hadd_ps // JMCG REAL HADD, totally horizontal
 #define _MM_FULL_HADD _mm_fullhadd_f32
 #define _MM_CVT_F _mm_cvtss_f32
-#define _MM_SET(A)  _mm_set_ps(A,A,A,A)
+#define _MM_CVT_I_TO_FP _mm_cvtepi32_ps
+#define _MM_CVT_FP_TO_I _mm_cvtps_epi32
+#define _MM_SET(A)  _mm_set1_ps(A)
 #define _MM_SETM(A,B,C,D)  _mm_set_ps(A,B,C,D)
+#define _MM_SET_I(A)  _mm_set1_epi32(A)
+#define _MM_SETM_I(A,B,C,D)  _mm_set_epi32(A,B,C,D)
 #define _MM_SETR  _mm_setr_ps
 #define _MM_MOVEMASK _mm_movemask_ps
 #define _MM_MASK_TRUE 15 // 4 bits at 1
 #define _MM_MAX _mm_max_ps
+#define _MM_MIN _mm_min_ps
 #define _MM_ATAN _mm_atan_ps
 #define _MM_BLENDV _mm_blendv_ps
 #define _MM_COPYSIGN _mm_copysign_ps // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_FMA _mm_fmadd_ps
 #define _MM_PRINT_XMM print_xmm
+#define _MM_PRINT_XMM_I print_xmm_i
 
 #ifdef __GNUC__
 #define _MM_ALIGN __attribute__((aligned (16)))
@@ -520,6 +669,19 @@ static inline void print_xmm(_MM_TYPE in, char* s) {
   }
   printf("\n");
 }
+
+static inline void print_xmm_i(_MM_TYPE_I in, char* s) {
+  int i;
+  int32_t val[SIMD_WIDTH];
+
+  _mm_storeu_si128((__m128i*)&val[0], in);
+  printf("%s: ", s);
+  for (i=0; i<SIMD_WIDTH; i++) {
+    printf("%d ", val[i]);
+  }
+  printf("\n");
+}
+
 
 static inline _MM_TYPE _mm_fullhadd_f32(_MM_TYPE A, _MM_TYPE B) {
   _MM_TYPE temp = _mm_hadd_ps(A,B);
@@ -579,21 +741,36 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #include <immintrin.h> // ALL SSE and AVX
 
 #define _MM_ALIGNMENT 32
+#define _MM_MANTISSA_BITS 23
+#define _MM_MANTISSA_MASK 0x007fffff
+#define _MM_EXP_MASK 0x7f800000
+#define _MM_EXP_BIAS 0x7f
+#define _MM_MINNORMPOS (1 << _MM_MANTISSA_BITS)
+#define _MM_TYPE  __m256
+#define _MM_TYPE_I __m256i
+#define _MM_SCALAR_TYPE float
 #define SIMD_WIDTH 8
 #define _MM_SETZERO _mm256_setzero_ps
+#define _MM_SETZERO_I _mm256_setzero_si256
 #define _MM_ABS _mm256_abs_ps
 #define _MM_NEG _mm256_neg_ps
-#define _MM_LOG log256_ps
-#define _MM_EXP exp256_ps
+#define _MM_LOG simd_log
+#define _MM_EXP simd_exp
 #define _MM_CMPGT _mm256_cmpgt_ps
 #define _MM_CMPLT _mm256_cmplt_ps
+#define _MM_CMPLE _mm256_cmple_ps
 #define _MM_CMPEQ _mm256_cmpeq_ps
 #define _MM_CMPEQ_SIG _mm256_cmpeq_epi32
+#define _MM_SRLI_I _mm256_srli_epi32
+#define _MM_SLLI_I _mm256_slli_epi32
+#define _MM_ADD_I _mm256_add_epi32
+#define _MM_SUB_I _mm256_sub_epi32
+#define _MM_CAST_FP_TO_I _mm256_castps_si256
+#define _MM_CAST_I_TO_FP _mm256_castsi256_ps
 #define _MM_OR  _mm256_or_ps
 #define _MM_AND  _mm256_and_ps
 #define _MM_ANDNOT  _mm256_andnot_ps
-#define _MM_TYPE  __m256
-#define _MM_TYPE_I __m256i
+#define _MM_FLOOR  _mm256_floor_ps
 #define _MM_LOAD  _mm256_load_ps
 #define _MM_LOADU  _mm256_loadu_ps
 #define _MM_LOAD3 _mm_load_st3
@@ -608,25 +785,67 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #define _MM_RHADD _mm256_rhadd_ps // JMCG REAL HADD, totally horizontal
 #define _MM_FULL_HADD _mm256_fullhadd_f32
 #define _MM_CVT_F _mm_cvtss_f32
-#define _MM_SET(A)  _mm256_set_ps(A,A,A,A,A,A,A,A)
+#define _MM_CVT_I_TO_FP _mm256_cvtepi32_ps
+#define _MM_CVT_FP_TO_I _mm256_cvtps_epi32
+#define _MM_SET(A)  _mm256_set1_ps(A)
 #define _MM_SETM(A,B,C,D,E,F,G,H)  _mm256_set_ps(A,B,C,D,E,F,G,H)
+#define _MM_SET_I(A)  _mm256_set1_epi32(A)
+#define _MM_SETM_I(A,B,C,D,E,F,G,H)  _mm256_set_epi32(A,B,C,D,E,F,G,H)
 #define _MM_SETR  _mm256_setr_ps
 #define _MM_BROADCAST  _mm256_broadcast_ps
 #define _MM_MOVEMASK _mm256_movemask_ps
 #define _MM_MASK_TRUE 255 // 8 Bits at 1
 #define _MM_MAX _mm256_max_ps
+#define _MM_MIN _mm256_min_ps
 #define _MM_ATAN _mm256_atan_ps
 #define _MM_BLENDV _mm256_blendv_ps
 #define _MM_COPYSIGN _mm256_copysign_ps // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_FMA _mm256_fmadd_ps
 #define _MM_PRINT_XMM print_xmm
+#define _MM_PRINT_XMM_I print_xmm_i
+
 
 #ifdef __GNUC__
 #define _MM_ALIGN __attribute__((aligned (32)))
 #define MUSTINLINE __attribute__((always_inline))
 #else
 #define MUSTINLINE __forceinline
+#endif
+
+#ifndef __AVX2__
+static inline _MM_TYPE_I _mm256_srli_epi32(_MM_TYPE_I x, uint32_t imm8) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_srli_epi32(_mm256_extractf128_si256(x, 0), imm8);
+  __m128i emm02 = _mm_srli_epi32(_mm256_extractf128_si256(x, 1), imm8);
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+static inline _MM_TYPE_I _mm256_slli_epi32(_MM_TYPE_I x, uint32_t imm8) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_slli_epi32(_mm256_extractf128_si256(x, 0), imm8);
+  __m128i emm02 = _mm_slli_epi32(_mm256_extractf128_si256(x, 1), imm8);
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+static inline _MM_TYPE_I _mm256_add_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_add_epi32(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
+  __m128i emm02 = _mm_add_epi32(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+static inline _MM_TYPE_I _mm256_sub_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_sub_epi32(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
+  __m128i emm02 = _mm_sub_epi32(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
 #endif
 
 #ifndef __FMA3__
@@ -658,6 +877,17 @@ static inline void print_xmm(_MM_TYPE in, char* s) {
   printf("\n");
 }
 
+static inline void print_xmm_i(_MM_TYPE_I in, char* s) {
+  int i;
+  int32_t val[SIMD_WIDTH];
+
+  _mm256_storeu_si256((__m256i*)&val[0], in);
+  printf("%s: ", s);
+  for (i=0; i<SIMD_WIDTH; i++) {
+    printf("%d ", val[i]);
+  }
+  printf("\n");
+}
 
 static inline _MM_TYPE _mm256_rhadd_ps(_MM_TYPE A, _MM_TYPE B) {
 
@@ -761,21 +991,36 @@ static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
 #include <arm_neon.h> // ALL NEON instructions
 
 #define _MM_ALIGNMENT 16
+#define _MM_MANTISSA_BITS 23
+#define _MM_MANTISSA_MASK 0x007fffff
+#define _MM_EXP_MASK 0x7f800000
+#define _MM_EXP_BIAS 0x7f
+#define _MM_MINNORMPOS (1 << _MM_MANTISSA_BITS)
+#define _MM_TYPE float32x4_t
+#define _MM_TYPE_I int32x4_t
+#define _MM_SCALAR_TYPE float
 #define SIMD_WIDTH 4
 #define _MM_SETZERO vsetzeroq_f32 // not available
+#define _MM_SETZERO_I vsetzeroq_s32 // not available
 #define _MM_ABS vabsq_f32
 #define _MM_NEG vnegq_f32
-#define _MM_LOG log128_neon_intrin // not available
-#define _MM_EXP exp128_neon_intrin // not available
+#define _MM_LOG simd_log // not available
+#define _MM_EXP simd_exp // not available
 #define _MM_CMPGT vcgtq_f32
 #define _MM_CMPLT vcltq_f32
+#define _MM_CMPLE vcleq_f32
 #define _MM_CMPEQ vceqq_f32
 #define _MM_CMPEQ_SIG vceqq_s32
+#define _MM_SRLI_I vshrq_n_s32
+#define _MM_SLLI_I vshlq_n_s32
+#define _MM_ADD_I vaddq_s32
+#define _MM_SUB_I vsubq_s32
+#define _MM_CAST_FP_TO_I vreinterpretq_s32_f32
+#define _MM_CAST_I_TO_FP vreinterpretq_f32_s32
 #define _MM_OR  vorrq_f32 // not available
 #define _MM_AND  vandq_f32 // not available
 #define _MM_ANDNOT  vbicq_f32 // not available
-#define _MM_TYPE  float32x4_t
-#define _MM_TYPE_I int32x4_t
+#define _MM_FLOOR  vfloorq_f32 // not available
 #define _MM_LOAD  vld1q_f32
 #define _MM_LOADU vld1q_f32 // Not completely sure about how to deal with this
 #define _MM_LOAD3 custom_vld3q_f32 // Although ARM supports stride loads, the format of the intrinsics is quite weird
@@ -790,16 +1035,22 @@ static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
 #define _MM_RHADD vhoriaddq_f32 // not available JMCG REAL HADD, totally horizontal
 #define _MM_FULL_HADD vfhoriaddq_f32 // not available
 #define _MM_CVT_F vcvtq32_f32 // not available
+#define _MM_CVT_I_TO_FP vcvtq_f32_s32 // not available
+#define _MM_CVT_FP_TO_I vcvtq_s32_f32 // not available
 #define _MM_SET(A) vdupq_n_f32(A)
 #define _MM_SETM(A,B,C,D) vsetmq_f32(A,B,C,D) // not available
+#define _MM_SET_I(A) vdupq_n_s32(A)
+#define _MM_SETM_I(A,B,C,D) vsetmq_s32(A,B,C,D) // not available
 #define _MM_SETR vsetrq_f32 // not available
 #define _MM_MOVEMASK vmovemaskq_f32
 #define _MM_MASK_TRUE 15 // 8 Bits at 1
 #define _MM_MAX vmaxq_f32
+#define _MM_MIN vminq_f32
 #define _MM_BLENDV _vbslq_f32
 #define _MM_COPYSIGN vcopysignq_f32 // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_FMA _vmlaq_f32
 #define _MM_PRINT_XMM print_xmm
+#define _MM_PRINT_XMM_I print_xmm_i
 
 
 #ifdef __GNUC__
@@ -822,9 +1073,22 @@ static inline void print_xmm(_MM_TYPE in, char* s) {
   printf("\n");
 }
 
+static inline void print_xmm_i(_MM_TYPE_I in, char* s) {
+  int i;
+  int32_t val[SIMD_WIDTH];
+
+  vst1q_s32(val, in);
+  printf("%s: ", s);
+  for (i=0; i<SIMD_WIDTH; i++) {
+    printf("%d ", val[i]);
+  }
+  printf("\n");
+}
+
+
 
 static inline _MM_TYPE _vbslq_f32(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
-  return vbslq_f32(C,A,B);
+  return vbslq_f32(vcvtq_u32_f32(C),A,B);
 }
 
 static inline _MM_TYPE _vmlaq_f32(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
@@ -833,6 +1097,10 @@ static inline _MM_TYPE _vmlaq_f32(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
 
 static inline _MM_TYPE vsetzeroq_f32() {
   return vdupq_n_f32(0);
+}
+
+static inline _MM_TYPE vsetzeroq_s32() {
+  return vdupq_n_s32(0);
 }
 
 static inline _MM_TYPE vorrq_f32(_MM_TYPE A, _MM_TYPE B) {
@@ -845,6 +1113,10 @@ static inline _MM_TYPE vandq_f32(_MM_TYPE A, _MM_TYPE B) {
 
 static inline _MM_TYPE vbicq_f32(_MM_TYPE A, _MM_TYPE B) {
   return vreinterpretq_f32_u32(vbicq_u32(vreinterpretq_u32_f32(B), vreinterpretq_u32_f32(A)));
+}
+
+static inline _MM_TYPE vfloorq_f32(_MM_TYPE A) {
+  return vreinterpretq_f32_u32((vreinterpretq_u32_f32(A)));
 }
 
 static inline _MM_TYPE vdivq_f32(_MM_TYPE A, _MM_TYPE B) {
@@ -947,10 +1219,6 @@ static inline _MM_TYPE vcopysignq_f32(_MM_TYPE x, _MM_TYPE y) {
 
 #endif // DFTYPE
 
-#ifdef __INTEL_COMPILER
-extern int posix_memalign (void **, size_t, size_t);
-#endif
-
 #if defined(SIMD_WIDTH) && !defined(PARSEC_USE_NEON)
 #include <mm_malloc.h>
 #else
@@ -995,7 +1263,8 @@ _mm_free (void * ptr)
 #define _MM_ALIGNMENT 1
 #endif
 
-/* END JMCG */
+#ifdef SIMD_WIDTH
+#include "simd_mathfun.h"
+#endif
 
-
-#endif //__TYPE__
+#endif //__SIMD_DEFINES__
