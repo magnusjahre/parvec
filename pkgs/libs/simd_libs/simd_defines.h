@@ -164,9 +164,11 @@ static inline _MM_TYPE _mm_copysign_pd(_MM_TYPE x, _MM_TYPE y) {
 }
 
 #ifndef __FMA3__
+#ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm_fmadd_pd(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 
 static inline _MM_TYPE _mm_reverse_pd(_MM_TYPE A) {
@@ -269,7 +271,13 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #define _MM_CMPLT _mm256_cmplt_pd
 #define _MM_CMPLE _mm256_cmple_pd
 #define _MM_CMPEQ _mm256_cmpeq_pd
+
+#ifndef __AVX2__ // GCC 5+ ALWAYS define cmpeq even if AVX2 is not available, so we can no longer implement our own with the same name
+#define _MM_CMPEQ_SIG _custom_mm256_cmpeq_epi64
+#else
 #define _MM_CMPEQ_SIG _mm256_cmpeq_epi64
+#endif
+
 #define _MM_SRLI_I _mm256_srli_epi64
 #define _MM_SLLI_I _mm256_slli_epi64
 #define _MM_ADD_I _mm256_add_epi64
@@ -384,9 +392,11 @@ static inline _MM_TYPE_I _mm256_sub_epi64(_MM_TYPE_I x, _MM_TYPE_I y) {
 #endif
 
 #ifndef __FMA3__
+#ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm256_fmadd_pd(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 
 __attribute__((aligned (32))) static const int absmask_double_256[] = { 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff};
@@ -466,8 +476,7 @@ static inline _MM_TYPE _mm256_shift2_right_pd(_MM_TYPE A, _MM_TYPE B, _MM_TYPE* 
   return (_mm256_blend_pd( temp5, temp4, 0b0010)); // return = {A[1],A[2],A[3],B[0]}
 }
 
-
-static inline _MM_TYPE_I _mm256_cmpeq_epi64(_MM_TYPE_I A, _MM_TYPE_I B) {
+static inline _MM_TYPE_I _custom_mm256_cmpeq_epi64(_MM_TYPE_I A, _MM_TYPE_I B) {
   return (_MM_TYPE_I)_MM_CMPEQ((_MM_TYPE)A,(_MM_TYPE)B);
 }
 
@@ -643,9 +652,11 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #endif
 
 #ifndef __FMA3__
+#ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm_fmadd_ps(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 
 __attribute__((aligned (16))) static const int absmask[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
@@ -760,7 +771,13 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #define _MM_CMPLT _mm256_cmplt_ps
 #define _MM_CMPLE _mm256_cmple_ps
 #define _MM_CMPEQ _mm256_cmpeq_ps
+
+#ifndef __AVX2__ // GCC 5+ ALWAYS define cmpeq even if AVX2 is not available, so we can no longer implement our own with the same name
+#define _MM_CMPEQ_SIG _custom_mm256_cmpeq_epi32
+#else
 #define _MM_CMPEQ_SIG _mm256_cmpeq_epi32
+#endif
+
 #define _MM_SRLI_I _mm256_srli_epi32
 #define _MM_SLLI_I _mm256_slli_epi32
 #define _MM_ADD_I _mm256_add_epi32
@@ -849,9 +866,11 @@ static inline _MM_TYPE_I _mm256_sub_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
 #endif
 
 #ifndef __FMA3__
+#ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm256_fmadd_ps(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 
 __attribute__((aligned (32))) static const int absmask_256[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
@@ -952,10 +971,10 @@ static inline void _mm_load_st3(_MM_TYPE* A, _MM_TYPE* B, _MM_TYPE* C, float* ad
 }
 
 
-
-static inline _MM_TYPE_I _mm256_cmpeq_epi32(_MM_TYPE_I A, _MM_TYPE_I B) {
+static inline _MM_TYPE_I _custom_mm256_cmpeq_epi32(_MM_TYPE_I A, _MM_TYPE_I B) {
   return (_MM_TYPE_I)_MM_CMPEQ((_MM_TYPE)A,(_MM_TYPE)B);
 }
+
 
 // Algorithm taken from vecmathlib and SLEEF 2.80
 static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
