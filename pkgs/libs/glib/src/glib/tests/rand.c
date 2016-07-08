@@ -22,7 +22,8 @@
 #include "glib.h"
 
 /* Outputs tested against the reference implementation mt19937ar.c from
-   http://www.math.keio.ac.jp/~matumoto/MT2002/emt19937ar.html */
+ * http://www.math.sci.hiroshima-u.ac.jp/~m-mat/MT/MT2002/emt19937ar.html
+ */
 
 /* Tests for a simple seed, first number is the seed */
 const guint32 first_numbers[] = 
@@ -148,13 +149,28 @@ test_rand (void)
   g_rand_free (copy);
 }
 
+static void
+test_double_range (void)
+{
+  gdouble d;
+
+  g_test_bug ("502560");
+
+  d = g_random_double_range (-G_MAXDOUBLE, G_MAXDOUBLE);
+
+  g_assert (-G_MAXDOUBLE <= d);
+  g_assert (d < G_MAXDOUBLE);
+}
+
 int
 main (int   argc,
       char *argv[])
 {
   g_test_init (&argc, &argv, NULL);
+  g_test_bug_base ("http://bugzilla.gnome.org/");
 
   g_test_add_func ("/rand/test-rand", test_rand);
+  g_test_add_func ("/rand/double-range", test_double_range);
 
   return g_test_run();
 }

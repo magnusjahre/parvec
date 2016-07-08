@@ -13,15 +13,16 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
 
 #include "config.h"
 #include "giomodule.h"
+
+#include <gstdio.h>
+#include <errno.h>
 
 static gboolean
 is_valid_module_name (const gchar *basename)
@@ -101,11 +102,20 @@ query_dir (const char *dirname)
 
   cachename = g_build_filename (dirname, "giomodule.cache", NULL);
 
-  error = NULL;
-  if (!g_file_set_contents (cachename, data->str, data->len, &error))
+  if (data->len > 0)
     {
-      g_printerr ("Unable to create %s: %s\n", cachename, error->message);
-      g_error_free (error);
+      error = NULL;
+
+      if (!g_file_set_contents (cachename, data->str, data->len, &error))
+        {
+          g_printerr ("Unable to create %s: %s\n", cachename, error->message);
+          g_error_free (error);
+        }
+    }
+  else
+    {
+      if (g_unlink (cachename) != 0 && errno != ENOENT)
+        g_printerr ("Unable to unlink %s: %s\n", cachename, g_strerror (errno));
     }
 
   g_string_free (data, TRUE);
@@ -117,14 +127,15 @@ main (gint   argc,
 {
   int i;
 
-  g_type_init ();
-
   if (argc == 1)
     {
       g_print ("Usage: gio-querymodules <directory1> [<directory2> ...]\n");
       g_print ("Will update giomodule.cache in the listed directories\n");
       return 1;
     }
+
+  /* Be defensive and ensure we're linked to GObject */
+  g_type_ensure (G_TYPE_OBJECT);
 
   for (i = 1; i < argc; i++)
     query_dir (argv[i]);

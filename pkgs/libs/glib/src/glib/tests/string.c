@@ -19,6 +19,9 @@
  * if advised of the possibility of such damage.
  */
 
+/* We are testing some deprecated APIs here */
+#define GLIB_DISABLE_DEPRECATION_WARNINGS
+
 #include <stdio.h>
 #include <string.h>
 #include "glib.h"
@@ -46,6 +49,7 @@ test_string_chunks (void)
   tmp_string = g_string_chunk_insert_const (string_chunk, tmp_string);
   g_assert_cmpstr (tmp_string_2, ==, tmp_string);
 
+  g_string_chunk_clear (string_chunk);
   g_string_chunk_free (string_chunk);
 }
 
@@ -89,6 +93,30 @@ test_string_new (void)
 
   g_string_free (string1, TRUE);
   g_string_free (string2, TRUE);
+
+  string1 = g_string_new_len ("foo", -1);
+  string2 = g_string_new_len ("foobar", 3);
+
+  g_assert_cmpstr (string1->str, ==, "foo");
+  g_assert_cmpint (string1->len, ==, 3);
+  g_assert_cmpstr (string2->str, ==, "foo");
+  g_assert_cmpint (string2->len, ==, 3);
+
+  g_string_free (string1, TRUE);
+  g_string_free (string2, TRUE);
+}
+
+G_GNUC_PRINTF(2, 3)
+static void
+my_string_printf (GString     *string,
+                  const gchar *format,
+                  ...)
+{
+  va_list args;
+
+  va_start (args, format);
+  g_string_vprintf (string, format, args);
+  va_end (args);
 }
 
 static void
@@ -113,7 +141,15 @@ test_string_printf (void)
 		   " wuss.  everyone agrees.\n",
 		   10, 666, 15, 15, 666.666666666, 666.666666666);
 #endif
-  
+
+  g_string_free (string, TRUE);
+
+  string = g_string_new (NULL);
+  g_string_printf (string, "bla %s %d", "foo", 99);
+  g_assert_cmpstr (string->str, ==, "bla foo 99");
+  my_string_printf (string, "%d,%s,%d", 1, "two", 3);
+  g_assert_cmpstr (string->str, ==, "1,two,3");
+
   g_string_free (string, TRUE);
 }
 
@@ -148,7 +184,10 @@ test_string_append_c (void)
   string = g_string_new ("hi pete!");
 
   for (i = 0; i < 10000; i++)
-    g_string_append_c (string, 'a'+(i%26));
+    if (i % 2)
+      g_string_append_c (string, 'a'+(i%26));
+    else
+      (g_string_append_c) (string, 'a'+(i%26));
 
   g_assert((strlen("hi pete!") + 10000) == string->len);
   g_assert((strlen("hi pete!") + 10000) == strlen(string->str));
@@ -358,6 +397,11 @@ test_string_overwrite (void)
   g_assert ('\0' == string->str[15]);
   g_assert (g_str_equal ("test NOT-blabla", string->str));
 
+  g_string_overwrite_len (string, 4, "BLABL", 0);
+  g_assert (g_str_equal ("test NOT-blabla", string->str));
+  g_string_overwrite_len (string, 4, "BLABL", -1);
+  g_assert (g_str_equal ("testBLABLblabla", string->str));
+
   g_string_free (string, TRUE);
 }
 
@@ -379,16 +423,74 @@ test_string_nul_handling (void)
   g_assert (!g_string_equal (string1, string2));
   g_assert (string1->len == 8);
   g_string_append (string1, "yzzy");
-  g_assert (string1->len == 12);
-  g_assert (memcmp (string1->str, "fiddle\0xyzzy", 13) == 0);
+  g_assert_cmpmem (string1->str, string1->len + 1, "fiddle\0xyzzy", 13);
   g_string_insert (string1, 1, "QED");
-  g_assert (memcmp (string1->str, "fQEDiddle\0xyzzy", 16) == 0);
+  g_assert_cmpmem (string1->str, string1->len + 1, "fQEDiddle\0xyzzy", 16);
   g_string_printf (string1, "fiddle%cxyzzy", '\0');
-  g_assert (string1->len == 12);
-  g_assert (memcmp (string1->str, "fiddle\0xyzzy", 13) == 0);
+  g_assert_cmpmem (string1->str, string1->len + 1, "fiddle\0xyzzy", 13);
 
   g_string_free (string1, TRUE);
   g_string_free (string2, TRUE);
+}
+
+static void
+test_string_up_down (void)
+{
+  GString *s;
+
+  s = g_string_new ("Mixed Case String !?");
+  g_string_ascii_down (s);
+  g_assert_cmpstr (s->str, ==, "mixed case string !?");
+
+  g_string_assign (s, "Mixed Case String !?");
+  g_string_down (s);
+  g_assert_cmpstr (s->str, ==, "mixed case string !?");
+
+  g_string_assign (s, "Mixed Case String !?");
+  g_string_ascii_up (s);
+  g_assert_cmpstr (s->str, ==, "MIXED CASE STRING !?");
+
+  g_string_assign (s, "Mixed Case String !?");
+  g_string_up (s);
+  g_assert_cmpstr (s->str, ==, "MIXED CASE STRING !?");
+
+  g_string_free (s, TRUE);
+}
+
+static void
+test_string_set_size (void)
+{
+  GString *s;
+
+  s = g_string_new ("foo");
+  g_string_set_size (s, 30);
+
+  g_assert_cmpstr (s->str, ==, "foo");
+  g_assert_cmpint (s->len, ==, 30);
+
+  g_string_free (s, TRUE);
+}
+
+static void
+test_string_to_bytes (void)
+{
+  GString *s;
+  GBytes *bytes;
+  gconstpointer byte_data;
+  gsize byte_len;
+
+  s = g_string_new ("foo");
+  g_string_append (s, "-bar");
+
+  bytes = g_string_free_to_bytes (s);
+
+  byte_data = g_bytes_get_data (bytes, &byte_len);
+
+  g_assert_cmpint (byte_len, ==, 7);
+
+  g_assert_cmpmem (byte_data, byte_len, "foo-bar", 7);
+
+  g_bytes_unref (bytes);
 }
 
 int
@@ -412,6 +514,9 @@ main (int   argc,
   g_test_add_func ("/string/test-string-truncate", test_string_truncate);
   g_test_add_func ("/string/test-string-overwrite", test_string_overwrite);
   g_test_add_func ("/string/test-string-nul-handling", test_string_nul_handling);
+  g_test_add_func ("/string/test-string-up-down", test_string_up_down);
+  g_test_add_func ("/string/test-string-set-size", test_string_set_size);
+  g_test_add_func ("/string/test-string-to-bytes", test_string_to_bytes);
 
   return g_test_run();
 }

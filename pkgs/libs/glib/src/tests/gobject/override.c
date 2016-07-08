@@ -14,9 +14,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #undef	G_LOG_DOMAIN
@@ -94,7 +92,7 @@ struct _TestAClass {
 static void
 test_a_foo (TestI *self)
 {
-  GValue args[1] = { { 0, } };
+  GValue args[1] = { G_VALUE_INIT };
 
   record ("TestA::foo");
 
@@ -179,7 +177,7 @@ struct _TestBClass {
 static void
 test_b_foo (TestI *self)
 {
-  GValue args[1] = { { 0, } };
+  GValue args[1] = { G_VALUE_INIT };
 
   record ("TestB::foo");
 
@@ -195,7 +193,7 @@ test_b_foo (TestI *self)
 static void
 test_b_bar (TestA *self)
 {
-  GValue args[1] = { { 0, } };
+  GValue args[1] = { G_VALUE_INIT };
 
   record ("TestB::bar");
 
@@ -267,7 +265,7 @@ struct _TestCClass {
 static void
 test_c_foo (TestI *self)
 {
-  GValue args[1] = { { 0, } };
+  GValue args[1] = { G_VALUE_INIT };
 
   record ("TestC::foo");
 
@@ -283,7 +281,7 @@ test_c_foo (TestI *self)
 static void
 test_c_bar (TestA *self)
 {
-  GValue args[1] = { { 0, } };
+  GValue args[1] = { G_VALUE_INIT };
 
   record ("TestC::bar");
 
@@ -374,6 +372,8 @@ test (GType        type,
 
       if (strcmp (ret, expected_retval) != 0)
         failed = TRUE;
+
+      g_free (ret);
     }
 
 #ifndef VERBOSE
@@ -392,6 +392,7 @@ test (GType        type,
     }
 
   g_string_free (test_string, TRUE);
+  g_object_unref (self);
 }
      
 int
@@ -400,7 +401,6 @@ main (int argc, char **argv)
   g_log_set_always_fatal (g_log_set_always_fatal (G_LOG_FATAL_MASK) |
 			  G_LOG_LEVEL_WARNING |
 			  G_LOG_LEVEL_CRITICAL);
-  g_type_init();
 
   test (TEST_TYPE_A, "foo", "TestA::foo,TestI::foo", NULL);
   test (TEST_TYPE_A, "bar", "TestA::bar", NULL);

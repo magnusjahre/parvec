@@ -18,8 +18,6 @@ DEPCFLAGS = -Zm400 $(INTL_CFLAGS) $(DIRENT_CFLAGS)
 all :				\
 	..\config.h		\
 	..\glibconfig.h	\
-	galias.h		\
-	galiasdef.c		\
 	gnulib\gnulib.lib	\
 	pcre\pcre.lib		\
 	libglib-2.0-0.dll \
@@ -107,12 +105,6 @@ glib_OBJECTS =			\
 ..\config.h: ..\config.h.win32
 	copy ..\config.h.win32 ..\config.h
 
-galias.h: glib.symbols
-	perl makegalias.pl < glib.symbols > galias.h
-
-galiasdef.c: glib.symbols
-	  perl makegalias.pl -def < glib.symbols > galiasdef.c
-
 localcharset.obj : libcharset\localcharset.c
 	$(CC) $(CFLAGS) -DLIBDIR=\".\" -c libcharset\localcharset.c
 
@@ -134,7 +126,7 @@ glib-@GLIB_MAJOR_VERSION@.@GLIB_MINOR_VERSION@s.lib : $(glib_OBJECTS) gnulib\gnu
 
 libglib-2.0-0.dll : $(glib_OBJECTS) gnulib\gnulib.lib pcre\pcre.lib glib.def glib.res
 	$(CC) $(CFLAGS) -LD -Fe$@ $(glib_OBJECTS) glib.res $(INTL_LIBS) \
-	gnulib\gnulib.lib pcre\pcre.lib $(DIRENT_LIBS) user32.lib advapi32.lib shell32.lib wsock32.lib ole32.lib ws2_32.lib \
+	gnulib\gnulib.lib pcre\pcre.lib $(DIRENT_LIBS) user32.lib advapi32.lib shell32.lib wsock32.lib ole32.lib ws2_32.lib winmm.lib \
 	$(LDFLAGS) /implib:glib-2.0.lib /def:glib.def
 
 gspawn-win32-helper.exe : gspawn-win32-helper.c libglib-2.0-@LT_CURRENT_MINUS_AGE@.dll

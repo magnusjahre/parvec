@@ -2,124 +2,163 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>How To define implement an Interface?</title>
-<meta name="generator" content="DocBook XSL Stylesheets V1.75.2">
+<title>Implementing interfaces: GObject Reference Manual</title>
+<meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
 <link rel="home" href="index.html" title="GObject Reference Manual">
 <link rel="up" href="howto-interface.html" title="How to define and implement interfaces">
 <link rel="prev" href="howto-interface.html" title="How to define and implement interfaces">
-<link rel="next" href="ch06s03.html" title="Interface definition prerequisites">
-<meta name="generator" content="GTK-Doc V1.14 (XML mode)">
+<link rel="next" href="howto-interface-prerequisite.html" title="Interface definition prerequisites">
+<meta name="generator" content="GTK-Doc V1.25.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
-<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle">
-<td><a accesskey="p" href="howto-interface.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td>
-<td><a accesskey="u" href="howto-interface.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td>
-<td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td>
-<th width="100%" align="center">GObject Reference Manual</th>
-<td><a accesskey="n" href="ch06s03.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td>
+<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="5"><tr valign="middle">
+<td width="100%" align="left" class="shortcuts"></td>
+<td><a accesskey="h" href="index.html"><img src="home.png" width="16" height="16" border="0" alt="Home"></a></td>
+<td><a accesskey="u" href="howto-interface.html"><img src="up.png" width="16" height="16" border="0" alt="Up"></a></td>
+<td><a accesskey="p" href="howto-interface.html"><img src="left.png" width="16" height="16" border="0" alt="Prev"></a></td>
+<td><a accesskey="n" href="howto-interface-prerequisite.html"><img src="right.png" width="16" height="16" border="0" alt="Next"></a></td>
 </tr></table>
-<div class="sect1" title="How To define implement an Interface?">
+<div class="sect1">
 <div class="titlepage"><div><div><h2 class="title" style="clear: both">
-<a name="howto-interface-implement"></a>How To define implement an Interface?</h2></div></div></div>
+<a name="howto-interface-implement"></a>Implementing interfaces</h2></div></div></div>
 <p>
       Once the interface is defined, implementing it is rather trivial.
     </p>
 <p>
-      The first step is to define a normal GObject class, like:
-</p>
-<pre class="programlisting">
-#ifndef __MAMAN_BAZ_H__
-#define __MAMAN_BAZ_H__
-
-#include &lt;glib-object.h&gt;
-
-#define MAMAN_TYPE_BAZ             (maman_baz_get_type ())
-#define MAMAN_BAZ(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), MAMAN_TYPE_BAZ, Mamanbaz))
-#define MAMAN_IS_BAZ(obj)          (G_TYPE_CHECK_INSTANCE_TYPE ((obj), MAMAN_TYPE_BAZ))
-#define MAMAN_BAZ_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), MAMAN_TYPE_BAZ, MamanbazClass))
-#define MAMAN_IS_BAZ_CLASS(klass)  (G_TYPE_CHECK_CLASS_TYPE ((klass), MAMAN_TYPE_BAZ))
-#define MAMAN_BAZ_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), MAMAN_TYPE_BAZ, MamanbazClass))
-
-
-typedef struct _MamanBaz        MamanBaz;
-typedef struct _MamanBazClass   MamanBazClass;
-
-struct _MamanBaz
-{
-  GObject parent_instance;
-
-  int instance_member;
-};
-
-struct _MamanBazClass
-{
-  GObjectClass parent_class;
-};
-
-GType maman_baz_get_type (void);
-
-#endif /* __MAMAN_BAZ_H__ */
-</pre>
-<p>
-      There is clearly nothing specifically weird or scary about this header:
-      it does not define any weird API or derives from a weird type.
+      The first step is to define a normal final GObject class exactly as in
+      <a class="xref" href="howto-gobject.html#howto-gobject-header" title="Boilerplate header code">the section called “Boilerplate header code”</a>.
     </p>
 <p>
-      The second step is to implement <span class="type">MamanBaz</span> by defining
-      its GType. Instead of using <code class="function">G_DEFINE_TYPE</code> we
-      use <code class="function">G_DEFINE_TYPE_WITH_CODE</code> and the
-      <code class="function">G_IMPLEMENT_INTERFACE</code> macros.
+      The second step is to implement <span class="type">ViewerFile</span> by defining
+      it using
+      <code class="function"><a class="link" href="gobject-Type-Information.html#G-DEFINE-TYPE-WITH-CODE:CAPS" title="G_DEFINE_TYPE_WITH_CODE()">G_DEFINE_TYPE_WITH_CODE</a></code>
+      and
+      <code class="function"><a class="link" href="gobject-Type-Information.html#G-IMPLEMENT-INTERFACE:CAPS" title="G_IMPLEMENT_INTERFACE()">G_IMPLEMENT_INTERFACE</a></code>
+      instead of
+      <code class="function"><a class="link" href="gobject-Type-Information.html#G-DEFINE-TYPE:CAPS" title="G_DEFINE_TYPE()">G_DEFINE_TYPE</a></code>:
 </p>
-<pre class="programlisting">
-static void maman_ibaz_interface_init (MamanIbazInterface *iface);
+<div class="informalexample">
+  <table class="listing_frame" border="0" cellpadding="0" cellspacing="0">
+    <tbody>
+      <tr>
+        <td class="listing_lines" align="right"><pre>1
+2
+3
+4
+5</pre></td>
+        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc kwb">static void</span> <span class="function">viewer_file_editable_interface_init</span> <span class="gtkdoc opt">(</span>ViewerEditableInterface <span class="gtkdoc opt">*</span>iface<span class="gtkdoc opt">);</span>
 
-G_DEFINE_TYPE_WITH_CODE (MamanBar, maman_bar, G_TYPE_OBJECT,
-                         G_IMPLEMENT_INTERFACE (MAMAN_TYPE_IBAZ,
-                                                maman_ibaz_interface_init));
-</pre>
-<p>
-      This definition is very much like all the similar functions we looked
-      at previously. The only interface-specific code present here is the call
-      to <code class="function">G_IMPLEMENT_INTERFACE</code>. 
-    </p>
-<div class="note" title="Note" style="margin-left: 0.5in; margin-right: 0.5in;">
-<h3 class="title">Note</h3>
-<p>Classes can implement multiple interfaces by using multiple
-    calls to <code class="function">G_IMPLEMENT_INTERFACE</code> inside the call
-    to <code class="function">G_DEFINE_TYPE_WITH_CODE</code>.</p>
+<span class="function"><a href="gobject-Type-Information.html#G-DEFINE-TYPE-WITH-CODE:CAPS">G_DEFINE_TYPE_WITH_CODE</a></span> <span class="gtkdoc opt">(</span>ViewerFile<span class="gtkdoc opt">,</span> viewer_file<span class="gtkdoc opt">,</span> G_TYPE_OBJECT<span class="gtkdoc opt">,</span>
+                         <span class="function"><a href="gobject-Type-Information.html#G-IMPLEMENT-INTERFACE:CAPS">G_IMPLEMENT_INTERFACE</a></span> <span class="gtkdoc opt">(</span>VIEWER_TYPE_EDITABLE<span class="gtkdoc opt">,</span>
+                                                viewer_file_editable_interface_init<span class="gtkdoc opt">))</span></pre></td>
+      </tr>
+    </tbody>
+  </table>
 </div>
+
 <p>
-      <code class="function">maman_baz_interface_init</code>, the interface
+      This definition is very much like all the similar functions seen
+      previously. The only interface-specific code present here is the use of
+      <code class="function"><a class="link" href="gobject-Type-Information.html#G-IMPLEMENT-INTERFACE:CAPS" title="G_IMPLEMENT_INTERFACE()">G_IMPLEMENT_INTERFACE</a></code>.
+    </p>
+<div class="note"><p>Classes can implement multiple interfaces by using multiple calls to
+    <code class="function"><a class="link" href="gobject-Type-Information.html#G-IMPLEMENT-INTERFACE:CAPS" title="G_IMPLEMENT_INTERFACE()">G_IMPLEMENT_INTERFACE</a></code>
+    inside the call to
+    <code class="function"><a class="link" href="gobject-Type-Information.html#G-DEFINE-TYPE-WITH-CODE:CAPS" title="G_DEFINE_TYPE_WITH_CODE()">G_DEFINE_TYPE_WITH_CODE</a></code>
+    </p></div>
+<p>
+      <code class="function">viewer_file_editable_interface_init</code>, the interface
       initialization function: inside it every virtual method of the interface
       must be assigned to its implementation:
 </p>
-<pre class="programlisting">
-static void
-maman_baz_do_action (MamanBaz *self)
-{
-  g_print ("Baz implementation of IBaz interface Action: 0x%x.\n",
-           self-&gt;instance_member);
-}
+<div class="informalexample">
+  <table class="listing_frame" border="0" cellpadding="0" cellspacing="0">
+    <tbody>
+      <tr>
+        <td class="listing_lines" align="right"><pre>1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37</pre></td>
+        <td class="listing_code"><pre class="programlisting"><span class="gtkdoc kwb">static void</span>
+<span class="function">viewer_file_editable_save</span> <span class="gtkdoc opt">(</span>ViewerFile  <span class="gtkdoc opt">*</span>self<span class="gtkdoc opt">,</span>
+                           GError     <span class="gtkdoc opt">**</span>error<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+  <span class="function"><a href="../glib-Warnings-and-Assertions.html#g-print">g_print</a></span> <span class="gtkdoc opt">(</span><span class="string">&quot;File implementation of editable interface save method: %s.</span><span class="gtkdoc esc">\n</span><span class="string">&quot;</span><span class="gtkdoc opt">,</span>
+           self<span class="gtkdoc opt">-&gt;</span>filename<span class="gtkdoc opt">);</span>
+<span class="gtkdoc opt">}</span>
 
-static void
-maman_ibaz_interface_init (MamanIbazInterface *iface)
-{
-  iface-&gt;do_action = baz_do_action;
-}
+<span class="gtkdoc kwb">static void</span>
+<span class="function">viewer_file_editable_undo</span> <span class="gtkdoc opt">(</span>ViewerFile <span class="gtkdoc opt">*</span>self<span class="gtkdoc opt">,</span>
+                           guint       n_steps<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+  <span class="function"><a href="../glib-Warnings-and-Assertions.html#g-print">g_print</a></span> <span class="gtkdoc opt">(</span><span class="string">&quot;File implementation of editable interface undo method: %s.</span><span class="gtkdoc esc">\n</span><span class="string">&quot;</span><span class="gtkdoc opt">,</span>
+           self<span class="gtkdoc opt">-&gt;</span>filename<span class="gtkdoc opt">);</span>
+<span class="gtkdoc opt">}</span>
 
-static void
-maman_baz_init (MamanBaz *self)
-{
-  MamanBaz *self = MAMAN_BAZ (instance);
-  self-&gt;instance_member = 0xdeadbeaf;
-}
-</pre>
+<span class="gtkdoc kwb">static void</span>
+<span class="function">viewer_file_editable_redo</span> <span class="gtkdoc opt">(</span>ViewerFile <span class="gtkdoc opt">*</span>self<span class="gtkdoc opt">,</span>
+                           guint       n_steps<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+  <span class="function"><a href="../glib-Warnings-and-Assertions.html#g-print">g_print</a></span> <span class="gtkdoc opt">(</span><span class="string">&quot;File implementation of editable interface redo method: %s.</span><span class="gtkdoc esc">\n</span><span class="string">&quot;</span><span class="gtkdoc opt">,</span>
+           self<span class="gtkdoc opt">-&gt;</span>filename<span class="gtkdoc opt">);</span>
+<span class="gtkdoc opt">}</span>
+
+<span class="gtkdoc kwb">static void</span>
+<span class="function">viewer_file_editable_interface_init</span> <span class="gtkdoc opt">(</span>ViewerEditableInterface <span class="gtkdoc opt">*</span>iface<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+  iface<span class="gtkdoc opt">-&gt;</span>save <span class="gtkdoc opt">=</span> viewer_file_editable_save<span class="gtkdoc opt">;</span>
+  iface<span class="gtkdoc opt">-&gt;</span>undo <span class="gtkdoc opt">=</span> viewer_file_editable_undo<span class="gtkdoc opt">;</span>
+  iface<span class="gtkdoc opt">-&gt;</span>redo <span class="gtkdoc opt">=</span> viewer_file_editable_redo<span class="gtkdoc opt">;</span>
+<span class="gtkdoc opt">}</span>
+
+<span class="gtkdoc kwb">static void</span>
+<span class="function">viewer_file_init</span> <span class="gtkdoc opt">(</span>ViewerFile <span class="gtkdoc opt">*</span>self<span class="gtkdoc opt">)</span>
+<span class="gtkdoc opt">{</span>
+  <span class="comment">/* Instance variable initialisation code. */</span>
+<span class="gtkdoc opt">}</span></pre></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
 <p>
     </p>
 </div>
 <div class="footer">
-<hr>
-          Generated by GTK-Doc V1.14</div>
+<hr>Generated by GTK-Doc V1.25.1</div>
 </body>
 </html>

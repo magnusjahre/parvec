@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
@@ -23,12 +21,22 @@
 #include <config.h>
 
 #include <stdio.h>
-#include <unistd.h>
 #include <locale.h>
 #include <errno.h>
 
 #include <glib.h>
 #include <gio/gio.h>
+
+#ifdef G_OS_UNIX
+#include <unistd.h>
+#endif
+
+#ifdef G_OS_WIN32
+#include <io.h>
+#ifndef STDOUT_FILENO
+#define STDOUT_FILENO 1
+#endif
+#endif
 
 static gchar **locations = NULL;
 static char *from_charset = NULL;
@@ -48,6 +56,23 @@ static GOptionEntry entries[] = {
   {G_OPTION_REMAINING, 0, 0, G_OPTION_ARG_FILENAME_ARRAY, &locations, "locations", NULL},
   {NULL}
 };
+
+static void
+decompressor_file_info_notify_cb (GZlibDecompressor *decompressor,
+                                  GParamSpec *pspec,
+                                  gpointer data)
+{
+  GFileInfo *file_info;
+  const gchar *filename;
+
+  file_info = g_zlib_decompressor_get_file_info (decompressor);
+  if (file_info == NULL)
+    return;
+
+  filename = g_file_info_get_name (file_info);
+  if (filename)
+    g_printerr ("Decompressor filename: %s\n", filename);
+}
 
 static void
 cat (GFile * file)
@@ -79,6 +104,7 @@ cat (GFile * file)
       conv = (GConverter *)g_zlib_decompressor_new (gzip?G_ZLIB_COMPRESSOR_FORMAT_GZIP:G_ZLIB_COMPRESSOR_FORMAT_ZLIB);
       old = in;
       in = (GInputStream *) g_converter_input_stream_new (in, conv);
+      g_signal_connect (conv, "notify::file-info", G_CALLBACK (decompressor_file_info_notify_cb), NULL);
       g_object_unref (conv);
       g_object_unref (old);
     }
@@ -108,11 +134,29 @@ cat (GFile * file)
   if (compress)
     {
       GInputStream *old;
-      conv = (GConverter *)g_zlib_compressor_new (gzip?G_ZLIB_COMPRESSOR_FORMAT_GZIP:G_ZLIB_COMPRESSOR_FORMAT_ZLIB, -1);
+      GFileInfo *in_file_info;
+
+      in_file_info = g_file_query_info (file,
+                                        G_FILE_ATTRIBUTE_STANDARD_NAME ","
+                                        G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                                        G_FILE_QUERY_INFO_NONE,
+                                        NULL,
+                                        &error);
+      if (in_file_info == NULL)
+        {
+          g_printerr ("%s: %s: error reading file info: %s\n",
+                      g_get_prgname (), g_file_get_uri (file), error->message);
+          g_error_free (error);
+          return;
+        }
+
+      conv = (GConverter *)g_zlib_compressor_new(gzip?G_ZLIB_COMPRESSOR_FORMAT_GZIP:G_ZLIB_COMPRESSOR_FORMAT_ZLIB, -1);
+      g_zlib_compressor_set_file_info (G_ZLIB_COMPRESSOR (conv), in_file_info);
       old = in;
       in = (GInputStream *) g_converter_input_stream_new (in, conv);
       g_object_unref (conv);
       g_object_unref (old);
+      g_object_unref (in_file_info);
     }
 
   while (1)
@@ -121,7 +165,7 @@ cat (GFile * file)
 	g_input_stream_read (in, buffer, sizeof (buffer) - 1, NULL, &error);
       if (res > 0)
 	{
-	  ssize_t written;
+	  gssize written;
 
 	  p = buffer;
 	  while (res > 0)
@@ -178,8 +222,6 @@ main (int argc, char *argv[])
   GOptionContext *context = NULL;
   GFile *file;
   int i;
-
-  g_type_init ();
 
   context =
     g_option_context_new ("LOCATION... - concatenate LOCATIONS "

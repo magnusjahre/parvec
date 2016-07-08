@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
@@ -27,12 +25,14 @@
 #include "glibintl.h"
 #include "gioerror.h"
 #include "gcancellable.h"
-#include "gfiledescriptorbased.h"
 #include "glocalfileiostream.h"
 #include "glocalfileinputstream.h"
 #include "glocalfileinfo.h"
 
-#include "gioalias.h"
+#ifdef G_OS_UNIX
+#include "gfiledescriptorbased.h"
+#endif
+
 
 #define g_local_file_io_stream_get_type _g_local_file_io_stream_get_type
 G_DEFINE_TYPE (GLocalFileIOStream, g_local_file_io_stream, G_TYPE_FILE_IO_STREAM);
@@ -59,8 +59,9 @@ _g_local_file_io_stream_new (GLocalFileOutputStream *output_stream)
   stream = g_object_new (G_TYPE_LOCAL_FILE_IO_STREAM, NULL);
   stream->output_stream = g_object_ref (output_stream);
   _g_local_file_output_stream_set_do_close (output_stream, FALSE);
-  fd = g_file_descriptor_based_get_fd (G_FILE_DESCRIPTOR_BASED (output_stream));
+  fd = _g_local_file_output_stream_get_fd (output_stream);
   stream->input_stream = (GInputStream *)_g_local_file_input_stream_new (fd);
+
   _g_local_file_input_stream_set_do_close (G_LOCAL_FILE_INPUT_STREAM (stream->input_stream),
 					   FALSE);
 

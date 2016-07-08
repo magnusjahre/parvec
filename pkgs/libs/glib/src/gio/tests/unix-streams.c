@@ -19,10 +19,10 @@
  * if advised of the possibility of such damage.
  */
 
-#include <glib/glib.h>
 #include <gio/gio.h>
 #include <gio/gunixinputstream.h>
 #include <gio/gunixoutputstream.h>
+#include <glib/glib-unix.h>
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,6 +33,7 @@
 int writer_pipe[2], reader_pipe[2];
 GCancellable *writer_cancel, *reader_cancel, *main_cancel;
 GMainLoop *loop;
+
 
 static gpointer
 writer_thread (gpointer user_data)
@@ -64,6 +65,7 @@ writer_thread (gpointer user_data)
 
   if (g_cancellable_is_cancelled (writer_cancel))
     {
+      g_clear_error (&err);
       g_cancellable_cancel (main_cancel);
       g_object_unref (out);
       return NULL;
@@ -118,8 +120,9 @@ reader_thread (gpointer user_data)
 char main_buf[sizeof (DATA)];
 gssize main_len, main_offset;
 
-static void readable (GObject *source, GAsyncResult *res, gpointer user_data);
-static void writable (GObject *source, GAsyncResult *res, gpointer user_data);
+static void main_thread_read (GObject *source, GAsyncResult *res, gpointer user_data);
+static void main_thread_skipped (GObject *source, GAsyncResult *res, gpointer user_data);
+static void main_thread_wrote (GObject *source, GAsyncResult *res, gpointer user_data);
 
 static void
 do_main_cancel (GOutputStream *out)
@@ -129,13 +132,14 @@ do_main_cancel (GOutputStream *out)
 }
 
 static void
-readable (GObject *source, GAsyncResult *res, gpointer user_data)
+main_thread_skipped (GObject *source, GAsyncResult *res, gpointer user_data)
 {
   GInputStream *in = G_INPUT_STREAM (source);
   GOutputStream *out = user_data;
   GError *err = NULL;
+  gssize nskipped;
 
-  main_len = g_input_stream_read_finish (in, res, &err);
+  nskipped = g_input_stream_skip_finish (in, res, &err);
 
   if (g_cancellable_is_cancelled (main_cancel))
     {
@@ -143,16 +147,62 @@ readable (GObject *source, GAsyncResult *res, gpointer user_data)
       return;
     }
 
-  g_assert (err == NULL);
+  g_assert_no_error (err);
 
-  main_offset = 0;
-  g_output_stream_write_async (out, main_buf, main_len,
-			       G_PRIORITY_DEFAULT, main_cancel,
-			       writable, in);
+  main_offset += nskipped;
+  if (main_offset == main_len)
+    {
+      main_offset = 0;
+      g_output_stream_write_async (out, main_buf, main_len,
+                                   G_PRIORITY_DEFAULT, main_cancel,
+                                   main_thread_wrote, in);
+    }
+  else
+    {
+      g_input_stream_skip_async (in, main_len - main_offset,
+				 G_PRIORITY_DEFAULT, main_cancel,
+				 main_thread_skipped, out);
+    }
 }
 
 static void
-writable (GObject *source, GAsyncResult *res, gpointer user_data)
+main_thread_read (GObject *source, GAsyncResult *res, gpointer user_data)
+{
+  GInputStream *in = G_INPUT_STREAM (source);
+  GOutputStream *out = user_data;
+  GError *err = NULL;
+  gssize nread;
+
+  nread = g_input_stream_read_finish (in, res, &err);
+
+  if (g_cancellable_is_cancelled (main_cancel))
+    {
+      do_main_cancel (out);
+      return;
+    }
+
+  g_assert_no_error (err);
+
+  main_offset += nread;
+  if (main_offset == sizeof (DATA))
+    {
+      main_len = main_offset;
+      main_offset = 0;
+      /* Now skip the same amount */
+      g_input_stream_skip_async (in, main_len,
+				 G_PRIORITY_DEFAULT, main_cancel,
+				 main_thread_skipped, out);
+    }
+  else
+    {
+      g_input_stream_read_async (in, main_buf, sizeof (main_buf),
+				 G_PRIORITY_DEFAULT, main_cancel,
+				 main_thread_read, out);
+    }
+}
+
+static void
+main_thread_wrote (GObject *source, GAsyncResult *res, gpointer user_data)
 {
   GOutputStream *out = G_OUTPUT_STREAM (source);
   GInputStream *in = user_data;
@@ -167,22 +217,23 @@ writable (GObject *source, GAsyncResult *res, gpointer user_data)
       return;
     }
 
-  g_assert (err == NULL);
+  g_assert_no_error (err);
   g_assert_cmpint (nwrote, <=, main_len - main_offset);
 
   main_offset += nwrote;
   if (main_offset == main_len)
     {
+      main_offset = 0;
       g_input_stream_read_async (in, main_buf, sizeof (main_buf),
 				 G_PRIORITY_DEFAULT, main_cancel,
-				 readable, out);
+				 main_thread_read, out);
     }
   else
     {
       g_output_stream_write_async (out, main_buf + main_offset,
 				   main_len - main_offset,
 				   G_PRIORITY_DEFAULT, main_cancel,
-				   writable, in);
+				   main_thread_wrote, in);
     }
 }
 
@@ -194,7 +245,7 @@ timeout (gpointer cancellable)
 }
 
 static void
-test_pipe_io (void)
+test_pipe_io (gconstpointer nonblocking)
 {
   GThread *writer, *reader;
   GInputStream *in;
@@ -202,29 +253,44 @@ test_pipe_io (void)
 
   /* Split off two (additional) threads, a reader and a writer. From
    * the writer thread, write data synchronously in small chunks,
-   * which gets read asynchronously by the main thread and then
-   * written asynchronously to the reader thread, which reads it
-   * synchronously. Eventually a timeout in the main thread will cause
-   * it to cancel the writer thread, which will in turn cancel the
-   * read op in the main thread, which will then close the pipe to
-   * the reader thread, causing the read op to fail.
+   * which gets alternately read and skipped asynchronously by the
+   * main thread and then (if not skipped) written asynchronously to
+   * the reader thread, which reads it synchronously. Eventually a
+   * timeout in the main thread will cause it to cancel the writer
+   * thread, which will in turn cancel the read op in the main thread,
+   * which will then close the pipe to the reader thread, causing the
+   * read op to fail.
    */
 
   g_assert (pipe (writer_pipe) == 0 && pipe (reader_pipe) == 0);
+
+  if (nonblocking)
+    {
+      GError *error = NULL;
+
+      g_unix_set_fd_nonblocking (writer_pipe[0], TRUE, &error);
+      g_assert_no_error (error);
+      g_unix_set_fd_nonblocking (writer_pipe[1], TRUE, &error);
+      g_assert_no_error (error);
+      g_unix_set_fd_nonblocking (reader_pipe[0], TRUE, &error);
+      g_assert_no_error (error);
+      g_unix_set_fd_nonblocking (reader_pipe[1], TRUE, &error);
+      g_assert_no_error (error);
+    }
 
   writer_cancel = g_cancellable_new ();
   reader_cancel = g_cancellable_new ();
   main_cancel = g_cancellable_new ();
 
-  writer = g_thread_create (writer_thread, NULL, TRUE, NULL);
-  reader = g_thread_create (reader_thread, NULL, TRUE, NULL);
+  writer = g_thread_new ("writer", writer_thread, NULL);
+  reader = g_thread_new ("reader", reader_thread, NULL);
 
   in = g_unix_input_stream_new (writer_pipe[0], TRUE);
   out = g_unix_output_stream_new (reader_pipe[1], TRUE);
 
   g_input_stream_read_async (in, main_buf, sizeof (main_buf),
 			     G_PRIORITY_DEFAULT, main_cancel,
-			     readable, out);
+			     main_thread_read, out);
 
   g_timeout_add (500, timeout, writer_cancel);
 
@@ -242,15 +308,60 @@ test_pipe_io (void)
   g_object_unref (out);
 }
 
+static void
+test_basic (void)
+{
+  GUnixInputStream *is;
+  GUnixOutputStream *os;
+  gint fd;
+  gboolean close_fd;
+
+  is = G_UNIX_INPUT_STREAM (g_unix_input_stream_new (0, TRUE));
+  g_object_get (is,
+                "fd", &fd,
+                "close-fd", &close_fd,
+                NULL);
+  g_assert_cmpint (fd, ==, 0);
+  g_assert (close_fd);
+
+  g_unix_input_stream_set_close_fd (is, FALSE);
+  g_assert (!g_unix_input_stream_get_close_fd (is));
+  g_assert_cmpint (g_unix_input_stream_get_fd (is), ==, 0);
+
+  g_assert (!g_input_stream_has_pending (G_INPUT_STREAM (is)));
+
+  g_object_unref (is);
+
+  os = G_UNIX_OUTPUT_STREAM (g_unix_output_stream_new (1, TRUE));
+  g_object_get (os,
+                "fd", &fd,
+                "close-fd", &close_fd,
+                NULL);
+  g_assert_cmpint (fd, ==, 1);
+  g_assert (close_fd);
+
+  g_unix_output_stream_set_close_fd (os, FALSE);
+  g_assert (!g_unix_output_stream_get_close_fd (os));
+  g_assert_cmpint (g_unix_output_stream_get_fd (os), ==, 1);
+
+  g_assert (!g_output_stream_has_pending (G_OUTPUT_STREAM (os)));
+
+  g_object_unref (os);
+}
+
 int
 main (int   argc,
       char *argv[])
 {
-  g_thread_init (NULL);
-  g_type_init ();
   g_test_init (&argc, &argv, NULL);
 
-  g_test_add_func ("/unix-streams/pipe-io-test", test_pipe_io);
+  g_test_add_func ("/unix-streams/basic", test_basic);
+  g_test_add_data_func ("/unix-streams/pipe-io-test",
+			GINT_TO_POINTER (FALSE),
+			test_pipe_io);
+  g_test_add_data_func ("/unix-streams/nonblocking-io-test",
+			GINT_TO_POINTER (TRUE),
+			test_pipe_io);
 
   return g_test_run();
 }

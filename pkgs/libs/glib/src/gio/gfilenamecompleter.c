@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
@@ -30,7 +28,6 @@
 #include <string.h>
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 /**
  * SECTION:gfilenamecompleter
@@ -65,8 +62,8 @@ struct _GFilenameCompleter {
 
   GFile *basenames_dir;
   gboolean basenames_are_escaped;
-  GList *basenames;
   gboolean dirs_only;
+  GList *basenames;
 
   LoadBasenamesData *basename_loader;
 };
@@ -87,8 +84,7 @@ g_filename_completer_finalize (GObject *object)
   if (completer->basenames_dir)
     g_object_unref (completer->basenames_dir);
 
-  g_list_foreach (completer->basenames, (GFunc)g_free, NULL);
-  g_list_free (completer->basenames);
+  g_list_free_full (completer->basenames, g_free);
 
   G_OBJECT_CLASS (g_filename_completer_parent_class)->finalize (object);
 }
@@ -156,8 +152,7 @@ load_basenames_data_free (LoadBasenamesData *data)
   g_object_unref (data->cancellable);
   g_object_unref (data->dir);
   
-  g_list_foreach (data->basenames, (GFunc)g_free, NULL);
-  g_list_free (data->basenames);
+  g_list_free_full (data->basenames, g_free);
   
   g_free (data);
 }
@@ -244,8 +239,7 @@ got_more_files (GObject *source_object,
       
       if (data->completer->basenames_dir)
 	g_object_unref (data->completer->basenames_dir);
-      g_list_foreach (data->completer->basenames, (GFunc)g_free, NULL);
-      g_list_free (data->completer->basenames);
+      g_list_free_full (data->completer->basenames, g_free);
       
       data->completer->basenames_dir = g_object_ref (data->dir);
       data->completer->basenames = data->basenames;
@@ -282,8 +276,7 @@ got_enum (GObject *source_object,
 
       if (data->completer->basenames_dir)
 	g_object_unref (data->completer->basenames_dir);
-      g_list_foreach (data->completer->basenames, (GFunc)g_free, NULL);
-      g_list_free (data->completer->basenames);
+      g_list_free_full (data->completer->basenames, g_free);
 
       /* Mark uptodate with no basenames */
       data->completer->basenames_dir = g_object_ref (data->dir);
@@ -465,7 +458,7 @@ g_filename_completer_get_completion_suffix (GFilenameCompleter *completer,
  * 
  * Gets an array of completion strings for a given initial text.
  * 
- * Returns: array of strings with possible completions for @initial_text.
+ * Returns: (array zero-terminated=1) (transfer full): array of strings with possible completions for @initial_text.
  * This array must be freed by g_strfreev() when finished. 
  **/
 char **
@@ -515,6 +508,3 @@ g_filename_completer_set_dirs_only (GFilenameCompleter *completer,
 
   completer->dirs_only = dirs_only;
 }
-
-#define __G_FILENAME_COMPLETER_C__
-#include "gioaliasdef.c"

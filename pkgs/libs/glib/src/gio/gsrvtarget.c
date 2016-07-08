@@ -15,9 +15,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "config.h"
@@ -29,7 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "gioalias.h"
 
 /**
  * SECTION:gsrvtarget
@@ -45,7 +42,7 @@
  * then connect to whatever host was pointed to by that record.
  *
  * You can use g_resolver_lookup_service() or
- * g_resolver_lookup_service_async() to find the #GSrvTarget<!-- -->s
+ * g_resolver_lookup_service_async() to find the #GSrvTargets
  * for a given service. However, if you are simply planning to connect
  * to the remote service, you can use #GNetworkService's
  * #GSocketConnectable interface and not need to worry about
@@ -66,21 +63,8 @@ struct _GSrvTarget {
  * A single target host/port that a network service is running on.
  */
 
-GType
-g_srv_target_get_type (void)
-{
-  static volatile gsize type_volatile = 0;
-
-  if (g_once_init_enter (&type_volatile))
-    {
-      GType type = g_boxed_type_register_static (
-                        g_intern_static_string ("GSrvTarget"),
-			(GBoxedCopyFunc) g_srv_target_copy,
-			(GBoxedFreeFunc) g_srv_target_free);
-      g_once_init_leave (&type_volatile, type);
-    }
-  return type_volatile;
-}
+G_DEFINE_BOXED_TYPE (GSrvTarget, g_srv_target,
+                     g_srv_target_copy, g_srv_target_free)
 
 /**
  * g_srv_target_new:
@@ -91,10 +75,10 @@ g_srv_target_get_type (void)
  *
  * Creates a new #GSrvTarget with the given parameters.
  *
- * You should not need to use this; normally #GSrvTarget<!-- -->s are
+ * You should not need to use this; normally #GSrvTargets are
  * created by #GResolver.
  *
- * Return value: a new #GSrvTarget.
+ * Returns: a new #GSrvTarget.
  *
  * Since: 2.22
  */
@@ -120,7 +104,7 @@ g_srv_target_new (const gchar *hostname,
  *
  * Copies @target
  *
- * Return value: a copy of @target
+ * Returns: a copy of @target
  *
  * Since: 2.22
  */
@@ -155,7 +139,7 @@ g_srv_target_free (GSrvTarget *target)
  * check if it contains encoded Unicode segments, and use
  * g_hostname_to_unicode() to convert it if it does.)
  *
- * Return value: @target's hostname
+ * Returns: @target's hostname
  *
  * Since: 2.22
  */
@@ -171,7 +155,7 @@ g_srv_target_get_hostname (GSrvTarget *target)
  *
  * Gets @target's port
  *
- * Return value: @target's port
+ * Returns: @target's port
  *
  * Since: 2.22
  */
@@ -189,7 +173,7 @@ g_srv_target_get_port (GSrvTarget *target)
  * #GResolver already sorts the targets according to the algorithm in
  * RFC 2782.
  *
- * Return value: @target's priority
+ * Returns: @target's priority
  *
  * Since: 2.22
  */
@@ -207,7 +191,7 @@ g_srv_target_get_priority (GSrvTarget *target)
  * #GResolver already sorts the targets according to the algorithm in
  * RFC 2782.
  *
- * Return value: @target's weight
+ * Returns: @target's weight
  *
  * Since: 2.22
  */
@@ -217,7 +201,7 @@ g_srv_target_get_weight (GSrvTarget *target)
   return target->weight;
 }
 
-gint
+static gint
 compare_target (gconstpointer a, gconstpointer b)
 {
   GSrvTarget *ta = (GSrvTarget *)a;
@@ -236,12 +220,12 @@ compare_target (gconstpointer a, gconstpointer b)
 }
 
 /**
- * g_srv_target_list_sort:
+ * g_srv_target_list_sort: (skip)
  * @targets: a #GList of #GSrvTarget
  *
  * Sorts @targets in place according to the algorithm in RFC 2782.
  *
- * Return value: the head of the sorted list.
+ * Returns: (transfer full): the head of the sorted list.
  *
  * Since: 2.22
  */
@@ -326,6 +310,3 @@ g_srv_target_list_sort (GList *targets)
 
   return out;
 }
-
-#define __G_SRV_TARGET_C__
-#include "gioaliasdef.c"

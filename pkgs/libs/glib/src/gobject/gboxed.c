@@ -12,22 +12,22 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "config.h"
 
 #include <string.h>
 
+/* for GValueArray */
+#define GLIB_DISABLE_DEPRECATION_WARNINGS
+
 #include "gboxed.h"
+#include "gclosure.h"
 #include "gtype-private.h"
 #include "gvalue.h"
 #include "gvaluearray.h"
-#include "gclosure.h"
 #include "gvaluecollector.h"
-#include "gobjectalias.h"
 
 
 /**
@@ -54,10 +54,9 @@ value_meminit (GValue *value,
   memset (value->data, 0, sizeof (value->data));
 }
 
-static gpointer
-value_copy (gpointer boxed)
+static GValue *
+value_copy (GValue *src_value)
 {
-  const GValue *src_value = boxed;
   GValue *dest_value = g_new0 (GValue, 1);
 
   if (G_VALUE_TYPE (src_value))
@@ -69,19 +68,26 @@ value_copy (gpointer boxed)
 }
 
 static void
-value_free (gpointer boxed)
+value_free (GValue *value)
 {
-  GValue *value = boxed;
-
   if (G_VALUE_TYPE (value))
     g_value_unset (value);
   g_free (value);
 }
 
-void
-g_boxed_type_init (void)
+static GPollFD *
+pollfd_copy (GPollFD *src)
 {
-  static const GTypeInfo info = {
+  GPollFD *dest = g_new0 (GPollFD, 1);
+  /* just a couple of integers */
+  memcpy (dest, src, sizeof (GPollFD));
+  return dest;
+}
+
+void
+_g_boxed_type_init (void)
+{
+  const GTypeInfo info = {
     0,                          /* class_size */
     NULL,                       /* base_init */
     NULL,                       /* base_destroy */
@@ -103,200 +109,87 @@ g_boxed_type_init (void)
   g_assert (type == G_TYPE_BOXED);
 }
 
-GType
-g_closure_get_type (void)
+static GDate *
+gdate_copy (GDate *date)
 {
-  static GType type_id = 0;
-
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GClosure"),
-					    (GBoxedCopyFunc) g_closure_ref,
-					    (GBoxedFreeFunc) g_closure_unref);
-  return type_id;
-}
-
-GType
-g_value_get_type (void)
-{
-  static GType type_id = 0;
-
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GValue"),
-					    value_copy,
-					    value_free);
-  return type_id;
-}
-
-GType
-g_value_array_get_type (void)
-{
-  static GType type_id = 0;
-
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GValueArray"),
-					    (GBoxedCopyFunc) g_value_array_copy,
-					    (GBoxedFreeFunc) g_value_array_free);
-  return type_id;
-}
-
-static gpointer
-gdate_copy (gpointer boxed)
-{
-  const GDate *date = (const GDate*) boxed;
-
   return g_date_new_julian (g_date_get_julian (date));
 }
 
-GType
-g_date_get_type (void)
+static GString *
+gstring_copy (GString *src_gstring)
 {
-  static GType type_id = 0;
-
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GDate"),
-					    (GBoxedCopyFunc) gdate_copy,
-					    (GBoxedFreeFunc) g_date_free);
-  return type_id;
-}
-
-GType
-g_strv_get_type (void)
-{
-  static GType type_id = 0;
-
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GStrv"),
-					    (GBoxedCopyFunc) g_strdupv,
-					    (GBoxedFreeFunc) g_strfreev);
-  return type_id;
-}
-
-static gpointer
-gstring_copy (gpointer boxed)
-{
-  const GString *src_gstring = boxed;
-
   return g_string_new_len (src_gstring->str, src_gstring->len);
 }
 
 static void
-gstring_free (gpointer boxed)
+gstring_free (GString *gstring)
 {
-  GString *gstring = boxed;
-
   g_string_free (gstring, TRUE);
 }
 
+G_DEFINE_BOXED_TYPE (GClosure, g_closure, g_closure_ref, g_closure_unref)
+G_DEFINE_BOXED_TYPE (GValue, g_value, value_copy, value_free)
+G_DEFINE_BOXED_TYPE (GValueArray, g_value_array, g_value_array_copy, g_value_array_free)
+G_DEFINE_BOXED_TYPE (GDate, g_date, gdate_copy, g_date_free)
+/* the naming is a bit odd, but GString is obviously not G_TYPE_STRING */
+G_DEFINE_BOXED_TYPE (GString, g_gstring, gstring_copy, gstring_free)
+G_DEFINE_BOXED_TYPE (GHashTable, g_hash_table, g_hash_table_ref, g_hash_table_unref)
+G_DEFINE_BOXED_TYPE (GArray, g_array, g_array_ref, g_array_unref)
+G_DEFINE_BOXED_TYPE (GPtrArray, g_ptr_array,g_ptr_array_ref, g_ptr_array_unref)
+G_DEFINE_BOXED_TYPE (GByteArray, g_byte_array, g_byte_array_ref, g_byte_array_unref)
+G_DEFINE_BOXED_TYPE (GBytes, g_bytes, g_bytes_ref, g_bytes_unref);
+
+G_DEFINE_BOXED_TYPE (GRegex, g_regex, g_regex_ref, g_regex_unref)
+G_DEFINE_BOXED_TYPE (GMatchInfo, g_match_info, g_match_info_ref, g_match_info_unref)
+
+#define g_variant_type_get_type g_variant_type_get_gtype
+G_DEFINE_BOXED_TYPE (GVariantType, g_variant_type, g_variant_type_copy, g_variant_type_free)
+#undef g_variant_type_get_type
+
+G_DEFINE_BOXED_TYPE (GVariantBuilder, g_variant_builder, g_variant_builder_ref, g_variant_builder_unref)
+G_DEFINE_BOXED_TYPE (GVariantDict, g_variant_dict, g_variant_dict_ref, g_variant_dict_unref)
+
+G_DEFINE_BOXED_TYPE (GError, g_error, g_error_copy, g_error_free)
+
+G_DEFINE_BOXED_TYPE (GDateTime, g_date_time, g_date_time_ref, g_date_time_unref);
+G_DEFINE_BOXED_TYPE (GTimeZone, g_time_zone, g_time_zone_ref, g_time_zone_unref);
+G_DEFINE_BOXED_TYPE (GKeyFile, g_key_file, g_key_file_ref, g_key_file_unref)
+G_DEFINE_BOXED_TYPE (GMappedFile, g_mapped_file, g_mapped_file_ref, g_mapped_file_unref)
+
+G_DEFINE_BOXED_TYPE (GMainLoop, g_main_loop, g_main_loop_ref, g_main_loop_unref)
+G_DEFINE_BOXED_TYPE (GMainContext, g_main_context, g_main_context_ref, g_main_context_unref)
+G_DEFINE_BOXED_TYPE (GSource, g_source, g_source_ref, g_source_unref)
+G_DEFINE_BOXED_TYPE (GPollFD, g_pollfd, pollfd_copy, g_free)
+G_DEFINE_BOXED_TYPE (GMarkupParseContext, g_markup_parse_context, g_markup_parse_context_ref, g_markup_parse_context_unref)
+
+G_DEFINE_BOXED_TYPE (GThread, g_thread, g_thread_ref, g_thread_unref)
+G_DEFINE_BOXED_TYPE (GChecksum, g_checksum, g_checksum_copy, g_checksum_free)
+
+G_DEFINE_BOXED_TYPE (GOptionGroup, g_option_group, g_option_group_ref, g_option_group_unref)
+
+/* This one can't use G_DEFINE_BOXED_TYPE (GStrv, g_strv, g_strdupv, g_strfreev) */
 GType
-g_gstring_get_type (void)
+g_strv_get_type (void)
 {
-  static GType type_id = 0;
+  static volatile gsize g_define_type_id__volatile = 0;
 
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GString"),
-                                            /* the naming is a bit odd, but GString is obviously not G_TYPE_STRING */
-					    gstring_copy,
-					    gstring_free);
-  return type_id;
-}
+  if (g_once_init_enter (&g_define_type_id__volatile))
+    {
+      GType g_define_type_id =
+        g_boxed_type_register_static (g_intern_static_string ("GStrv"),
+                                      (GBoxedCopyFunc) g_strdupv,
+                                      (GBoxedFreeFunc) g_strfreev);
 
-static gpointer
-hash_table_copy (gpointer boxed)
-{
-  GHashTable *hash_table = boxed;
-  return g_hash_table_ref (hash_table);
-}
+      g_once_init_leave (&g_define_type_id__volatile, g_define_type_id);
+    }
 
-static void
-hash_table_free (gpointer boxed)
-{
-  GHashTable *hash_table = boxed;
-  g_hash_table_unref (hash_table);
-}
-
-GType
-g_hash_table_get_type (void)
-{
-  static GType type_id = 0;
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GHashTable"),
-					    hash_table_copy, hash_table_free);
-  return type_id;
-}
-
-GType
-g_regex_get_type (void)
-{
-  static GType type_id = 0;
-
-#ifdef ENABLE_REGEX
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GRegex"),
-					    (GBoxedCopyFunc) g_regex_ref,
-					    (GBoxedFreeFunc) g_regex_unref);
-#endif
-
-  return type_id;
-}
-
-GType
-g_array_get_type (void)
-{
-  static GType type_id = 0;
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GArray"),
-					    (GBoxedCopyFunc) g_array_ref,
-                                            (GBoxedFreeFunc) g_array_unref);
-  return type_id;
-}
-
-GType
-g_ptr_array_get_type (void)
-{
-  static GType type_id = 0;
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GPtrArray"),
-					    (GBoxedCopyFunc) g_ptr_array_ref,
-                                            (GBoxedFreeFunc) g_ptr_array_unref);
-  return type_id;
-}
-
-GType
-g_byte_array_get_type (void)
-{
-  static GType type_id = 0;
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GByteArray"),
-					    (GBoxedCopyFunc) g_byte_array_ref,
-                                            (GBoxedFreeFunc) g_byte_array_unref);
-
-  return type_id;
-}
-
-GType
-g_variant_type_get_gtype (void)
-{
-  static GType type_id = 0;
-
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GVariantType"),
-                                            (GBoxedCopyFunc) g_variant_type_copy,
-                                            (GBoxedFreeFunc) g_variant_type_free);
-
-  return type_id;
+  return g_define_type_id__volatile;
 }
 
 GType
 g_variant_get_gtype (void)
 {
-  static GType type_id = 0;
-
-  if (!type_id)
-    type_id = g_boxed_type_register_static (g_intern_static_string ("GVariant"),
-                                            (GBoxedCopyFunc) g_variant_ref,
-                                            (GBoxedFreeFunc) g_variant_unref);
-
-  return type_id;
+  return G_TYPE_VARIANT;
 }
 
 static void
@@ -359,7 +252,7 @@ boxed_proxy_lcopy_value (const GValue *value,
   gpointer *boxed_p = collect_values[0].v_pointer;
 
   if (!boxed_p)
-    return g_strdup_printf ("value location for `%s' passed as NULL", G_VALUE_TYPE_NAME (value));
+    return g_strdup_printf ("value location for '%s' passed as NULL", G_VALUE_TYPE_NAME (value));
 
   if (!value->data[0].v_pointer)
     *boxed_p = NULL;
@@ -419,7 +312,7 @@ g_boxed_type_register_static (const gchar   *name,
 
   type = g_type_register_static (G_TYPE_BOXED, name, &type_info, 0);
 
-  /* install proxy functions upon successfull registration */
+  /* install proxy functions upon successful registration */
   if (type)
     _g_type_boxed_init (type, boxed_copy, boxed_free);
 
@@ -429,11 +322,12 @@ g_boxed_type_register_static (const gchar   *name,
 /**
  * g_boxed_copy:
  * @boxed_type: The type of @src_boxed.
- * @src_boxed: The boxed structure to be copied.
+ * @src_boxed: (not nullable): The boxed structure to be copied.
  * 
  * Provide a copy of a boxed structure @src_boxed which is of type @boxed_type.
  * 
- * Returns: The newly created copy of the boxed structure.
+ * Returns: (transfer full) (not nullable): The newly created copy of the boxed
+ *    structure.
  */
 gpointer
 g_boxed_copy (GType         boxed_type,
@@ -462,7 +356,7 @@ g_boxed_copy (GType         boxed_type,
        * (data[0].v_pointer is the boxed struct, and
        * data[1].v_uint holds the G_VALUE_NOCOPY_CONTENTS flag,
        * rest zero).
-       * but then, we can expect that since we layed out the
+       * but then, we can expect that since we laid out the
        * g_boxed_*() API.
        * data[1].v_uint&G_VALUE_NOCOPY_CONTENTS shouldn't be set
        * after a copy.
@@ -478,7 +372,7 @@ g_boxed_copy (GType         boxed_type,
 
       /* double check and grouse if things went wrong */
       if (dest_value.data[1].v_ulong)
-	g_warning ("the copy_value() implementation of type `%s' seems to make use of reserved GValue fields",
+	g_warning ("the copy_value() implementation of type '%s' seems to make use of reserved GValue fields",
 		   g_type_name (boxed_type));
 
       dest_boxed = dest_value.data[0].v_pointer;
@@ -490,7 +384,7 @@ g_boxed_copy (GType         boxed_type,
 /**
  * g_boxed_free:
  * @boxed_type: The type of @boxed.
- * @boxed: The boxed structure to be freed.
+ * @boxed: (not nullable): The boxed structure to be freed.
  *
  * Free the boxed structure @boxed which is of type @boxed_type.
  */
@@ -528,7 +422,7 @@ g_boxed_free (GType    boxed_type,
  *
  * Get the contents of a %G_TYPE_BOXED derived #GValue.
  *
- * Returns: boxed contents of @value
+ * Returns: (transfer none): boxed contents of @value
  */
 gpointer
 g_value_get_boxed (const GValue *value)
@@ -540,7 +434,7 @@ g_value_get_boxed (const GValue *value)
 }
 
 /**
- * g_value_dup_boxed:
+ * g_value_dup_boxed: (skip)
  * @value: a valid #GValue of %G_TYPE_BOXED derived type
  *
  * Get the contents of a %G_TYPE_BOXED derived #GValue.  Upon getting,
@@ -585,7 +479,7 @@ value_set_boxed_internal (GValue       *value,
 /**
  * g_value_set_boxed:
  * @value: a valid #GValue of %G_TYPE_BOXED derived type
- * @v_boxed: boxed value to be set
+ * @v_boxed: (allow-none): boxed value to be set
  *
  * Set the contents of a %G_TYPE_BOXED derived #GValue to @v_boxed.
  */
@@ -602,7 +496,7 @@ g_value_set_boxed (GValue       *value,
 /**
  * g_value_set_static_boxed:
  * @value: a valid #GValue of %G_TYPE_BOXED derived type
- * @v_boxed: static boxed value to be set
+ * @v_boxed: (allow-none): static boxed value to be set
  *
  * Set the contents of a %G_TYPE_BOXED derived #GValue to @v_boxed.
  * The boxed value is assumed to be static, and is thus not duplicated
@@ -621,7 +515,7 @@ g_value_set_static_boxed (GValue       *value,
 /**
  * g_value_set_boxed_take_ownership:
  * @value: a valid #GValue of %G_TYPE_BOXED derived type
- * @v_boxed: duplicated unowned boxed value to be set
+ * @v_boxed: (allow-none): duplicated unowned boxed value to be set
  *
  * This is an internal function introduced mainly for C marshallers.
  *
@@ -637,7 +531,7 @@ g_value_set_boxed_take_ownership (GValue       *value,
 /**
  * g_value_take_boxed:
  * @value: a valid #GValue of %G_TYPE_BOXED derived type
- * @v_boxed: duplicated unowned boxed value to be set
+ * @v_boxed: (allow-none): duplicated unowned boxed value to be set
  *
  * Sets the contents of a %G_TYPE_BOXED derived #GValue to @v_boxed
  * and takes over the ownership of the callers reference to @v_boxed;
@@ -654,6 +548,3 @@ g_value_take_boxed (GValue       *value,
 
   value_set_boxed_internal (value, boxed, FALSE, TRUE);
 }
-
-#define __G_BOXED_C__
-#include "gobjectaliasdef.c"

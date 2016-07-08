@@ -1,36 +1,29 @@
 ## Process this file with automake to produce Makefile.in
-include $(top_srcdir)/Makefile.decl
+include $(top_srcdir)/glib.mk
 
 AM_CPPFLAGS = 				\
-	-I$(top_srcdir) 		\
-	-I$(top_srcdir)/glib 		\
-	-I$(top_srcdir)/gmodule 	\
+	$(glib_INCLUDES) 		\
 	-DG_LOG_DOMAIN=\"GModule\" 	\
 	@GLIB_DEBUG_FLAGS@ 		\
 	-DG_DISABLE_DEPRECATED
 
-gmodule.def: gmodule.symbols
-	(echo -e EXPORTS; $(CPP) -P - <$(srcdir)/gmodule.symbols | sed -e '/^$$/d' -e 's/^/	/') > gmodule.def
+AM_CFLAGS = $(GLIB_WARN_CFLAGS)
 
 EXTRA_DIST +=				\
 		makefile.msc.in 	\
 		gmoduleconf.h.in 	\
-		gmodule.symbols		\
 		gmodule-dl.c		\
-		gmodule-dld.c		\
 		gmodule-dyld.c		\
-		gmodule-os2.c		\
 		gmodule-win32.c		\
-		gmodule-beos.c		\
 		gmodule-ar.c		\
 		gmoduleconf.h.win32 	\
 		gmodule.rc.in
 
-BUILT_EXTRA_DIST = \
+BUILT_EXTRA_DIST += \
 		makefile.msc	\
 		gmodule.rc
 
-BUILT_SOURCES = gmoduleconf.h
+BUILT_SOURCES += gmoduleconf.h
 gmoduleconf.h:	gmoduleconf.h.in
 
 glibincludedir=$(includedir)/glib-2.0
@@ -45,7 +38,7 @@ lib_LTLIBRARIES = libgmodule-2.0.la
 
 if OS_WIN32_AND_DLL_COMPILATION
 if MS_LIB_AVAILABLE
-noinst_DATA = gmodule-2.0.lib
+noinst_DATA += gmodule-2.0.lib
 
 install_ms_lib_cmd = $(INSTALL) gmodule-2.0.lib $(DESTDIR)$(libdir)
 uninstall_ms_lib_cmd = -rm $(DESTDIR)$(libdir)/gmodule-2.0.lib
@@ -63,38 +56,30 @@ no_undefined = -no-undefined
 endif
 
 if OS_WIN32_AND_DLL_COMPILATION
-export_symbols = -export-symbols gmodule.def
-gmodule_def = gmodule.def
-
 gmodule_win32_res = gmodule-win32-res.o
 gmodule_win32_res_ldflag = -Wl,$(gmodule_win32_res)
-
-install-def-file:
-	$(INSTALL) gmodule.def $(DESTDIR)$(libdir)/gmodule-2.0.def
-
-uninstall-def-file:
-	-rm $(DESTDIR)$(libdir)/gmodule-2.0.def
-else
-install-def-file:
-uninstall-def-file:
 endif
 
+libgmodule_2_0_la_CFLAGS = $(AM_CFLAGS) $(GLIB_HIDDEN_VISIBILITY_CFLAGS)
 libgmodule_2_0_la_SOURCES = gmodule.c
-libgmodule_2_0_la_LDFLAGS = \
+libgmodule_2_0_la_LDFLAGS = $(GLIB_LINK_FLAGS) \
 	$(gmodule_win32_res_ldflag) \
 	$(G_MODULE_LDFLAGS) \
 	-version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) \
-	-export-dynamic $(no_undefined) $(export_symbols)
+	-export-dynamic $(no_undefined)
 
 libgmodule_2_0_la_LIBADD = $(G_MODULE_LIBS_EXTRA) $(G_MODULE_LIBS) $(libglib)
 
 libgmodule_2_0_la_DEPENDENCIES = $(gmodule_win32_res) $(gmodule_def)
 
 gmodule-win32-res.o: gmodule.rc
-	$(WINDRES) gmodule.rc $@
+	$(AM_V_GEN) $(WINDRES) gmodule.rc $@
+
+gmodule.def: libgmodule-2.0.la
+	$(AM_V_GEN) dumpbin.exe -exports .libs/libgmodule-2.0-0.dll | awk 'BEGIN { print "EXPORTS" } / +[[:digit:]]+ +[[:xdigit:]]+ +[[:xdigit:]]+/{ print $$4 }' > gmodule.def.tmp && mv gmodule.def.tmp gmodule.def
 
 gmodule-2.0.lib: libgmodule-2.0.la gmodule.def
-	lib -machine:@LIB_EXE_MACHINE_FLAG@ -name:libgmodule-2.0-$(LT_CURRENT_MINUS_AGE).dll -def:gmodule.def -out:$@
+	$(AM_V_GEN) lib.exe -machine:@LIB_EXE_MACHINE_FLAG@ -name:libgmodule-2.0-$(LT_CURRENT_MINUS_AGE).dll -def:$(builddir)/gmodule.def -out:$@
 
 .PHONY: files release
 
@@ -113,9 +98,9 @@ dist-hook: $(BUILT_EXTRA_DIST)
 	  cp $$d/$$f $(distdir) || exit 1; done
 
 
-install-data-local: install-ms-lib install-def-file
+install-data-local: install-ms-lib
 
-uninstall-local: uninstall-ms-lib uninstall-def-file
+uninstall-local: uninstall-ms-lib
 
 if HAVE_GLIB_RUNTIME_LIBDIR
 install-data-hook:

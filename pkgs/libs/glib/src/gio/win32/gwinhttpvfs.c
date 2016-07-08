@@ -14,9 +14,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  * Author: Tor Lillqvist <tml@novell.com>
@@ -26,14 +24,12 @@
 
 #include <wchar.h>
 
-#include "gioerror.h"
-#include "giomodule.h"
-#include "gvfs.h"
+#include "gio/gioerror.h"
+#include "gio/giomodule.h"
+#include "gio/gvfs.h"
 
 #include "gwinhttpfile.h"
 #include "gwinhttpvfs.h"
-
-#include "gioalias.h"
 
 static gboolean lookup_done = FALSE;
 static gboolean funcs_found = FALSE;
@@ -42,12 +38,23 @@ static GWinHttpDllFuncs funcs;
 static void
 lookup_funcs (void)
 {
-  HMODULE winhttp;
+  HMODULE winhttp = NULL;
+  char winhttp_dll[MAX_PATH + 100];
+  int n;
 
   if (lookup_done)
     return;
 
-  winhttp = LoadLibrary ("winhttp.dll");
+  n = GetSystemDirectory (winhttp_dll, MAX_PATH);
+  if (n > 0 && n < MAX_PATH)
+    {
+        if (winhttp_dll[n-1] != '\\' &&
+            winhttp_dll[n-1] != '/')
+            strcat (winhttp_dll, "\\");
+        strcat (winhttp_dll, "winhttp.dll");
+        winhttp = LoadLibrary (winhttp_dll);
+    }
+
   if (winhttp != NULL)
     {
       funcs.pWinHttpCloseHandle = (BOOL (WINAPI *) (HINTERNET)) GetProcAddress (winhttp, "WinHttpCloseHandle");
@@ -128,9 +135,11 @@ g_winhttp_vfs_init (GWinHttpVfs *vfs)
      WINHTTP_NO_PROXY_NAME,
      WINHTTP_NO_PROXY_BYPASS,
      0);
+
+  g_free (wagent);
 }
 
-/*
+/**
  * g_winhttp_vfs_new:
  *
  * Returns a new #GVfs handle for a WinHttp vfs.

@@ -15,9 +15,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  *         David Zeuthen <davidz@redhat.com>
@@ -38,7 +36,6 @@
 
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 struct _GUnionVolumeMonitor {
   GVolumeMonitor parent;
@@ -53,7 +50,7 @@ static void g_union_volume_monitor_remove_monitor (GUnionVolumeMonitor *union_mo
 #define g_union_volume_monitor_get_type _g_union_volume_monitor_get_type
 G_DEFINE_TYPE (GUnionVolumeMonitor, g_union_volume_monitor, G_TYPE_VOLUME_MONITOR);
 
-static GStaticRecMutex the_volume_monitor_mutex = G_STATIC_REC_MUTEX_INIT;
+static GRecMutex the_volume_monitor_mutex;
 
 static GUnionVolumeMonitor *the_volume_monitor = NULL;
 
@@ -85,7 +82,7 @@ g_union_volume_monitor_dispose (GObject *object)
 
   monitor = G_UNION_VOLUME_MONITOR (object);
 
-  g_static_rec_mutex_lock (&the_volume_monitor_mutex);
+  g_rec_mutex_lock (&the_volume_monitor_mutex);
   the_volume_monitor = NULL;
 
   for (l = monitor->monitors; l != NULL; l = l->next)
@@ -94,7 +91,7 @@ g_union_volume_monitor_dispose (GObject *object)
       g_object_run_dispose (G_OBJECT (child_monitor));
     }
   
-  g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
+  g_rec_mutex_unlock (&the_volume_monitor_mutex);
 
   G_OBJECT_CLASS (g_union_volume_monitor_parent_class)->dispose (object);
 }
@@ -111,7 +108,7 @@ get_mounts (GVolumeMonitor *volume_monitor)
 
   res = NULL;
   
-  g_static_rec_mutex_lock (&the_volume_monitor_mutex);
+  g_rec_mutex_lock (&the_volume_monitor_mutex);
 
   for (l = monitor->monitors; l != NULL; l = l->next)
     {
@@ -120,7 +117,7 @@ get_mounts (GVolumeMonitor *volume_monitor)
       res = g_list_concat (res, g_volume_monitor_get_mounts (child_monitor));
     }
   
-  g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
+  g_rec_mutex_unlock (&the_volume_monitor_mutex);
 
   return res;
 }
@@ -137,7 +134,7 @@ get_volumes (GVolumeMonitor *volume_monitor)
 
   res = NULL;
   
-  g_static_rec_mutex_lock (&the_volume_monitor_mutex);
+  g_rec_mutex_lock (&the_volume_monitor_mutex);
 
   for (l = monitor->monitors; l != NULL; l = l->next)
     {
@@ -146,7 +143,7 @@ get_volumes (GVolumeMonitor *volume_monitor)
       res = g_list_concat (res, g_volume_monitor_get_volumes (child_monitor));
     }
   
-  g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
+  g_rec_mutex_unlock (&the_volume_monitor_mutex);
 
   return res;
 }
@@ -163,7 +160,7 @@ get_connected_drives (GVolumeMonitor *volume_monitor)
 
   res = NULL;
   
-  g_static_rec_mutex_lock (&the_volume_monitor_mutex);
+  g_rec_mutex_lock (&the_volume_monitor_mutex);
 
   for (l = monitor->monitors; l != NULL; l = l->next)
     {
@@ -172,7 +169,7 @@ get_connected_drives (GVolumeMonitor *volume_monitor)
       res = g_list_concat (res, g_volume_monitor_get_connected_drives (child_monitor));
     }
   
-  g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
+  g_rec_mutex_unlock (&the_volume_monitor_mutex);
 
   return res;
 }
@@ -189,7 +186,7 @@ get_volume_for_uuid (GVolumeMonitor *volume_monitor, const char *uuid)
 
   volume = NULL;
   
-  g_static_rec_mutex_lock (&the_volume_monitor_mutex);
+  g_rec_mutex_lock (&the_volume_monitor_mutex);
 
   for (l = monitor->monitors; l != NULL; l = l->next)
     {
@@ -201,7 +198,7 @@ get_volume_for_uuid (GVolumeMonitor *volume_monitor, const char *uuid)
 
     }
   
-  g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
+  g_rec_mutex_unlock (&the_volume_monitor_mutex);
 
   return volume;
 }
@@ -218,7 +215,7 @@ get_mount_for_uuid (GVolumeMonitor *volume_monitor, const char *uuid)
 
   mount = NULL;
   
-  g_static_rec_mutex_lock (&the_volume_monitor_mutex);
+  g_rec_mutex_lock (&the_volume_monitor_mutex);
 
   for (l = monitor->monitors; l != NULL; l = l->next)
     {
@@ -230,7 +227,7 @@ get_mount_for_uuid (GVolumeMonitor *volume_monitor, const char *uuid)
 
     }
   
-  g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
+  g_rec_mutex_unlock (&the_volume_monitor_mutex);
 
   return mount;
 }
@@ -556,7 +553,7 @@ g_union_volume_monitor_new (void)
  * 
  * Gets the volume monitor used by gio.
  *
- * Returns: a reference to the #GVolumeMonitor used by gio. Call
+ * Returns: (transfer full): a reference to the #GVolumeMonitor used by gio. Call
  *    g_object_unref() when done with it.
  **/
 GVolumeMonitor *
@@ -564,7 +561,7 @@ g_volume_monitor_get (void)
 {
   GVolumeMonitor *vm;
   
-  g_static_rec_mutex_lock (&the_volume_monitor_mutex);
+  g_rec_mutex_lock (&the_volume_monitor_mutex);
 
   if (the_volume_monitor)
     vm = G_VOLUME_MONITOR (g_object_ref (the_volume_monitor));
@@ -575,7 +572,7 @@ g_volume_monitor_get (void)
       vm = G_VOLUME_MONITOR (the_volume_monitor);
     }
   
-  g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
+  g_rec_mutex_unlock (&the_volume_monitor_mutex);
 
   return vm;
 }
@@ -594,11 +591,7 @@ _g_mount_get_for_mount_path (const gchar  *mount_path,
   mount = NULL;
 
   if (klass->get_mount_for_mount_path)
-    {
-      g_static_rec_mutex_lock (&the_volume_monitor_mutex);
-      mount = klass->get_mount_for_mount_path (mount_path, cancellable);
-      g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
-    }
+    mount = klass->get_mount_for_mount_path (mount_path, cancellable);
 
   /* TODO: How do we know this succeeded? Keep in mind that the native
    *       volume monitor may fail (e.g. not being able to connect to
@@ -640,13 +633,13 @@ _g_mount_get_for_mount_path (const gchar  *mount_path,
  * blocks of a block device that is already represented by the native
  * volume monitor (for example a CD Audio file system driver). Such
  * a driver will generate its own #GMount object that needs to be
- * assoicated with the #GVolume object that represents the volume.
+ * associated with the #GVolume object that represents the volume.
  *
  * The other is for implementing a #GVolumeMonitor whose sole purpose
  * is to return #GVolume objects representing entries in the users
  * "favorite servers" list or similar.
  *
- * Returns: the #GVolume object that is the parent for @mount or %NULL
+ * Returns: (transfer full): the #GVolume object that is the parent for @mount or %NULL
  * if no wants to adopt the #GMount.
  *
  * Deprecated: 2.20: Instead of using this function, #GVolumeMonitor
@@ -670,7 +663,7 @@ g_volume_monitor_adopt_orphan_mount (GMount *mount)
 
   volume = NULL;
   
-  g_static_rec_mutex_lock (&the_volume_monitor_mutex);
+  g_rec_mutex_lock (&the_volume_monitor_mutex);
 
   for (l = the_volume_monitor->monitors; l != NULL; l = l->next)
     {
@@ -685,11 +678,7 @@ g_volume_monitor_adopt_orphan_mount (GMount *mount)
         }
     }
   
-  g_static_rec_mutex_unlock (&the_volume_monitor_mutex);
+  g_rec_mutex_unlock (&the_volume_monitor_mutex);
 
   return volume;
 }
-
-
-#define __G_UNION_VOLUME_MONITOR_C__
-#include "gioaliasdef.c"

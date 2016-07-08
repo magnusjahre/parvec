@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
@@ -25,14 +23,13 @@
 #include <glib.h>
 #include <gfileiostream.h>
 #include <gseekable.h>
-#include "gsimpleasyncresult.h"
 #include "gasyncresult.h"
+#include "gtask.h"
 #include "gcancellable.h"
 #include "gioerror.h"
 #include "gfileoutputstream.h"
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 /**
  * SECTION:gfileiostream
@@ -86,13 +83,14 @@ static GFileInfo *g_file_io_stream_real_query_info_finish (GFileIOStream    *str
 							   GAsyncResult         *result,
 							   GError              **error);
 
-G_DEFINE_TYPE_WITH_CODE (GFileIOStream, g_file_io_stream, G_TYPE_IO_STREAM,
-			 G_IMPLEMENT_INTERFACE (G_TYPE_SEEKABLE,
-						g_file_io_stream_seekable_iface_init));
-
 struct _GFileIOStreamPrivate {
   GAsyncReadyCallback outstanding_callback;
 };
+
+G_DEFINE_TYPE_WITH_CODE (GFileIOStream, g_file_io_stream, G_TYPE_IO_STREAM,
+                         G_ADD_PRIVATE (GFileIOStream)
+			 G_IMPLEMENT_INTERFACE (G_TYPE_SEEKABLE,
+						g_file_io_stream_seekable_iface_init))
 
 static void
 g_file_io_stream_seekable_iface_init (GSeekableIface *iface)
@@ -107,16 +105,14 @@ g_file_io_stream_seekable_iface_init (GSeekableIface *iface)
 static void
 g_file_io_stream_init (GFileIOStream *stream)
 {
-  stream->priv = G_TYPE_INSTANCE_GET_PRIVATE (stream,
-					      G_TYPE_FILE_IO_STREAM,
-					      GFileIOStreamPrivate);
+  stream->priv = g_file_io_stream_get_instance_private (stream);
 }
 
 /**
  * g_file_io_stream_query_info:
  * @stream: a #GFileIOStream.
  * @attributes: a file attribute query string.
- * @cancellable: optional #GCancellable object, %NULL to ignore.
+ * @cancellable: (allow-none): optional #GCancellable object, %NULL to ignore.
  * @error: a #GError, %NULL to ignore.
  *
  * Queries a file io stream for the given @attributes.
@@ -137,7 +133,7 @@ g_file_io_stream_init (GFileIOStream *stream)
  * was cancelled, the error %G_IO_ERROR_CANCELLED will be set, and %NULL will
  * be returned.
  *
- * Returns: a #GFileInfo for the @stream, or %NULL on error.
+ * Returns: (transfer full): a #GFileInfo for the @stream, or %NULL on error.
  *
  * Since: 2.22
  **/
@@ -195,11 +191,10 @@ async_ready_callback_wrapper (GObject *source_object,
  * g_file_io_stream_query_info_async:
  * @stream: a #GFileIOStream.
  * @attributes: a file attribute query string.
- * @io_priority: the <link linkend="gio-GIOScheduler">I/O priority</link>
- *     of the request.
- * @cancellable: optional #GCancellable object, %NULL to ignore.
- * @callback: callback to call when the request is satisfied
- * @user_data: the data to pass to callback function
+ * @io_priority: the [I/O priority][gio-GIOScheduler] of the request
+ * @cancellable: (allow-none): optional #GCancellable object, %NULL to ignore.
+ * @callback: (scope async): callback to call when the request is satisfied
+ * @user_data: (closure): the data to pass to callback function
  *
  * Asynchronously queries the @stream for a #GFileInfo. When completed,
  * @callback will be called with a #GAsyncResult which can be used to
@@ -228,11 +223,9 @@ g_file_io_stream_query_info_async (GFileIOStream     *stream,
 
   if (!g_io_stream_set_pending (io_stream, &error))
     {
-      g_simple_async_report_gerror_in_idle (G_OBJECT (stream),
-					    callback,
-					    user_data,
-					    error);
-      g_error_free (error);
+      g_task_report_error (stream, callback, user_data,
+                           g_file_io_stream_query_info_async,
+                           error);
       return;
     }
 
@@ -241,7 +234,7 @@ g_file_io_stream_query_info_async (GFileIOStream     *stream,
   stream->priv->outstanding_callback = callback;
   g_object_ref (stream);
   klass->query_info_async (stream, attributes, io_priority, cancellable,
-			      async_ready_callback_wrapper, user_data);
+                           async_ready_callback_wrapper, user_data);
 }
 
 /**
@@ -253,27 +246,24 @@ g_file_io_stream_query_info_async (GFileIOStream     *stream,
  * Finalizes the asynchronous query started
  * by g_file_io_stream_query_info_async().
  *
- * Returns: A #GFileInfo for the finished query.
+ * Returns: (transfer full): A #GFileInfo for the finished query.
  *
  * Since: 2.22
  **/
 GFileInfo *
 g_file_io_stream_query_info_finish (GFileIOStream     *stream,
-					   GAsyncResult         *result,
-					   GError              **error)
+				    GAsyncResult         *result,
+				    GError              **error)
 {
-  GSimpleAsyncResult *simple;
   GFileIOStreamClass *class;
 
   g_return_val_if_fail (G_IS_FILE_IO_STREAM (stream), NULL);
   g_return_val_if_fail (G_IS_ASYNC_RESULT (result), NULL);
 
-  if (G_IS_SIMPLE_ASYNC_RESULT (result))
-    {
-      simple = G_SIMPLE_ASYNC_RESULT (result);
-      if (g_simple_async_result_propagate_error (simple, error))
-	return NULL;
-    }
+  if (g_async_result_legacy_propagate_error (result, error))
+    return NULL;
+  else if (g_async_result_is_tagged (result, g_file_io_stream_query_info_async))
+    return g_task_propagate_pointer (G_TASK (result), error);
 
   class = G_FILE_IO_STREAM_GET_CLASS (stream);
   return class->query_info_finish (stream, result, error);
@@ -660,8 +650,6 @@ g_file_io_stream_real_query_info_finish (GFileIOStream     *stream,
 static void
 g_file_io_stream_class_init (GFileIOStreamClass *klass)
 {
-  g_type_class_add_private (klass, sizeof (GFileIOStreamPrivate));
-
   klass->tell = g_file_io_stream_real_tell;
   klass->can_seek = g_file_io_stream_real_can_seek;
   klass->seek = g_file_io_stream_real_seek;
@@ -672,6 +660,3 @@ g_file_io_stream_class_init (GFileIOStreamClass *klass)
   klass->query_info_finish = g_file_io_stream_real_query_info_finish;
   klass->get_etag = g_file_io_stream_real_get_etag;
 }
-
-#define __G_FILE_IO_STREAM_C__
-#include "gioaliasdef.c"

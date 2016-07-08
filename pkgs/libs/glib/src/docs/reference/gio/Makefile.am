@@ -1,4 +1,3 @@
-include $(top_srcdir)/Makefile.decl
 NULL =
 
 # The name of the module.
@@ -8,87 +7,105 @@ DOC_MODULE=gio
 DOC_MAIN_SGML_FILE=gio-docs.xml
 
 # Extra options to supply to gtkdoc-scan
-SCAN_OPTIONS=--deprecated-guards="G_DISABLE_DEPRECATED"
+SCAN_OPTIONS=--deprecated-guards="G_DISABLE_DEPRECATED" \
+             --ignore-decorators="G_GNUC_WARN_UNUSED_RESULT"
 
 # The directory containing the source code. Relative to $(srcdir)
-DOC_SOURCE_DIR=$(top_srcdir)/gio
+DOC_SOURCE_DIR =$(top_srcdir)/gio $(top_builddir)/gio
 
-HFILE_GLOB=$(top_srcdir)/gio/*.h
+HFILE_GLOB= \
+    $(top_srcdir)/gio/*.h \
+    $(top_builddir)/gio/gioenumtypes.h
 CFILE_GLOB=$(top_srcdir)/gio/*.c
 
-# Headers to ignore
-IGNORE_HFILES=				\
-	asyncns.h			\
-	fam-helper.h			\
-	fen-data.h			\
-	fen-helper.h			\
-	fen-kernel.h			\
-	fen-node.h			\
+IGNORE_HFILES = \
+	fam				\
+	fen				\
+	gdbus-2.0			\
+	gvdb				\
+	inotify				\
+	kqueue				\
+	libasyncns			\
+	tests				\
+	win32				\
+	xdgmime				\
+	gappinfoprivate.h		\
+	gapplicationimpl.h		\
 	gasynchelper.h			\
 	gcontenttypeprivate.h		\
+	gcontextspecificgroup.h		\
+	gcredentialsprivate.h		\
+	gdbus-daemon-generated.h	\
+	gdbusactiongroup-private.h	\
+	gdbusauth.h			\
+	gdbusauthmechanismanon.h	\
+	gdbusauthmechanismexternal.h	\
+	gdbusauthmechanism.h		\
+	gdbusauthmechanismsha1.h	\
+	gdbusdaemon.h			\
+	gdbusprivate.h			\
+	gdelayedsettingsbackend.h	\
 	gdummyfile.h			\
-	gfamdirectorymonitor.h		\
-	gfamfilemonitor.h		\
+	gdummyproxyresolver.h		\
+	gdummytlsbackend.h		\
 	gfileattribute-priv.h		\
 	gfileinfo-priv.h		\
-	ginotifydirectorymonitor.h	\
-	ginotifyfilemonitor.h		\
-	gio-marshal.h			\
-	gio.h				\
-	gioalias.h			\
-	gioalias.h			\
-	gioenumtypes.h			\
+	ghttpproxy.h			\
 	giomodule-priv.h		\
+	gioprivate.h			\
+	giowin32-priv.h			\
 	glocaldirectorymonitor.h	\
-	glocalfile.h			\
 	glocalfileenumerator.h		\
+	glocalfile.h			\
 	glocalfileinfo.h		\
 	glocalfileinputstream.h		\
+	glocalfileiostream.h		\
 	glocalfilemonitor.h		\
 	glocalfileoutputstream.h	\
 	glocalvfs.h			\
+	gmountprivate.h			\
 	gnativevolumemonitor.h		\
 	gnetworkingprivate.h		\
+	gnetworkmonitorbase.h		\
+	gnetworkmonitornetlink.h	\
+	gnetworkmonitornm.h		\
+	gnotificationbackend.h		\
+	gnotification-private.h		\
 	gpollfilemonitor.h		\
+	gregistrysettingsbackend.h	\
+	gresourcefile.h			\
+	gsettingsbackendinternal.h	\
+	gsettings-mapping.h		\
+	gsettingsschema-internal.h	\
+	gsocketinputstream.h		\
+	gsocketoutputstream.h		\
+	gsocks4aproxy.h			\
+	gsocks4proxy.h			\
+	gsocks5proxy.h			\
+	gsubprocesslauncher-private.h	\
 	gthreadedresolver.h		\
 	gunionvolumemonitor.h		\
-	gunixdrive.h			\
+	gunixmount.h			\
 	gunixresolver.h			\
 	gunixvolume.h			\
-	gvolumeprivate.h		\
+	gunixvolumemonitor.h		\
 	gwin32appinfo.h			\
+	gwin32mount.h			\
 	gwin32resolver.h		\
-	inotify-diag.h			\
-	inotify-helper.h		\
-	inotify-kernel.h		\
-	inotify-missing.h		\
-	inotify-path.h			\
-	inotify-sub.h			\
-	local_inotify.h			\
-	local_inotify_syscalls.h	\
-	xdgmime.h			\
-	xdgmimealias.h			\
-	xdgmimecache.h			\
-	xdgmimeglob.h			\
-	xdgmimeint.h			\
-	xdgmimemagic.h			\
-	xdgmimeparent.h			\
-	xdgmimeicon.h			\
-	winhttp.h			\
+	gwin32volumemonitor.h		\
+	thumbnail-verify.h
+
+MKDB_IGNORE_FILES = \
+	gdbus-daemon-generated.c	\
+	kqueue				\
+	libasyncns			\
+	tests				\
 	$(NULL)
 
 # CFLAGS and LDFLAGS for compiling scan program. Only needed
 # if $(DOC_MODULE).types is non-empty.
-INCLUDES = \
-	-I$(srcdir)			\
-	-I$(top_srcdir)			\
-	-I$(top_srcdir)/glib		\
-	-I$(top_srcdir)/gobject		\
-	-I$(top_srcdir)/gio		\
-	-I$(top_builddir)		\
-	-I$(top_builddir)/glib		\
-	-I$(top_builddir)/gobject	\
-	-I$(top_builddir)/gio		\
+AM_CPPFLAGS = 				\
+	$(gio_INCLUDES)			\
 	$(GLIB_DEBUG_FLAGS)
 
 GTKDOC_LIBS = \
@@ -99,27 +116,86 @@ GTKDOC_LIBS = \
 	$(NULL)
 
 # Extra options to supply to gtkdoc-mkdb
-MKDB_OPTIONS = --output-format=xml --sgml-mode --name-space=g \
-	--ignore-files=libasyncns
+MKDB_OPTIONS = --output-format=xml --name-space=g \
+	--ignore-files='$(MKDB_IGNORE_FILES)'
 
 # Images to copy into HTML directory
 HTML_IMAGES =			\
-	gvfs-overview.png
+	gvfs-overview.png	\
+	menu-example.png	\
+	menu-model.png
 
 content_files =			\
 	version.xml		\
 	overview.xml		\
-	migrating.xml
+	migrating-posix.xml	\
+	migrating-gnome-vfs.xml	\
+	migrating-gconf.xml	\
+	migrating-gdbus.xml	\
+	gio-querymodules.xml	\
+	glib-compile-schemas.xml\
+	glib-compile-resources.xml	\
+	gapplication.xml	\
+	gsettings.xml		\
+	gresource.xml		\
+	gdbus.xml		\
+	gdbus-codegen.xml	\
+	$(NULL)
 
 expand_content_files =		\
 	overview.xml		\
-	migrating.xml
+	migrating-posix.xml	\
+	migrating-gnome-vfs.xml	\
+	migrating-gconf.xml	\
+	migrating-gdbus.xml	\
+	gdbus-codegen.xml	\
+	$(NULL)
 
 extra_files =			\
 	version.xml.in		\
 	gvfs-overview.odg
 
+# Extra options to supply to gtkdoc-fixref
+FIXXREF_OPTIONS=--extra-dir=$(srcdir)/../glib/html --extra-dir=$(srcdir)/../gobject/html
+
 include $(top_srcdir)/gtk-doc.make
 
 EXTRA_DIST +=			\
 	version.xml.in
+
+man_MANS =
+
+if ENABLE_MAN
+
+man_MANS +=			\
+	gapplication.1		\
+	gio-querymodules.1	\
+	glib-compile-schemas.1	\
+	glib-compile-resources.1	\
+	gsettings.1		\
+	gresource.1		\
+	gdbus.1			\
+	gdbus-codegen.1
+
+XSLTPROC_FLAGS = \
+        --nonet \
+        --stringparam man.output.quietly 1 \
+        --stringparam funcsynopsis.style ansi \
+        --stringparam man.th.extra1.suppress 1 \
+        --stringparam man.authors.section.enabled 0 \
+        --stringparam man.copyright.section.enabled 0
+
+.xml.1:
+	$(AM_V_GEN) $(XSLTPROC) $(XSLTPROC_FLAGS) http://docbook.sourceforge.net/release/xsl/current/manpages/docbook.xsl $<
+
+endif
+
+CLEANFILES ?=
+CLEANFILES += $(man_MANS)
+
+EXTRA_DIST += $(man_MANS)
+
+dist-hook-local: all-local
+
+gio-docs-clean: clean
+	cd $(srcdir) && rm -rf xml html

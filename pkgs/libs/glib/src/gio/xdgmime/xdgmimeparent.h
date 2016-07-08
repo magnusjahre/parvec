@@ -20,9 +20,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifndef __XDG_MIME_PARENT_H__
@@ -46,6 +44,8 @@ XdgParentList *_xdg_mime_parent_list_new       (void);
 void           _xdg_mime_parent_list_free      (XdgParentList *list);
 const char   **_xdg_mime_parent_list_lookup    (XdgParentList *list,
 						const char    *mime);
+#ifdef NOT_USED_IN_GIO
 void           _xdg_mime_parent_list_dump      (XdgParentList *list);
+#endif
 
 #endif /* __XDG_MIME_PARENT_H__ */

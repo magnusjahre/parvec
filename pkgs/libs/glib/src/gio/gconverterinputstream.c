@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
@@ -25,13 +23,12 @@
 #include <string.h>
 
 #include "gconverterinputstream.h"
-#include "gsimpleasyncresult.h"
+#include "gpollableinputstream.h"
 #include "gcancellable.h"
 #include "gioenumtypes.h"
 #include "gioerror.h"
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 /**
  * SECTION:gconverterinputstream
@@ -42,6 +39,8 @@
  * Converter input stream implements #GInputStream and allows
  * conversion of data of various types during reading.
  *
+ * As of GLib 2.34, #GConverterInputStream implements
+ * #GPollableInputStream.
  **/
 
 #define INITIAL_BUFFER_SIZE 4096
@@ -56,6 +55,7 @@ typedef struct {
 struct _GConverterInputStreamPrivate {
   gboolean at_input_end;
   gboolean finished;
+  gboolean need_input;
   GConverter *converter;
   Buffer input_buffer;
   Buffer converted_buffer;
@@ -81,17 +81,30 @@ static gssize g_converter_input_stream_read         (GInputStream  *stream,
 						     GCancellable  *cancellable,
 						     GError       **error);
 
-G_DEFINE_TYPE (GConverterInputStream,
-	       g_converter_input_stream,
-	       G_TYPE_FILTER_INPUT_STREAM)
+static gboolean g_converter_input_stream_can_poll         (GPollableInputStream *stream);
+static gboolean g_converter_input_stream_is_readable      (GPollableInputStream *stream);
+static gssize   g_converter_input_stream_read_nonblocking (GPollableInputStream  *stream,
+							   void                  *buffer,
+							   gsize                  size,
+							   GError               **error);
+
+static GSource *g_converter_input_stream_create_source    (GPollableInputStream *stream,
+							   GCancellable          *cancellable);
+
+static void g_converter_input_stream_pollable_iface_init  (GPollableInputStreamInterface *iface);
+
+G_DEFINE_TYPE_WITH_CODE (GConverterInputStream,
+			 g_converter_input_stream,
+			 G_TYPE_FILTER_INPUT_STREAM,
+                         G_ADD_PRIVATE (GConverterInputStream)
+			 G_IMPLEMENT_INTERFACE (G_TYPE_POLLABLE_INPUT_STREAM,
+						g_converter_input_stream_pollable_iface_init))
 
 static void
 g_converter_input_stream_class_init (GConverterInputStreamClass *klass)
 {
   GObjectClass *object_class;
   GInputStreamClass *istream_class;
-
-  g_type_class_add_private (klass, sizeof (GConverterInputStreamPrivate));
 
   object_class = G_OBJECT_CLASS (klass);
   object_class->get_property = g_converter_input_stream_get_property;
@@ -111,6 +124,15 @@ g_converter_input_stream_class_init (GConverterInputStreamClass *klass)
 							G_PARAM_CONSTRUCT_ONLY|
 							G_PARAM_STATIC_STRINGS));
 
+}
+
+static void
+g_converter_input_stream_pollable_iface_init (GPollableInputStreamInterface *iface)
+{
+  iface->can_poll = g_converter_input_stream_can_poll;
+  iface->is_readable = g_converter_input_stream_is_readable;
+  iface->read_nonblocking = g_converter_input_stream_read_nonblocking;
+  iface->create_source = g_converter_input_stream_create_source;
 }
 
 static void
@@ -180,9 +202,7 @@ g_converter_input_stream_get_property (GObject    *object,
 static void
 g_converter_input_stream_init (GConverterInputStream *stream)
 {
-  stream->priv = G_TYPE_INSTANCE_GET_PRIVATE (stream,
-					      G_TYPE_CONVERTER_INPUT_STREAM,
-					      GConverterInputStreamPrivate);
+  stream->priv = g_converter_input_stream_get_instance_private (stream);
 }
 
 /**
@@ -211,7 +231,7 @@ g_converter_input_stream_new (GInputStream *base_stream,
 }
 
 static gsize
-buffer_available (Buffer *buffer)
+buffer_data_size (Buffer *buffer)
 {
   return buffer->end - buffer->start;
 }
@@ -251,7 +271,7 @@ compact_buffer (Buffer *buffer)
 {
   gsize in_buffer;
 
-  in_buffer = buffer_available (buffer);
+  in_buffer = buffer_data_size (buffer);
   memmove (buffer->data,
 	   buffer->data + buffer->start,
 	   in_buffer);
@@ -271,7 +291,7 @@ grow_buffer (Buffer *buffer)
     size = buffer->size * 2;
 
   data = g_malloc (size);
-  in_buffer = buffer_available (buffer);
+  in_buffer = buffer_data_size (buffer);
 
   memcpy (data,
 	  buffer->data + buffer->start,
@@ -283,13 +303,15 @@ grow_buffer (Buffer *buffer)
   buffer->size = size;
 }
 
+/* Ensures that the buffer can fit at_least_size bytes,
+ * *including* the current in-buffer data */
 static void
 buffer_ensure_space (Buffer *buffer,
 		     gsize at_least_size)
 {
   gsize in_buffer, left_to_fill;
 
-  in_buffer = buffer_available (buffer);
+  in_buffer = buffer_data_size (buffer);
 
   if (in_buffer >= at_least_size)
     return;
@@ -319,6 +341,7 @@ buffer_ensure_space (Buffer *buffer,
 static gssize
 fill_input_buffer (GConverterInputStream  *stream,
 		   gsize                   at_least_size,
+		   gboolean                blocking,
 		   GCancellable           *cancellable,
 		   GError                **error)
 {
@@ -331,25 +354,30 @@ fill_input_buffer (GConverterInputStream  *stream,
   buffer_ensure_space (&priv->input_buffer, at_least_size);
 
   base_stream = G_FILTER_INPUT_STREAM (stream)->base_stream;
-  nread = g_input_stream_read (base_stream,
-			       priv->input_buffer.data + priv->input_buffer.end,
-			       buffer_tailspace (&priv->input_buffer),
-			       cancellable,
-			       error);
+  nread = g_pollable_stream_read (base_stream,
+				  priv->input_buffer.data + priv->input_buffer.end,
+				  buffer_tailspace (&priv->input_buffer),
+				  blocking,
+				  cancellable,
+				  error);
 
   if (nread > 0)
-    priv->input_buffer.end += nread;
+    {
+      priv->input_buffer.end += nread;
+      priv->need_input = FALSE;
+    }
 
   return nread;
 }
 
 
 static gssize
-g_converter_input_stream_read (GInputStream *stream,
-			       void         *buffer,
-			       gsize         count,
-			       GCancellable *cancellable,
-			       GError      **error)
+read_internal (GInputStream *stream,
+	       void         *buffer,
+	       gsize         count,
+	       gboolean      blocking,
+	       GCancellable *cancellable,
+	       GError      **error)
 {
   GConverterInputStream *cstream;
   GConverterInputStreamPrivate *priv;
@@ -364,7 +392,7 @@ g_converter_input_stream_read (GInputStream *stream,
   cstream = G_CONVERTER_INPUT_STREAM (stream);
   priv = cstream->priv;
 
-  available = buffer_available (&priv->converted_buffer);
+  available = buffer_data_size (&priv->converted_buffer);
 
   if (available > 0 &&
       count <= available)
@@ -380,15 +408,16 @@ g_converter_input_stream_read (GInputStream *stream,
   buffer_read (&priv->converted_buffer, buffer, available);
 
   total_bytes_read = available;
+  buffer = (char *) buffer + available;
   count -= available;
 
   /* If there is no data to convert, and no pre-converted data,
      do some i/o for more input */
-  if (buffer_available (&priv->input_buffer) == 0 &&
+  if (buffer_data_size (&priv->input_buffer) == 0 &&
       total_bytes_read == 0 &&
       !priv->at_input_end)
     {
-      nread = fill_input_buffer (cstream, count, cancellable, error);
+      nread = fill_input_buffer (cstream, count, blocking, cancellable, error);
       if (nread < 0)
 	return -1;
       if (nread == 0)
@@ -401,7 +430,7 @@ g_converter_input_stream_read (GInputStream *stream,
       my_error = NULL;
       res = g_converter_convert (priv->converter,
 				 buffer_data (&priv->input_buffer),
-				 buffer_available (&priv->input_buffer),
+				 buffer_data_size (&priv->input_buffer),
 				 buffer, count,
 				 priv->at_input_end ? G_CONVERTER_INPUT_AT_END : 0,
 				 &bytes_read,
@@ -438,7 +467,7 @@ g_converter_input_stream_read (GInputStream *stream,
   /* If there is no more to convert, return EOF */
   if (priv->finished)
     {
-      g_assert (buffer_available (&priv->converted_buffer) == 0);
+      g_assert (buffer_data_size (&priv->converted_buffer) == 0);
       return 0;
     }
 
@@ -458,7 +487,7 @@ g_converter_input_stream_read (GInputStream *stream,
       my_error = NULL;
       res = g_converter_convert (priv->converter,
 				 buffer_data (&priv->input_buffer),
-				 buffer_available (&priv->input_buffer),
+				 buffer_data_size (&priv->input_buffer),
 				 buffer_data (&priv->converted_buffer),
 				 buffer_tailspace (&priv->converted_buffer),
 				 priv->at_input_end ? G_CONVERTER_INPUT_AT_END : 0,
@@ -471,13 +500,13 @@ g_converter_input_stream_read (GInputStream *stream,
 	  buffer_consumed (&priv->input_buffer, bytes_read);
 
 	  /* Maybe we consumed without producing any output */
-	  if (buffer_available (&priv->converted_buffer) == 0 && res != G_CONVERTER_FINISHED)
+	  if (buffer_data_size (&priv->converted_buffer) == 0 && res != G_CONVERTER_FINISHED)
 	    continue; /* Convert more */
 
 	  if (res == G_CONVERTER_FINISHED)
 	    priv->finished = TRUE;
 
-	  total_bytes_read = MIN (count, buffer_available (&priv->converted_buffer));
+	  total_bytes_read = MIN (count, buffer_data_size (&priv->converted_buffer));
 	  buffer_read (&priv->converted_buffer, buffer, total_bytes_read);
 
 	  g_assert (priv->finished || total_bytes_read > 0);
@@ -494,18 +523,20 @@ g_converter_input_stream_read (GInputStream *stream,
 	{
 	  /* Need more data */
 	  my_error2 = NULL;
-	  res = fill_input_buffer (cstream,
-				   buffer_available (&priv->input_buffer) + 4096,
-				   cancellable,
-				   &my_error2);
-	  if (res < 0)
+	  nread = fill_input_buffer (cstream,
+				     buffer_data_size (&priv->input_buffer) + 4096,
+				     blocking,
+				     cancellable,
+				     &my_error2);
+	  if (nread < 0)
 	    {
 	      /* Can't read any more data, return that error */
 	      g_error_free (my_error);
 	      g_propagate_error (error, my_error2);
+	      priv->need_input = TRUE;
 	      return -1;
 	    }
-	  else if (res == 0)
+	  else if (nread == 0)
 	    {
 	      /* End of file, try INPUT_AT_END */
 	      priv->at_input_end = TRUE;
@@ -535,13 +566,77 @@ g_converter_input_stream_read (GInputStream *stream,
   g_assert_not_reached ();
 }
 
+static gssize
+g_converter_input_stream_read (GInputStream *stream,
+			       void         *buffer,
+			       gsize         count,
+			       GCancellable *cancellable,
+			       GError      **error)
+{
+  return read_internal (stream, buffer, count, TRUE, cancellable, error);
+}
+
+static gboolean
+g_converter_input_stream_can_poll (GPollableInputStream *stream)
+{
+  GInputStream *base_stream = G_FILTER_INPUT_STREAM (stream)->base_stream;
+
+  return (G_IS_POLLABLE_INPUT_STREAM (base_stream) &&
+	  g_pollable_input_stream_can_poll (G_POLLABLE_INPUT_STREAM (base_stream)));
+}
+
+static gboolean
+g_converter_input_stream_is_readable (GPollableInputStream *stream)
+{
+  GInputStream *base_stream = G_FILTER_INPUT_STREAM (stream)->base_stream;
+  GConverterInputStream *cstream = G_CONVERTER_INPUT_STREAM (stream);
+
+  if (buffer_data_size (&cstream->priv->converted_buffer))
+    return TRUE;
+  else if (buffer_data_size (&cstream->priv->input_buffer) &&
+	   !cstream->priv->need_input)
+    return TRUE;
+  else
+    return g_pollable_input_stream_is_readable (G_POLLABLE_INPUT_STREAM (base_stream));
+}
+
+static gssize
+g_converter_input_stream_read_nonblocking (GPollableInputStream  *stream,
+					   void                  *buffer,
+					   gsize                  count,
+					   GError               **error)
+{
+  return read_internal (G_INPUT_STREAM (stream), buffer, count,
+			FALSE, NULL, error);
+}
+
+static GSource *
+g_converter_input_stream_create_source (GPollableInputStream *stream,
+					GCancellable         *cancellable)
+{
+  GInputStream *base_stream = G_FILTER_INPUT_STREAM (stream)->base_stream;
+  GSource *base_source, *pollable_source;
+
+  if (g_pollable_input_stream_is_readable (stream))
+    base_source = g_timeout_source_new (0);
+  else
+    base_source = g_pollable_input_stream_create_source (G_POLLABLE_INPUT_STREAM (base_stream), NULL);
+
+  pollable_source = g_pollable_source_new_full (stream, base_source,
+						cancellable);
+  g_source_unref (base_source);
+
+  return pollable_source;
+}
+
+
 /**
  * g_converter_input_stream_get_converter:
  * @converter_stream: a #GConverterInputStream
  *
  * Gets the #GConverter that is used by @converter_stream.
  *
- * Returns: the converter of the converter input stream
+ * Returns: (transfer none): the converter of the converter input stream
  *
  * Since: 2.24
  */
@@ -550,6 +645,3 @@ g_converter_input_stream_get_converter (GConverterInputStream *converter_stream)
 {
   return converter_stream->priv->converter;
 }
-
-#define __G_CONVERTER_INPUT_STREAM_C__
-#include "gioaliasdef.c"

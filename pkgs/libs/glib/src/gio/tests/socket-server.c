@@ -1,6 +1,8 @@
 #include <gio/gio.h>
+#include <gio/gunixsocketaddress.h>
 #include <glib.h>
 #include <stdlib.h>
+#include <string.h>
 
 GMainLoop *loop;
 
@@ -9,8 +11,11 @@ gboolean verbose = FALSE;
 gboolean dont_reuse_address = FALSE;
 gboolean non_blocking = FALSE;
 gboolean use_udp = FALSE;
-gboolean use_source = FALSE;
 int cancel_timeout = 0;
+int read_timeout = 0;
+int delay = 0;
+gboolean unix_socket = FALSE;
+const char *tls_cert_file = NULL;
 
 static GOptionEntry cmd_entries[] = {
   {"port", 'p', 0, G_OPTION_ARG_INT, &port,
@@ -25,80 +30,20 @@ static GOptionEntry cmd_entries[] = {
    "Don't SOADDRREUSE", NULL},
   {"non-blocking", 'n', 0, G_OPTION_ARG_NONE, &non_blocking,
    "Enable non-blocking i/o", NULL},
-  {"use-source", 's', 0, G_OPTION_ARG_NONE, &use_source,
-   "Use GSource to wait for non-blocking i/o", NULL},
+#ifdef G_OS_UNIX
+  {"unix", 'U', 0, G_OPTION_ARG_NONE, &unix_socket,
+   "Use a unix socket instead of IP", NULL},
+#endif
+  {"delay", 'd', 0, G_OPTION_ARG_INT, &delay,
+   "Delay responses by the specified number of seconds", NULL},
+  {"timeout", 't', 0, G_OPTION_ARG_INT, &read_timeout,
+   "Time out reads after the specified number of seconds", NULL},
+  {"tls", 'T', 0, G_OPTION_ARG_STRING, &tls_cert_file,
+   "Use TLS (SSL) with indicated server certificate", "CERTFILE"},
   {NULL}
 };
 
-static char *
-socket_address_to_string (GSocketAddress *address)
-{
-  GInetAddress *inet_address;
-  char *str, *res;
-  int the_port;
-
-  inet_address = g_inet_socket_address_get_address (G_INET_SOCKET_ADDRESS (address));
-  str = g_inet_address_to_string (inet_address);
-  the_port = g_inet_socket_address_get_port (G_INET_SOCKET_ADDRESS (address));
-  res = g_strdup_printf ("%s:%d", str, the_port);
-  g_free (str);
-  return res;
-}
-
-static gboolean
-source_ready (gpointer data,
-	      GIOCondition condition)
-{
-  g_main_loop_quit (loop);
-  return FALSE;
-}
-
-static void
-ensure_condition (GSocket *socket,
-		  const char *where,
-		  GCancellable *cancellable,
-		  GIOCondition condition)
-{
-  GError *error = NULL;
-  GSource *source;
-
-  if (!non_blocking)
-    return;
-
-  if (use_source)
-    {
-      source = g_socket_create_source (socket,
-                                       condition,
-                                       cancellable);
-      g_source_set_callback (source,
-                             (GSourceFunc) source_ready,
-			     NULL, NULL);
-      g_source_attach (source, NULL);
-      g_source_unref (source);
-      g_main_loop_run (loop);
-    }
-  else
-    {
-      if (!g_socket_condition_wait (socket, condition, cancellable, &error))
-	{
-	  g_printerr ("condition wait error for %s: %s\n",
-		      where,
-		      error->message);
-	  exit (1);
-	}
-    }
-}
-
-static gpointer
-cancel_thread (gpointer data)
-{
-  GCancellable *cancellable = data;
-
-  g_usleep (1000*1000*cancel_timeout);
-  g_print ("Cancelling\n");
-  g_cancellable_cancel (cancellable);
-  return NULL;
-}
+#include "socket-common.c"
 
 int
 main (int argc,
@@ -108,13 +53,15 @@ main (int argc,
   GSocketAddress *src_address;
   GSocketAddress *address;
   GSocketType socket_type;
+  GSocketFamily socket_family;
   GError *error = NULL;
   GOptionContext *context;
   GCancellable *cancellable;
-
-  g_thread_init (NULL);
-
-  g_type_init ();
+  char *display_addr;
+  GTlsCertificate *tlscert = NULL;
+  GIOStream *connection;
+  GInputStream *istream;
+  GOutputStream *ostream;
 
   context = g_option_context_new (" - Test GSocket server stuff");
   g_option_context_add_main_entries (context, cmd_entries, NULL);
@@ -124,14 +71,39 @@ main (int argc,
       return 1;
     }
 
+  if (unix_socket && argc != 2)
+    {
+      g_printerr ("%s: %s\n", argv[0], "Need to specify unix socket name");
+      return 1;
+    }
+
   if (cancel_timeout)
     {
+      GThread *thread;
       cancellable = g_cancellable_new ();
-      g_thread_create (cancel_thread, cancellable, FALSE, NULL);
+      thread = g_thread_new ("cancel", cancel_thread, cancellable);
+      g_thread_unref (thread);
     }
   else
     {
       cancellable = NULL;
+    }
+
+  if (tls_cert_file)
+    {
+      if (use_udp)
+	{
+	  g_printerr ("DTLS (TLS over UDP) is not supported");
+	  return 1;
+	}
+
+      tlscert = g_tls_certificate_new_from_file (tls_cert_file, &error);
+      if (!tlscert)
+	{
+	  g_printerr ("Could not read server certificate '%s': %s\n",
+		      tls_cert_file, error->message);
+	  return 1;
+	}
     }
 
   loop = g_main_loop_new (NULL, FALSE);
@@ -141,7 +113,12 @@ main (int argc,
   else
     socket_type = G_SOCKET_TYPE_STREAM;
 
-  socket = g_socket_new (G_SOCKET_FAMILY_IPV4, socket_type, 0, &error);
+  if (unix_socket)
+    socket_family = G_SOCKET_FAMILY_UNIX;
+  else
+    socket_family = G_SOCKET_FAMILY_IPV4;
+
+  socket = g_socket_new (socket_family, socket_type, 0, &error);
 
   if (socket == NULL)
     {
@@ -152,7 +129,20 @@ main (int argc,
   if (non_blocking)
     g_socket_set_blocking (socket, FALSE);
 
-  src_address = g_inet_socket_address_new (g_inet_address_new_any (G_SOCKET_FAMILY_IPV4), port);
+  if (unix_socket)
+    {
+      src_address = socket_address_from_string (argv[1]);
+      if (src_address == NULL)
+	{
+	  g_printerr ("%s: Could not parse '%s' as unix socket name\n", argv[0], argv[1]);
+	  return 1;
+	}
+    }
+  else
+    {
+      src_address = g_inet_socket_address_new (g_inet_address_new_any (G_SOCKET_FAMILY_IPV4), port);
+    }
+
   if (!g_socket_bind (socket, src_address, !dont_reuse_address, &error))
     {
       g_printerr ("Can't bind socket: %s\n", error->message);
@@ -168,9 +158,18 @@ main (int argc,
 	  return 1;
 	}
 
-      g_print ("listening on port %d...\n", port);
+      address = g_socket_get_local_address (socket, &error);
+      if (!address)
+	{
+	  g_printerr ("Error getting local address: %s\n",
+		      error->message);
+	  return 1;
+	}
+      display_addr = socket_address_to_string (address);
+      g_print ("listening on %s...\n", display_addr);
+      g_free (display_addr);
 
-      ensure_condition (socket, "accept", cancellable, G_IO_IN);
+      ensure_socket_condition (socket, G_IO_IN, cancellable);
       new_socket = g_socket_accept (socket, cancellable, &error);
       if (!new_socket)
 	{
@@ -181,6 +180,8 @@ main (int argc,
 
       if (non_blocking)
 	g_socket_set_blocking (new_socket, FALSE);
+      if (read_timeout)
+	g_socket_set_timeout (new_socket, read_timeout);
 
       address = g_socket_get_remote_address (new_socket, &error);
       if (!address)
@@ -190,33 +191,78 @@ main (int argc,
 	  return 1;
 	}
 
-      g_print ("got a new connection from %s\n",
-	       socket_address_to_string (address));
+      display_addr = socket_address_to_string (address);
+      g_print ("got a new connection from %s\n", display_addr);
+      g_free(display_addr);
       g_object_unref (address);
 
       recv_socket = new_socket;
+
+      connection = G_IO_STREAM (g_socket_connection_factory_create_connection (recv_socket));
+      g_object_unref (new_socket);
     }
   else
     {
       recv_socket = socket;
-      new_socket = NULL;
+      connection = NULL;
     }
 
+  if (tlscert)
+    {
+      GIOStream *tls_conn;
+
+      tls_conn = g_tls_server_connection_new (connection, tlscert, &error);
+      if (!tls_conn)
+	{
+	  g_printerr ("Could not create TLS connection: %s\n",
+		      error->message);
+	  return 1;
+	}
+
+      if (!g_tls_connection_handshake (G_TLS_CONNECTION (tls_conn),
+				       cancellable, &error))
+	{
+	  g_printerr ("Error during TLS handshake: %s\n",
+		      error->message);
+	  return 1;
+       }
+
+      g_object_unref (connection);
+      connection = tls_conn;
+    }
+
+  if (connection)
+    {
+      istream = g_io_stream_get_input_stream (connection);
+      ostream = g_io_stream_get_output_stream (connection);
+    }
+  else
+    {
+      g_assert (use_udp);
+      istream = NULL;
+      ostream = NULL;
+    }
 
   while (TRUE)
     {
-      gchar buffer[4096] = { };
+      gchar buffer[4096];
       gssize size;
       gsize to_send;
 
-      ensure_condition (recv_socket, "receive", cancellable, G_IO_IN);
       if (use_udp)
-	size = g_socket_receive_from (recv_socket, &address,
+	{
+	  ensure_socket_condition (recv_socket, G_IO_IN, cancellable);
+	  size = g_socket_receive_from (recv_socket, &address,
+					buffer, sizeof buffer,
+					cancellable, &error);
+	}
+      else
+	{
+	  ensure_connection_condition (connection, G_IO_IN, cancellable);
+	  size = g_input_stream_read (istream,
 				      buffer, sizeof buffer,
 				      cancellable, &error);
-      else
-	size = g_socket_receive (recv_socket, buffer, sizeof buffer,
-				 cancellable, &error);
+	}
 
       if (size < 0)
 	{
@@ -241,15 +287,28 @@ main (int argc,
 
       to_send = size;
 
+      if (delay)
+	{
+	  if (verbose)
+	    g_print ("delaying %d seconds before response\n", delay);
+	  g_usleep (1000 * 1000 * delay);
+	}
+
       while (to_send > 0)
 	{
-	  ensure_condition (recv_socket, "send", cancellable, G_IO_OUT);
 	  if (use_udp)
-	    size = g_socket_send_to (recv_socket, address,
-				     buffer, to_send, cancellable, &error);
+	    {
+	      ensure_socket_condition (recv_socket, G_IO_OUT, cancellable);
+	      size = g_socket_send_to (recv_socket, address,
+				       buffer, to_send, cancellable, &error);
+	    }
 	  else
-	    size = g_socket_send (recv_socket, buffer, to_send,
-				  cancellable, &error);
+	    {
+	      ensure_connection_condition (connection, G_IO_OUT, cancellable);
+	      size = g_output_stream_write (ostream,
+					    buffer, to_send,
+					    cancellable, &error);
+	    }
 
 	  if (size < 0)
 	    {
@@ -284,16 +343,15 @@ main (int argc,
 
   g_print ("connection closed\n");
 
-  if (new_socket)
+  if (connection)
     {
-      if (!g_socket_close (new_socket, &error))
+      if (!g_io_stream_close (connection, NULL, &error))
 	{
-	  g_printerr ("Error closing connection socket: %s\n",
+	  g_printerr ("Error closing connection stream: %s\n",
 		      error->message);
 	  return 1;
 	}
-
-      g_object_unref (G_OBJECT (new_socket));
+      g_object_unref (connection);
     }
 
   if (!g_socket_close (socket, &error))
@@ -302,8 +360,7 @@ main (int argc,
 		  error->message);
       return 1;
     }
-
-  g_object_unref (G_OBJECT (socket));
+  g_object_unref (socket);
 
   return 0;
 }

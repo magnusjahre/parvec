@@ -13,9 +13,10 @@
  */
 
 /**
- * SECTION: gunixfdlist
+ * SECTION:gunixfdlist
  * @title: GUnixFDList
- * @short_description: An object containing a set of file descriptors
+ * @short_description: An object containing a set of UNIX file descriptors
+ * @include: gio/gunixfdlist.h
  * @see_also: #GUnixFDMessage
  *
  * A #GUnixFDList contains a list of file descriptors.  It owns the file
@@ -24,26 +25,29 @@
  * It may be wrapped in a #GUnixFDMessage and sent over a #GSocket in
  * the %G_SOCKET_ADDRESS_UNIX family by using g_socket_send_message()
  * and received using g_socket_receive_message().
+ *
+ * Note that `<gio/gunixfdlist.h>` belongs to the UNIX-specific GIO
+ * interfaces, thus you have to use the `gio-unix-2.0.pc` pkg-config
+ * file when using it.
  */
 
-#define _GNU_SOURCE /* for F_DUPFD_CLOEXEC */
+/**
+ * GUnixFDList:
+ *
+ * #GUnixFDList is an opaque data structure and can only be accessed
+ * using the following functions.
+ **/
 
 #include "config.h"
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 
 #include "gunixfdlist.h"
+#include "gnetworking.h"
 #include "gioerror.h"
-
-#include "gioalias.h"
-
-
-G_DEFINE_TYPE (GUnixFDList, g_unix_fd_list, G_TYPE_OBJECT)
 
 struct _GUnixFDListPrivate
 {
@@ -51,12 +55,12 @@ struct _GUnixFDListPrivate
   gint nfd;
 };
 
+G_DEFINE_TYPE_WITH_PRIVATE (GUnixFDList, g_unix_fd_list, G_TYPE_OBJECT)
+
 static void
 g_unix_fd_list_init (GUnixFDList *list)
 {
-  list->priv = G_TYPE_INSTANCE_GET_PRIVATE (list,
-                                               G_TYPE_UNIX_FD_LIST,
-                                               GUnixFDListPrivate);
+  list->priv = g_unix_fd_list_get_instance_private (list);
 }
 
 static void
@@ -78,7 +82,6 @@ g_unix_fd_list_class_init (GUnixFDListClass *class)
 {
   GObjectClass *object_class = G_OBJECT_CLASS (class);
 
-  g_type_class_add_private (class, sizeof (GUnixFDListPrivate));
   object_class->finalize = g_unix_fd_list_finalize;
 }
 
@@ -111,7 +114,6 @@ dup_close_on_exec_fd (gint     fd,
       g_set_error (error, G_IO_ERROR,
                    g_io_error_from_errno (saved_errno),
                    "dup: %s", g_strerror (saved_errno));
-      close (new_fd);
 
       return -1;
     }
@@ -157,7 +159,7 @@ g_unix_fd_list_new (void)
 
 /**
  * g_unix_fd_list_new_from_array:
- * @fds: the initial list of file descriptors
+ * @fds: (array length=n_fds): the initial list of file descriptors
  * @n_fds: the length of #fds, or -1
  *
  * Creates a new #GUnixFDList containing the file descriptors given in
@@ -188,7 +190,8 @@ g_unix_fd_list_new_from_array (const gint *fds,
   list->priv->fds = g_new (gint, n_fds + 1);
   list->priv->nfd = n_fds;
 
-  memcpy (list->priv->fds, fds, sizeof (gint) * n_fds);
+  if (n_fds > 0)
+    memcpy (list->priv->fds, fds, sizeof (gint) * n_fds);
   list->priv->fds[n_fds] = -1;
 
   return list;
@@ -197,7 +200,8 @@ g_unix_fd_list_new_from_array (const gint *fds,
 /**
  * g_unix_fd_list_steal_fds:
  * @list: a #GUnixFDList
- * @length: pointer to the length of the returned array, or %NULL
+ * @length: (out) (allow-none): pointer to the length of the returned
+ *     array, or %NULL
  *
  * Returns the array of file descriptors that is contained in this
  * object.
@@ -218,7 +222,8 @@ g_unix_fd_list_new_from_array (const gint *fds,
  * This function never returns %NULL. In case there are no file
  * descriptors contained in @list, an empty array is returned.
  *
- * Returns: an array of file descriptors
+ * Returns: (array length=length) (transfer full): an array of file
+ *     descriptors
  *
  * Since: 2.24
  */
@@ -251,7 +256,8 @@ g_unix_fd_list_steal_fds (GUnixFDList *list,
 /**
  * g_unix_fd_list_peek_fds:
  * @list: a #GUnixFDList
- * @length: pointer to the length of the returned array, or %NULL
+ * @length: (out) (allow-none): pointer to the length of the returned
+ *     array, or %NULL
  *
  * Returns the array of file descriptors that is contained in this
  * object.
@@ -267,7 +273,8 @@ g_unix_fd_list_steal_fds (GUnixFDList *list,
  * This function never returns %NULL. In case there are no file
  * descriptors contained in @list, an empty array is returned.
  *
- * Returns: an array of file descriptors
+ * Returns: (array length=length) (transfer none): an array of file
+ *     descriptors
  *
  * Since: 2.24
  */
@@ -391,6 +398,3 @@ g_unix_fd_list_get_length (GUnixFDList *list)
 
   return list->priv->nfd;
 }
-
-#define __G_UNIX_FD_LIST_C__
-#include "gioaliasdef.c"

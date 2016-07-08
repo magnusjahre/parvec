@@ -29,7 +29,8 @@ subparser_start_element (GMarkupParseContext  *context,
 
   /* we don't like trouble... */
   if (strcmp (element_name, "trouble") == 0)
-    g_set_error (error, 0, 0, "we don't like trouble");
+    g_set_error (error, G_MARKUP_ERROR, G_MARKUP_ERROR_INVALID_CONTENT,
+                 "we don't like trouble");
 }
 
 static void
@@ -88,7 +89,8 @@ subparser_end (GMarkupParseContext  *ctx,
   if (result == NULL || result[0] == '\0')
     {
       g_free (result);
-      g_set_error (error, 0, 0, "got no data");
+      g_set_error (error, G_MARKUP_ERROR, G_MARKUP_ERROR_INVALID_CONTENT,
+                   "got no data");
 
       return NULL;
     }
@@ -149,7 +151,7 @@ replay_parser_end (GMarkupParseContext  *ctx,
       g_string_free (string, TRUE);
       strings_allocated--;
 
-      return FALSE;
+      return NULL;
     }
 
   result = string->str;
@@ -160,7 +162,8 @@ replay_parser_end (GMarkupParseContext  *ctx,
   if (result == NULL || result[0] == '\0')
     {
       g_free (result);
-      g_set_error (error, 0, 0, "got no data");
+      g_set_error (error, G_MARKUP_ERROR, G_MARKUP_ERROR_INVALID_CONTENT,
+                   "got no data");
 
       return NULL;
     }
@@ -272,7 +275,7 @@ typedef struct
   const char *error_message;
 } TestCase;
 
-void
+static void
 test (gconstpointer user_data)
 {
   const TestCase *tc = user_data;
@@ -370,6 +373,7 @@ TestCase error_cases[] = /* error cases */
 int
 main (int argc, char **argv)
 {
+  g_setenv ("LC_ALL", "C", TRUE);
   g_test_init (&argc, &argv, NULL);
   add_tests (test, "/glib/markup/subparser/success", test_cases);
   add_tests (test, "/glib/markup/subparser/failure", error_cases);

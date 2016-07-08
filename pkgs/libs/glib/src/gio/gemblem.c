@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include <config.h>
@@ -29,7 +27,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "gioalias.h"
 
 /**
  * SECTION:gemblem
@@ -123,7 +120,8 @@ g_emblem_finalize (GObject *object)
 {
   GEmblem *emblem = G_EMBLEM (object);
 
-  g_object_unref (emblem->icon);
+  if (emblem->icon)
+    g_object_unref (emblem->icon);
 
   (*G_OBJECT_CLASS (g_emblem_parent_class)->finalize) (object);
 }
@@ -221,8 +219,8 @@ g_emblem_new_with_origin (GIcon         *icon,
  *
  * Gives back the icon from @emblem.
  *
- * Returns: a #GIcon. The returned object belongs to the emblem
- *    and should not be modified or freed.
+ * Returns: (transfer none): a #GIcon. The returned object belongs to
+ *          the emblem and should not be modified or freed.
  *
  * Since: 2.18
  */
@@ -241,7 +239,7 @@ g_emblem_get_icon (GEmblem *emblem)
  *
  * Gets the origin of the emblem.
  *
- * Returns: the origin of the emblem
+ * Returns: (transfer none): the origin of the emblem
  *
  * Since: 2.18
  */
@@ -350,6 +348,26 @@ g_emblem_from_tokens (gchar  **tokens,
   return G_ICON (emblem);
 }
 
+static GVariant *
+g_emblem_serialize (GIcon *icon)
+{
+  GEmblem *emblem = G_EMBLEM (icon);
+  GVariant *icon_data;
+  GEnumValue *origin;
+  GVariant *result;
+
+  icon_data = g_icon_serialize (emblem->icon);
+  if (!icon_data)
+    return NULL;
+
+  origin = g_enum_get_value (g_type_class_peek (G_TYPE_EMBLEM_ORIGIN), emblem->origin);
+  result = g_variant_new_parsed ("('emblem', <(%v, {'origin': <%s>})>)",
+                                 icon_data, origin ? origin->value_nick : "unknown");
+  g_variant_unref (icon_data);
+
+  return result;
+}
+
 static void
 g_emblem_iface_init (GIconIface *iface)
 {
@@ -357,7 +375,5 @@ g_emblem_iface_init (GIconIface *iface)
   iface->equal = g_emblem_equal;
   iface->to_tokens = g_emblem_to_tokens;
   iface->from_tokens = g_emblem_from_tokens;
+  iface->serialize = g_emblem_serialize;
 }
-
-#define __G_EMBLEM_C__
-#include "gioaliasdef.c"

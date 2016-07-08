@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Authors: Ryan Lortie <desrt@desrt.ca>
  */
@@ -39,16 +37,11 @@ G_BEGIN_DECLS
 #define G_UNIX_CONNECTION_GET_CLASS(inst)                   (G_TYPE_INSTANCE_GET_CLASS ((inst),                      \
                                                              G_TYPE_UNIX_CONNECTION, GUnixConnectionClass))
 
-/**
- * GTcpConnection:
- *
- * A #GSocketConnection for UNIX domain socket connections.
- *
- * Since: 2.22
- */
 typedef struct _GUnixConnection                             GUnixConnection;
 typedef struct _GUnixConnectionPrivate                      GUnixConnectionPrivate;
 typedef struct _GUnixConnectionClass                        GUnixConnectionClass;
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC(GUnixConnection, g_object_unref)
 
 struct _GUnixConnectionClass
 {
@@ -61,14 +54,45 @@ struct _GUnixConnection
   GUnixConnectionPrivate *priv;
 };
 
+GLIB_AVAILABLE_IN_ALL
 GType                   g_unix_connection_get_type                      (void);
 
+GLIB_AVAILABLE_IN_ALL
 gboolean                g_unix_connection_send_fd                       (GUnixConnection      *connection,
                                                                          gint                  fd,
                                                                          GCancellable         *cancellable,
                                                                          GError              **error);
+GLIB_AVAILABLE_IN_ALL
 gint                    g_unix_connection_receive_fd                    (GUnixConnection      *connection,
                                                                          GCancellable         *cancellable,
+                                                                         GError              **error);
+
+GLIB_AVAILABLE_IN_ALL
+gboolean                g_unix_connection_send_credentials              (GUnixConnection      *connection,
+                                                                         GCancellable         *cancellable,
+                                                                         GError              **error);
+GLIB_AVAILABLE_IN_2_32
+void                    g_unix_connection_send_credentials_async        (GUnixConnection      *connection,
+                                                                         GCancellable         *cancellable,
+                                                                         GAsyncReadyCallback   callback,
+                                                                         gpointer              user_data);
+GLIB_AVAILABLE_IN_2_32
+gboolean                g_unix_connection_send_credentials_finish       (GUnixConnection      *connection,
+                                                                         GAsyncResult         *result,
+                                                                         GError              **error);
+
+GLIB_AVAILABLE_IN_2_32
+GCredentials           *g_unix_connection_receive_credentials           (GUnixConnection      *connection,
+                                                                         GCancellable         *cancellable,
+                                                                         GError              **error);
+GLIB_AVAILABLE_IN_2_32
+void                    g_unix_connection_receive_credentials_async     (GUnixConnection      *connection,
+                                                                         GCancellable         *cancellable,
+                                                                         GAsyncReadyCallback   callback,
+                                                                         gpointer              user_data);
+GLIB_AVAILABLE_IN_ALL
+GCredentials           *g_unix_connection_receive_credentials_finish    (GUnixConnection      *connection,
+                                                                         GAsyncResult         *result,
                                                                          GError              **error);
 
 G_END_DECLS

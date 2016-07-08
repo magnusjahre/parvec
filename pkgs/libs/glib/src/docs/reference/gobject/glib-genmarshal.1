@@ -1,13 +1,22 @@
 '\" t
 .\"     Title: glib-genmarshal
-.\"    Author: [see the "Author" section]
-.\" Generator: DocBook XSL Stylesheets v1.75.2 <http://docbook.sf.net/>
-.\"      Date: 05/02/2010
-.\"    Manual: [FIXME: manual]
-.\"    Source: [FIXME: source]
+.\"    Author: Tim Janik
+.\" Generator: DocBook XSL Stylesheets v1.79.1 <http://docbook.sf.net/>
+.\"      Date: 04/27/2016
+.\"    Manual: User Commands
+.\"    Source: GObject
 .\"  Language: English
 .\"
-.TH "GLIB\-GENMARSHAL" "1" "05/02/2010" "[FIXME: source]" "[FIXME: manual]"
+.TH "GLIB\-GENMARSHAL" "1" "" "GObject" "User Commands"
+.\" -----------------------------------------------------------------
+.\" * Define some portability stuff
+.\" -----------------------------------------------------------------
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.\" http://bugs.debian.org/507673
+.\" http://lists.gnu.org/archive/html/groff/2009-02/msg00013.html
+.\" ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+.ie \n(.g .ds Aq \(aq
+.el       .ds Aq '
 .\" -----------------------------------------------------------------
 .\" * set default formatting
 .\" -----------------------------------------------------------------
@@ -22,73 +31,18 @@
 glib-genmarshal \- C code marshaller generation utility for GLib closures
 .SH "SYNOPSIS"
 .HP \w'\fBglib\-genmarshal\fR\ 'u
-\fBglib\-genmarshal\fR [options...] [files...]
+\fBglib\-genmarshal\fR [OPTION...] [FILE...]
 .SH "DESCRIPTION"
 .PP
 \fBglib\-genmarshal\fR
 is a small utility that generates C code marshallers for callback functions of the GClosure mechanism in the GObject sublibrary of GLib\&. The marshaller functions have a standard signature, they get passed in the invoking closure, an array of value structures holding the callback function parameters and a value structure for the return value of the callback\&. The marshaller is then responsible to call the respective C code function of the closure with all the parameters on the stack and to collect its return value\&.
-.SH "INVOCATION"
 .PP
 \fBglib\-genmarshal\fR
 takes a list of marshallers to generate as input\&. The marshaller list is either read from standard input or from files passed as additional arguments on the command line\&.
-.SS "Options"
-.PP
-\fB\-\-header\fR
-.RS 4
-Generate header file contents of the marshallers\&.
-.RE
-.PP
-\fB\-\-body\fR
-.RS 4
-Generate C code file contents of the marshallers\&.
-.RE
-.PP
-\fB\-\-prefix=string\fR, \fB\-\-prefix string\fR
-.RS 4
-Specify marshaller prefix\&. The default prefix is
-`g_cclosure_marshal\'\&.
-.RE
-.PP
-\fB\-\-skip\-source\fR
-.RS 4
-Skip source location remarks in generated comments\&.
-.RE
-.PP
-\fB\-\-nostdinc\fR
-.RS 4
-Do not use the standard marshallers of the GObject library, and skip
-gmarshal\&.h
-include directive in generated header files\&.
-.RE
-.PP
-\fB\-\-g\-fatal\-warnings\fR
-.RS 4
-Make warnings fatal, that is, exit immediately once a warning occurs\&.
-.RE
-.PP
-\fB\-h\fR, \fB\-\-help\fR
-.RS 4
-Print brief help and exit\&.
-.RE
-.PP
-\fB\-v\fR, \fB\-\-version\fR
-.RS 4
-Print version and exit\&.
-.RE
 .SS "Marshaller list format"
 .PP
 The marshaller lists are processed line by line, a line can contain a comment in the form of
-.sp
-.if n \{\
-.RS 4
-.\}
-.nf
-# this is a comment
-.fi
-.if n \{\
-.RE
-.\}
-.sp
+.sp .if n \{\ .RS 4 .\} .nf # this is a comment .fi .if n \{\ .RE .\}
 or a marshaller specification of the form
 .sp
 .if n \{\
@@ -108,8 +62,8 @@ or a marshaller specification of the form
 .PP
 The
 \fIRTYPE\fR
-part specifies the callback\'s return type and the
-\fIPTYPE\fRs right to the colon specify the callback\'s parameter list, except for the first and the last arguments which are always pointers\&.
+part specifies the callback\*(Aqs return type and the
+\fIPTYPE\fRs right to the colon specify the callback\*(Aqs parameter list, except for the first and the last arguments which are always pointers\&.
 .SS "Parameter types"
 .PP
 Currently, the following types are supported:
@@ -211,6 +165,11 @@ for anonymous pointer types (gpointer)
 for GObject or derived types (GObject*)
 .RE
 .PP
+\fIVARIANT\fR
+.RS 4
+for GVariant types (GVariant*)
+.RE
+.PP
 \fINONE\fR
 .RS 4
 deprecated alias for
@@ -221,6 +180,72 @@ deprecated alias for
 .RS 4
 deprecated alias for
 \fIBOOLEAN\fR
+.RE
+.SH "OPTIONS"
+.PP
+\fB\-\-header\fR
+.RS 4
+Generate header file contents of the marshallers\&.
+.RE
+.PP
+\fB\-\-body\fR
+.RS 4
+Generate C code file contents of the marshallers\&.
+.RE
+.PP
+\fB\-\-prefix=\fR\fB\fIPREFIX\fR\fR
+.RS 4
+Specify marshaller prefix\&. The default prefix is
+`g_cclosure_marshal\*(Aq\&.
+.RE
+.PP
+\fB\-\-skip\-source\fR
+.RS 4
+Skip source location remarks in generated comments\&.
+.RE
+.PP
+\fB\-\-stdinc\fR
+.RS 4
+Use the standard marshallers of the GObject library, and include
+gmarshal\&.h
+in generated header files\&.
+.RE
+.PP
+\fB\-\-nostdinc\fR
+.RS 4
+Do not use the standard marshallers of the GObject library, and skip
+gmarshal\&.h
+include directive in generated header files\&.
+.RE
+.PP
+\fB\-\-internal\fR
+.RS 4
+Mark generated functions as internal, using G_GNUC_INTERNAL\&.
+.RE
+.PP
+\fB\-\-valist\-marshallers\fR
+.RS 4
+Generate valist marshallers, for use with g_signal_set_va_marshaller()\&.
+.RE
+.PP
+\fB\-v\fR, \fB\-\-version\fR
+.RS 4
+Print version information\&.
+.RE
+.PP
+\fB\-\-g\-fatal\-warnings\fR
+.RS 4
+Make warnings fatal, that is, exit immediately once a warning occurs\&.
+.RE
+.PP
+\fB\-h\fR, \fB\-\-help\fR
+.RS 4
+Print brief help and exit\&.
+.RE
+.PP
+\fB\-v\fR, \fB\-\-version\fR
+.RS 4
+Print version and exit\&.
 .RE
 .SH "EXAMPLE"
 .PP
@@ -244,7 +269,9 @@ gfloat baz (gpointer data1,
 .RE
 .\}
 .PP
-The marshaller list has to look like this:
+The
+marshaller\&.list
+file has to look like this:
 .sp
 .if n \{\
 .RS 4
@@ -258,15 +285,28 @@ FLOAT:BOOLEAN,UCHAR
 .RE
 .\}
 .PP
+and you call glib\-genmarshal like this:
+.sp
+.if n \{\
+.RS 4
+.\}
+.nf
+glib\-genmarshal \-\-header marshaller\&.list > marshaller\&.h
+glib\-genmarshal \-\-body marshaller\&.list > marshaller\&.c
+.fi
+.if n \{\
+.RE
+.\}
+.PP
 The generated marshallers have the arguments encoded in their function name\&. For this particular list, they are
 .sp
 .if n \{\
 .RS 4
 .\}
 .nf
-g_cclosure_marshal_VOID__VOID(),
-g_cclosure_marshal_VOID__INT(), 
-g_cclosure_marshal_FLOAT__BOOLEAN_UCHAR()\&.
+g_cclosure_user_marshal_VOID__VOID(),
+g_cclosure_user_marshal_VOID__INT(),
+g_cclosure_user_marshal_FLOAT__BOOLEAN_UCHAR()\&.
 .fi
 .if n \{\
 .RE
@@ -281,27 +321,15 @@ They can be used directly for GClosures or be passed in as the GSignalCMarshalle
 GClosure *cc_foo, *cc_bar, *cc_baz;
 
 cc_foo = g_cclosure_new (NULL, foo, NULL);
-g_closure_set_marshal (cc_foo, g_cclosure_marshal_VOID__VOID);
+g_closure_set_marshal (cc_foo, g_cclosure_user_marshal_VOID__VOID);
 cc_bar = g_cclosure_new (NULL, bar, NULL);
-g_closure_set_marshal (cc_bar, g_cclosure_marshal_VOID__INT);
+g_closure_set_marshal (cc_bar, g_cclosure_user_marshal_VOID__INT);
 cc_baz = g_cclosure_new (NULL, baz, NULL);
-g_closure_set_marshal (cc_baz, g_cclosure_marshal_FLOAT__BOOLEAN_UCHAR);
+g_closure_set_marshal (cc_baz, g_cclosure_user_marshal_FLOAT__BOOLEAN_UCHAR);
 .fi
 .if n \{\
 .RE
 .\}
 .SH "SEE ALSO"
 .PP
-
-\fBglib\-mkenums\fR(1)
-.SH "BUGS"
-.PP
-None known yet\&.
-.SH "AUTHOR"
-.PP
-\fBglib\-genmarshal\fR
-has been written by Tim Janik
-timj@gtk\&.org\&.
-.PP
-This manual page was provided by Tim Janik
-timj@gtk\&.org\&.
+\fBglib-mkenums\fR(1)

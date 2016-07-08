@@ -15,9 +15,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  *         David Zeuthen <davidz@redhat.com>
@@ -30,7 +28,6 @@
 #include "gdrive.h"
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 /**
  * SECTION:gvolumemonitor
@@ -42,10 +39,10 @@
  * on the computer. In other words, what a file selector or file manager
  * would show in a sidebar. 
  *
- * #GVolumeMonitor is not <link
- * linkend="g-main-context-push-thread-default">thread-default-context
- * aware</link>, and so should not be used other than from the main
- * thread, with no thread-default-context active.
+ * #GVolumeMonitor is not
+ * [thread-default-context aware][g-main-context-push-thread-default],
+ * and so should not be used other than from the main thread, with no
+ * thread-default-context active.
  **/
 
 G_DEFINE_TYPE (GVolumeMonitor, g_volume_monitor, G_TYPE_OBJECT);
@@ -283,7 +280,7 @@ g_volume_monitor_init (GVolumeMonitor *monitor)
  * The returned list should be freed with g_list_free(), after
  * its elements have been unreffed with g_object_unref().
  *
- * Returns: a #GList of connected #GDrive objects.
+ * Returns: (element-type GDrive) (transfer full): a #GList of connected #GDrive objects.
  **/
 GList *
 g_volume_monitor_get_connected_drives (GVolumeMonitor *volume_monitor)
@@ -306,7 +303,7 @@ g_volume_monitor_get_connected_drives (GVolumeMonitor *volume_monitor)
  * The returned list should be freed with g_list_free(), after
  * its elements have been unreffed with g_object_unref().
  *
- * Returns: a #GList of #GVolume objects.
+ * Returns: (element-type GVolume) (transfer full): a #GList of #GVolume objects.
  **/
 GList *
 g_volume_monitor_get_volumes (GVolumeMonitor *volume_monitor)
@@ -329,7 +326,7 @@ g_volume_monitor_get_volumes (GVolumeMonitor *volume_monitor)
  * The returned list should be freed with g_list_free(), after
  * its elements have been unreffed with g_object_unref().
  * 
- * Returns: a #GList of #GMount objects.
+ * Returns: (element-type GMount) (transfer full): a #GList of #GMount objects.
  **/
 GList *
 g_volume_monitor_get_mounts (GVolumeMonitor *volume_monitor)
@@ -350,7 +347,7 @@ g_volume_monitor_get_mounts (GVolumeMonitor *volume_monitor)
  * 
  * Finds a #GVolume object by its UUID (see g_volume_get_uuid())
  * 
- * Returns: a #GVolume or %NULL if no such volume is available.
+ * Returns: (transfer full): a #GVolume or %NULL if no such volume is available.
  *     Free the returned object with g_object_unref().
  **/
 GVolume *
@@ -374,7 +371,7 @@ g_volume_monitor_get_volume_for_uuid (GVolumeMonitor *volume_monitor,
  * 
  * Finds a #GMount object by its UUID (see g_mount_get_uuid())
  * 
- * Returns: a #GMount or %NULL if no such mount is available.
+ * Returns: (transfer full): a #GMount or %NULL if no such mount is available.
  *     Free the returned object with g_object_unref().
  **/
 GMount *
@@ -390,7 +387,3 @@ g_volume_monitor_get_mount_for_uuid (GVolumeMonitor *volume_monitor,
 
   return class->get_mount_for_uuid (volume_monitor, uuid);
 }
-
-
-#define __G_VOLUME_MONITOR_C__
-#include "gioaliasdef.c"

@@ -13,9 +13,10 @@
  */
 
 /**
- * SECTION: gsocketcontrolmessage
+ * SECTION:gsocketcontrolmessage
  * @title: GSocketControlMessage
  * @short_description: A GSocket control message
+ * @include: gio/gio.h
  * @see_also: #GSocket.
  *
  * A #GSocketControlMessage is a special-purpose utility message that
@@ -24,7 +25,7 @@
  *
  * The message can represent some sort of special instruction to or
  * information from the socket or can represent a special kind of
- * transfer to the peer (for example, sending a file description over
+ * transfer to the peer (for example, sending a file descriptor over
  * a UNIX socket).
  *
  * These messages are sent with g_socket_send_message() and received
@@ -48,10 +49,10 @@
 #include "glibintl.h"
 
 #ifndef G_OS_WIN32
+#include "gunixcredentialsmessage.h"
 #include "gunixfdmessage.h"
 #endif
 
-#include "gioalias.h"
 
 G_DEFINE_ABSTRACT_TYPE (GSocketControlMessage,
                         g_socket_control_message,
@@ -117,7 +118,7 @@ g_socket_control_message_get_msg_type (GSocketControlMessage *message)
 /**
  * g_socket_control_message_serialize:
  * @message: a #GSocketControlMessage
- * @data: A buffer to write data to
+ * @data: (not nullable): A buffer to write data to
  *
  * Converts the data in the message to bytes placed in the
  * message.
@@ -153,7 +154,7 @@ g_socket_control_message_class_init (GSocketControlMessageClass *class)
  * @level: a socket level
  * @type: a socket control message type for the given @level
  * @size: the size of the data in bytes
- * @data: pointer to the message data
+ * @data: (array length=size) (element-type guint8): pointer to the message data
  *
  * Tries to deserialize a socket control message of a given
  * @level and @type. This will ask all known (to GType) subclasses
@@ -163,7 +164,7 @@ g_socket_control_message_class_init (GSocketControlMessageClass *class)
  * If there is no implementation for this kind of control message, %NULL
  * will be returned.
  *
- * Returns: the deserialized message or %NULL
+ * Returns: (transfer full): the deserialized message or %NULL
  *
  * Since: 2.22
  */
@@ -173,18 +174,15 @@ g_socket_control_message_deserialize (int      level,
 				      gsize    size,
 				      gpointer data)
 {
-  GSocketControlMessageClass *klass;
   GSocketControlMessage *message;
   GType *message_types;
   guint n_message_types;
   int i;
-#ifndef G_OS_WIN32
-  volatile GType a_type;
-#endif
 
   /* Ensure we know about the built in types */
 #ifndef G_OS_WIN32
-  a_type = g_unix_fd_message_get_type ();
+  g_type_ensure (G_TYPE_UNIX_CREDENTIALS_MESSAGE);
+  g_type_ensure (G_TYPE_UNIX_FD_MESSAGE);
 #endif
 
   message_types = g_type_children (G_TYPE_SOCKET_CONTROL_MESSAGE, &n_message_types);
@@ -192,25 +190,27 @@ g_socket_control_message_deserialize (int      level,
   message = NULL;
   for (i = 0; i < n_message_types; i++)
     {
-      klass = (GSocketControlMessageClass *)g_type_class_ref (message_types[i]);
+      GSocketControlMessageClass *class;
 
-      if (klass && klass->deserialize)
-	{
-	  message = klass->deserialize (level, type, size, data);
-	  g_type_class_unref ((GTypeClass *) klass);
-	}
+      class = g_type_class_ref (message_types[i]);
+      message = class->deserialize (level, type, size, data);
+      g_type_class_unref (class);
 
       if (message != NULL)
-	break;
+        break;
     }
 
   g_free (message_types);
 
-  if (message == NULL)
-    g_warning ("unknown control message type %d:%d", level, type);
+  /* It's not a bug if we can't deserialize the control message - for
+   * example, the control message may be be discarded if it is deemed
+   * empty, see e.g.
+   *
+   *  http://git.gnome.org/browse/glib/commit/?id=ec91ed00f14c70cca9749347b8ebc19d72d9885b
+   *
+   * Therefore, it's not appropriate to print a warning about not
+   * being able to deserialize the message.
+   */
 
   return message;
 }
-
-#define __G_SOCKET_CONTROL_MESSAGE_C__
-#include "gioaliasdef.c"

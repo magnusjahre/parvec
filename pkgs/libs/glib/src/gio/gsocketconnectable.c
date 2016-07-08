@@ -13,20 +13,18 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #include "config.h"
 #include "gsocketconnectable.h"
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 /**
  * SECTION:gsocketconnectable
  * @short_description: Interface for potential socket endpoints
+ * @include: gio/gio.h
  *
  * Objects that describe one or more potential socket endpoints
  * implement #GSocketConnectable. Callers can then use
@@ -34,7 +32,7 @@
  * to try out each socket address in turn until one succeeds, as shown
  * in the sample code below.
  *
- * |[
+ * |[<!-- language="C" -->
  * MyConnectionType *
  * connect_to_host (const char    *hostname,
  *                  guint16        port,
@@ -47,14 +45,13 @@
  *   GSocketAddress *sockaddr;
  *   GError *conn_error = NULL;
  *
- *   addr = g_network_address_new ("www.gnome.org", 80);
+ *   addr = g_network_address_new (hostname, port);
  *   enumerator = g_socket_connectable_enumerate (addr);
  *   g_object_unref (addr);
  *
- *   /<!-- -->* Try each sockaddr until we succeed. Record the first
- *    * connection error, but not any further ones (since they'll probably
- *    * be basically the same as the first).
- *    *<!-- -->/
+ *   // Try each sockaddr until we succeed. Record the first connection error,
+ *   // but not any further ones (since they'll probably be basically the same
+ *   // as the first).
  *   while (!conn && (sockaddr = g_socket_address_enumerator_next (enumerator, cancellable, error))
  *     {
  *       conn = connect_to_sockaddr (sockaddr, conn_error ? NULL : &conn_error);
@@ -66,18 +63,15 @@
  *     {
  *       if (conn_error)
  *         {
- *           /<!-- -->* We couldn't connect to the first address, but we succeeded
- *            * in connecting to a later address.
- *            *<!-- -->/
+ *           // We couldn't connect to the first address, but we succeeded
+ *           // in connecting to a later address.
  *           g_error_free (conn_error);
  *         }
  *       return conn;
  *     }
  *   else if (error)
  *     {
- *       /<!-- -->* Either the initial lookup failed, or else the caller
- *        * cancelled us.
- *        *<!-- -->/
+ *       /// Either initial lookup failed, or else the caller cancelled us.
  *       if (conn_error)
  *         g_error_free (conn_error);
  *       return NULL;
@@ -91,35 +85,13 @@
  * ]|
  */
 
-GType
-g_socket_connectable_get_type (void)
+
+typedef GSocketConnectableIface GSocketConnectableInterface;
+G_DEFINE_INTERFACE (GSocketConnectable, g_socket_connectable, G_TYPE_OBJECT)
+
+static void
+g_socket_connectable_default_init (GSocketConnectableInterface *iface)
 {
-  static volatile gsize g_define_type_id__volatile = 0;
-
-  if (g_once_init_enter (&g_define_type_id__volatile))
-    {
-      const GTypeInfo connectable_info =
-      {
-        sizeof (GSocketConnectableIface), /* class_size */
-	NULL,		/* base_init */
-	NULL,		/* base_finalize */
-	NULL,
-	NULL,		/* class_finalize */
-	NULL,		/* class_data */
-	0,
-	0,              /* n_preallocs */
-	NULL
-      };
-      GType g_define_type_id =
-	g_type_register_static (G_TYPE_INTERFACE, I_("GSocketConnectable"),
-				&connectable_info, 0);
-
-      g_type_interface_add_prerequisite (g_define_type_id, G_TYPE_OBJECT);
-
-      g_once_init_leave (&g_define_type_id__volatile, g_define_type_id);
-    }
-
-  return g_define_type_id__volatile;
 }
 
 /**
@@ -128,7 +100,7 @@ g_socket_connectable_get_type (void)
  *
  * Creates a #GSocketAddressEnumerator for @connectable.
  *
- * Return value: a new #GSocketAddressEnumerator.
+ * Returns: (transfer full): a new #GSocketAddressEnumerator.
  *
  * Since: 2.22
  */
@@ -144,5 +116,64 @@ g_socket_connectable_enumerate (GSocketConnectable *connectable)
   return (* iface->enumerate) (connectable);
 }
 
-#define __G_SOCKET_CONNECTABLE_C__
-#include "gioaliasdef.c"
+/**
+ * g_socket_connectable_proxy_enumerate:
+ * @connectable: a #GSocketConnectable
+ *
+ * Creates a #GSocketAddressEnumerator for @connectable that will
+ * return #GProxyAddresses for addresses that you must connect
+ * to via a proxy.
+ *
+ * If @connectable does not implement
+ * g_socket_connectable_proxy_enumerate(), this will fall back to
+ * calling g_socket_connectable_enumerate().
+ *
+ * Returns: (transfer full): a new #GSocketAddressEnumerator.
+ *
+ * Since: 2.26
+ */
+GSocketAddressEnumerator *
+g_socket_connectable_proxy_enumerate (GSocketConnectable *connectable)
+{
+  GSocketConnectableIface *iface;
+
+  g_return_val_if_fail (G_IS_SOCKET_CONNECTABLE (connectable), NULL);
+
+  iface = G_SOCKET_CONNECTABLE_GET_IFACE (connectable);
+
+  if (iface->proxy_enumerate)
+    return (* iface->proxy_enumerate) (connectable);
+  else
+    return (* iface->enumerate) (connectable);
+}
+
+/**
+ * g_socket_connectable_to_string:
+ * @connectable: a #GSocketConnectable
+ *
+ * Format a #GSocketConnectable as a string. This is a human-readable format for
+ * use in debugging output, and is not a stable serialization format. It is not
+ * suitable for use in user interfaces as it exposes too much information for a
+ * user.
+ *
+ * If the #GSocketConnectable implementation does not support string formatting,
+ * the implementation’s type name will be returned as a fallback.
+ *
+ * Returns: (transfer full): the formatted string
+ *
+ * Since: 2.48
+ */
+gchar *
+g_socket_connectable_to_string (GSocketConnectable *connectable)
+{
+  GSocketConnectableIface *iface;
+
+  g_return_val_if_fail (G_IS_SOCKET_CONNECTABLE (connectable), NULL);
+
+  iface = G_SOCKET_CONNECTABLE_GET_IFACE (connectable);
+
+  if (iface->to_string != NULL)
+    return iface->to_string (connectable);
+  else
+    return g_strdup (G_OBJECT_TYPE_NAME (connectable));
+}

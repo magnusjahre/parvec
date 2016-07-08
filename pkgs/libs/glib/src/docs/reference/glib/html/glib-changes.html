@@ -2,24 +2,24 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Changes to GLib</title>
-<meta name="generator" content="DocBook XSL Stylesheets V1.75.2">
+<title>Changes to GLib: GLib Reference Manual</title>
+<meta name="generator" content="DocBook XSL Stylesheets V1.79.1">
 <link rel="home" href="index.html" title="GLib Reference Manual">
 <link rel="up" href="glib.html" title="GLib Overview">
 <link rel="prev" href="glib-running.html" title="Running GLib Applications">
-<link rel="next" href="glib-regex-syntax.html" title="Regular expression syntax">
-<meta name="generator" content="GTK-Doc V1.14 (XML mode)">
+<link rel="next" href="glib-resources.html" title="Mailing lists and bug reports">
+<meta name="generator" content="GTK-Doc V1.25.1 (XML mode)">
 <link rel="stylesheet" href="style.css" type="text/css">
 </head>
 <body bgcolor="white" text="black" link="#0000FF" vlink="#840084" alink="#0000FF">
-<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="2"><tr valign="middle">
-<td><a accesskey="p" href="glib-running.html"><img src="left.png" width="24" height="24" border="0" alt="Prev"></a></td>
-<td><a accesskey="u" href="glib.html"><img src="up.png" width="24" height="24" border="0" alt="Up"></a></td>
-<td><a accesskey="h" href="index.html"><img src="home.png" width="24" height="24" border="0" alt="Home"></a></td>
-<th width="100%" align="center">GLib Reference Manual</th>
-<td><a accesskey="n" href="glib-regex-syntax.html"><img src="right.png" width="24" height="24" border="0" alt="Next"></a></td>
+<table class="navigation" id="top" width="100%" summary="Navigation header" cellpadding="2" cellspacing="5"><tr valign="middle">
+<td width="100%" align="left" class="shortcuts"></td>
+<td><a accesskey="h" href="index.html"><img src="home.png" width="16" height="16" border="0" alt="Home"></a></td>
+<td><a accesskey="u" href="glib.html"><img src="up.png" width="16" height="16" border="0" alt="Up"></a></td>
+<td><a accesskey="p" href="glib-running.html"><img src="left.png" width="16" height="16" border="0" alt="Prev"></a></td>
+<td><a accesskey="n" href="glib-resources.html"><img src="right.png" width="16" height="16" border="0" alt="Next"></a></td>
 </tr></table>
-<div class="refentry" title="Changes to GLib">
+<div class="refentry">
 <a name="glib-changes"></a><div class="titlepage"></div>
 <div class="refnamediv"><table width="100%"><tr>
 <td valign="top">
@@ -28,11 +28,11 @@
 Incompatible changes made between successing versions of GLib
 </p>
 </td>
-<td valign="top" align="right"></td>
+<td class="gallery_image" valign="top" align="right"></td>
 </tr></table></div>
-<div class="refsect1" title="Incompatible changes from 2.0 to 2.2">
-<a name="id471084"></a><h2>Incompatible changes from 2.0 to 2.2</h2>
-<div class="itemizedlist"><ul class="itemizedlist" type="disc"><li class="listitem">
+<div class="refsect1">
+<a name="id-1.2.8.3"></a><h2>Incompatible changes from 2.0 to 2.2</h2>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; "><li class="listitem">
 <p>
 GLib changed the seeding algorithm for the pseudo-random number
 generator Mersenne Twister, as used by <span class="structname">GRand</span>
@@ -55,15 +55,9 @@ with Glib-2.0 that you need to reproduce exactly.
 </p>
 </li></ul></div>
 </div>
-<div class="refsect1" title="Incompatible changes from 1.2 to 2.0">
-<a name="id465192"></a><h2>Incompatible changes from 1.2 to 2.0</h2>
-<p>
-The <a class="ulink" href="http://developer.gnome.org/dotplan/porting/" target="_top">GNOME 2.0
-porting guide</a> on <a class="ulink" href="http://developer.gnome.org" target="_top">http://developer.gnome.org</a>
-has some more detailed discussion of porting from 1.2 to 2.0.
-See the section on GLib.
-</p>
-<div class="itemizedlist"><ul class="itemizedlist" type="disc">
+<div class="refsect1">
+<a name="id-1.2.8.4"></a><h2>Incompatible changes from 1.2 to 2.0</h2>
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: disc; ">
 <li class="listitem">
 <p>
 The event loop functionality <span class="structname">GMain</span> has extensively 
@@ -80,7 +74,7 @@ types of sources will require modification.
 The main changes here are:
 
   </p>
-<div class="itemizedlist"><ul class="itemizedlist" type="circle">
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: circle; ">
 <li class="listitem"><p>
    Sources are now exposed as <span class="type">GSource *</span>, rather than simply as 
    numeric ids.
@@ -128,7 +122,7 @@ strings using <code class="function">g_locale_to_utf8()</code> first.
 <code class="function">g_strsplit()</code> has been fixed to:
 
   </p>
-<div class="itemizedlist"><ul class="itemizedlist" type="circle">
+<div class="itemizedlist"><ul class="itemizedlist" style="list-style-type: circle; ">
 <li class="listitem"><p>
    include trailing empty tokens, rather than stripping them
   </p></li>
@@ -153,7 +147,6 @@ Deprecated functions that got removed:
 </div>
 </div>
 <div class="footer">
-<hr>
-          Generated by GTK-Doc V1.14</div>
+<hr>Generated by GTK-Doc V1.25.1</div>
 </body>
 </html>

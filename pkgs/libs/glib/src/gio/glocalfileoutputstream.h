@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
@@ -59,6 +57,7 @@ gboolean _g_local_file_output_stream_really_close (GLocalFileOutputStream *out,
 						   GCancellable   *cancellable,
 						   GError        **error);
 
+GFileOutputStream * _g_local_file_output_stream_new      (int               fd);
 GFileOutputStream * _g_local_file_output_stream_open     (const char       *filename,
 							  gboolean          readable,
                                                           GCancellable     *cancellable,
@@ -66,6 +65,7 @@ GFileOutputStream * _g_local_file_output_stream_open     (const char       *file
 GFileOutputStream * _g_local_file_output_stream_create   (const char       *filename,
 							  gboolean          readable,
                                                           GFileCreateFlags  flags,
+                                                          GFileInfo        *reference_info,
                                                           GCancellable     *cancellable,
                                                           GError          **error);
 GFileOutputStream * _g_local_file_output_stream_append   (const char       *filename,
@@ -77,8 +77,15 @@ GFileOutputStream * _g_local_file_output_stream_replace  (const char       *file
                                                           const char       *etag,
                                                           gboolean          create_backup,
                                                           GFileCreateFlags  flags,
+                                                          GFileInfo        *reference_info,
                                                           GCancellable     *cancellable,
                                                           GError          **error);
+
+/* Hack to get the fd since GFileDescriptorBased (which is how you
+ * _should_ get the fd) is only available on UNIX but things like
+ * win32 needs this as well
+ */
+gint _g_local_file_output_stream_get_fd (GLocalFileOutputStream *output_stream);
 
 G_END_DECLS
 

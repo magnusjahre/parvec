@@ -14,9 +14,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  *         David Zeuthen <davidz@redhat.com>
@@ -37,10 +35,8 @@
 #include "gmountprivate.h"
 #include "gvolumemonitor.h"
 #include "gthemedicon.h"
-#include "gsimpleasyncresult.h"
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 struct _GWin32Mount {
   GObject parent;
@@ -53,6 +49,7 @@ struct _GWin32Mount {
   /* why does all this stuff need to be duplicated? It is in volume already! */
   char *name;
   GIcon *icon;
+  GIcon *symbolic_icon;
   char *mount_path;
 
   gboolean can_eject;
@@ -83,6 +80,8 @@ g_win32_mount_finalize (GObject *object)
 
   if (mount->icon != NULL)
     g_object_unref (mount->icon);
+  if (mount->symbolic_icon != NULL)
+    g_object_unref (mount->symbolic_icon);
 
   g_free (mount->name);
   g_free (mount->mount_path);
@@ -104,7 +103,7 @@ g_win32_mount_init (GWin32Mount *win32_mount)
 {
 }
 
-gchar *
+static gchar *
 _win32_get_displayname (const char *drive)
 {
   gunichar2 *wdrive = g_utf8_to_utf16 (drive, -1, NULL, NULL, NULL);
@@ -121,7 +120,7 @@ _win32_get_displayname (const char *drive)
  * _g_win32_mount_new:
  * @volume_monitor: a #GVolumeMonitor.
  * @path: a win32 path.
- * @volume: ususally NULL
+ * @volume: usually NULL
  * 
  * Returns: a #GWin32Mount for the given win32 path.
  **/
@@ -192,16 +191,16 @@ g_win32_mount_get_root (GMount *mount)
   return g_file_new_for_path (win32_mount->mount_path);
 }
 
-const char *
-_win32_drive_type_to_icon (int type)
+static const char *
+_win32_drive_type_to_icon (int type, gboolean use_symbolic)
 {
   switch (type)
   {
-  case DRIVE_REMOVABLE : return "gtk-floppy";
-  case DRIVE_FIXED : return "gtk-harddisk";
-  case DRIVE_REMOTE : return "gtk-network"; 
-  case DRIVE_CDROM : return "gtk-cdrom";
-  default : return "gtk-directory";
+  case DRIVE_REMOVABLE : return use_symbolic ? "drive-removable-media-symbolic" : "drive-removable-media";
+  case DRIVE_FIXED : return use_symbolic ? "drive-harddisk-symbolic" : "drive-harddisk";
+  case DRIVE_REMOTE : return use_symbolic ? "folder-remote-symbolic" : "folder-remote";
+  case DRIVE_CDROM : return use_symbolic ? "drive-optical-symbolic" : "drive-optical";
+  default : return use_symbolic ? "folder-symbolic" : "folder";
   }
 }
 
@@ -228,12 +227,27 @@ g_win32_mount_get_icon (GMount *mount)
 	}
       else
         {
-          win32_mount->icon = g_themed_icon_new_with_default_fallbacks (
-	                        _win32_drive_type_to_icon (win32_mount->drive_type));
+          win32_mount->icon = g_themed_icon_new_with_default_fallbacks (_win32_drive_type_to_icon (win32_mount->drive_type, FALSE));
 	}
     }
 
   return g_object_ref (win32_mount->icon);
+}
+
+static GIcon *
+g_win32_mount_get_symbolic_icon (GMount *mount)
+{
+  GWin32Mount *win32_mount = G_WIN32_MOUNT (mount);
+
+  g_return_val_if_fail (win32_mount->mount_path != NULL, NULL);
+
+  /* lazy creation */
+  if (!win32_mount->symbolic_icon)
+    {
+      win32_mount->symbolic_icon = g_themed_icon_new_with_default_fallbacks (_win32_drive_type_to_icon (win32_mount->drive_type, TRUE));
+    }
+
+  return g_object_ref (win32_mount->symbolic_icon);
 }
 
 static char *
@@ -337,6 +351,7 @@ g_win32_mount_mount_iface_init (GMountIface *iface)
   iface->get_root = g_win32_mount_get_root;
   iface->get_name = g_win32_mount_get_name;
   iface->get_icon = g_win32_mount_get_icon;
+  iface->get_symbolic_icon = g_win32_mount_get_symbolic_icon;
   iface->get_uuid = g_win32_mount_get_uuid;
   iface->get_drive = g_win32_mount_get_drive;
   iface->get_volume = g_win32_mount_get_volume;

@@ -13,44 +13,52 @@
  */
 
 /**
- * SECTION: gunixfdmessage
+ * SECTION:gunixfdmessage
  * @title: GUnixFDMessage
- * @short_description: A GSocketControlMessage containing a #GUnixFDList
+ * @short_description: A GSocketControlMessage containing a GUnixFDList
+ * @include: gio/gunixfdmessage.h
  * @see_also: #GUnixConnection, #GUnixFDList, #GSocketControlMessage
  *
- * This #GSocketControlMessage contains a #GUnixFDList.  It may be sent
- * using g_socket_send_message() and received using
+ * This #GSocketControlMessage contains a #GUnixFDList.
+ * It may be sent using g_socket_send_message() and received using
  * g_socket_receive_message() over UNIX sockets (ie: sockets in the
- * %G_SOCKET_ADDRESS_UNIX family).  The file descriptors are copied
+ * %G_SOCKET_ADDRESS_UNIX family). The file descriptors are copied
  * between processes by the kernel.
  *
  * For an easier way to send and receive file descriptors over
  * stream-oriented UNIX sockets, see g_unix_connection_send_fd() and
  * g_unix_connection_receive_fd().
+ *
+ * Note that `<gio/gunixfdmessage.h>` belongs to the UNIX-specific GIO
+ * interfaces, thus you have to use the `gio-unix-2.0.pc` pkg-config
+ * file when using it.
+ */
+
+/**
+ * GUnixFDMessage:
+ *
+ * #GUnixFDMessage is an opaque data structure and can only be accessed
+ * using the following functions.
  **/
 
 #include "config.h"
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
 
 #include "gunixfdmessage.h"
+#include "gunixfdlist.h"
+#include "gnetworking.h"
 #include "gioerror.h"
-
-#include "gioalias.h"
-
-
-G_DEFINE_TYPE (GUnixFDMessage, g_unix_fd_message,
-               G_TYPE_SOCKET_CONTROL_MESSAGE);
 
 struct _GUnixFDMessagePrivate
 {
   GUnixFDList *list;
 };
+
+G_DEFINE_TYPE_WITH_PRIVATE (GUnixFDMessage, g_unix_fd_message, G_TYPE_SOCKET_CONTROL_MESSAGE)
 
 static gsize
 g_unix_fd_message_get_size (GSocketControlMessage *message)
@@ -96,6 +104,10 @@ g_unix_fd_message_deserialize (int      level,
   fds = data;
   n = size / sizeof (gint);
 
+  /* Note we probably handled this in gsocket.c already if we're on
+   * Linux and have MSG_CMSG_CLOEXEC, but this code remains as a fallback
+   * in case the kernel is too old for MSG_CMSG_CLOEXEC.
+   */
   for (i = 0; i < n; i++)
     {
       do
@@ -152,7 +164,7 @@ g_unix_fd_message_set_property (GObject *object, guint prop_id,
  * return a reference to the caller, but the returned list is valid for
  * the lifetime of @message.
  *
- * Returns: the #GUnixFDList from @message
+ * Returns: (transfer none): the #GUnixFDList from @message
  *
  * Since: 2.24
  **/
@@ -176,9 +188,7 @@ g_unix_fd_message_get_property (GObject *object, guint prop_id,
 static void
 g_unix_fd_message_init (GUnixFDMessage *message)
 {
-  message->priv = G_TYPE_INSTANCE_GET_PRIVATE (message,
-                                               G_TYPE_UNIX_FD_MESSAGE,
-                                               GUnixFDMessagePrivate);
+  message->priv = g_unix_fd_message_get_instance_private (message);
 }
 
 static void
@@ -198,7 +208,6 @@ g_unix_fd_message_class_init (GUnixFDMessageClass *class)
   GSocketControlMessageClass *scm_class = G_SOCKET_CONTROL_MESSAGE_CLASS (class);
   GObjectClass *object_class = G_OBJECT_CLASS (class);
 
-  g_type_class_add_private (class, sizeof (GUnixFDMessagePrivate));
   scm_class->get_size = g_unix_fd_message_get_size;
   scm_class->get_level = g_unix_fd_message_get_level;
   scm_class->get_type = g_unix_fd_message_get_msg_type;
@@ -252,7 +261,8 @@ g_unix_fd_message_new_with_fd_list (GUnixFDList *fd_list)
 /**
  * g_unix_fd_message_steal_fds:
  * @message: a #GUnixFDMessage
- * @length: pointer to the length of the returned array, or %NULL
+ * @length: (out) (allow-none): pointer to the length of the returned
+ *     array, or %NULL
  *
  * Returns the array of file descriptors that is contained in this
  * object.
@@ -272,7 +282,8 @@ g_unix_fd_message_new_with_fd_list (GUnixFDList *fd_list)
  * This function never returns %NULL. In case there are no file
  * descriptors contained in @message, an empty array is returned.
  *
- * Returns: an array of file descriptors
+ * Returns: (array length=length) (transfer full): an array of file
+ *     descriptors
  *
  * Since: 2.22
  **/
@@ -280,7 +291,7 @@ gint *
 g_unix_fd_message_steal_fds (GUnixFDMessage *message,
                              gint           *length)
 {
-  g_return_val_if_fail (G_UNIX_FD_MESSAGE (message), FALSE);
+  g_return_val_if_fail (G_UNIX_FD_MESSAGE (message), NULL);
 
   return g_unix_fd_list_steal_fds (message->priv->list, length);
 }
@@ -311,8 +322,5 @@ g_unix_fd_message_append_fd (GUnixFDMessage  *message,
 {
   g_return_val_if_fail (G_UNIX_FD_MESSAGE (message), FALSE);
 
-  return g_unix_fd_list_append (message->priv->list, fd, error) > 0;
+  return g_unix_fd_list_append (message->priv->list, fd, error) >= 0;
 }
-
-#define __G_UNIX_FD_MESSAGE_C__
-#include "gioaliasdef.c"

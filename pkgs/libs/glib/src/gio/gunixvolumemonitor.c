@@ -15,9 +15,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  *         David Zeuthen <davidz@redhat.com>
@@ -37,7 +35,6 @@
 #include "giomodule.h"
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 struct _GUnixVolumeMonitor {
   GNativeVolumeMonitor parent;
@@ -77,15 +74,11 @@ g_unix_volume_monitor_finalize (GObject *object)
 					
   g_object_unref (monitor->mount_monitor);
 
-  g_list_foreach (monitor->last_mountpoints, (GFunc)g_unix_mount_point_free, NULL);
-  g_list_free (monitor->last_mountpoints);
-  g_list_foreach (monitor->last_mounts, (GFunc)g_unix_mount_free, NULL);
-  g_list_free (monitor->last_mounts);
+  g_list_free_full (monitor->last_mountpoints, (GDestroyNotify) g_unix_mount_point_free);
+  g_list_free_full (monitor->last_mounts, (GDestroyNotify) g_unix_mount_free);
 
-  g_list_foreach (monitor->volumes, (GFunc)g_object_unref, NULL);
-  g_list_free (monitor->volumes);
-  g_list_foreach (monitor->mounts, (GFunc)g_object_unref, NULL);
-  g_list_free (monitor->mounts);
+  g_list_free_full (monitor->volumes, g_object_unref);
+  g_list_free_full (monitor->mounts, g_object_unref);
 
   G_OBJECT_CLASS (g_unix_volume_monitor_parent_class)->finalize (object);
 }
@@ -96,12 +89,11 @@ g_unix_volume_monitor_dispose (GObject *object)
   GUnixVolumeMonitor *monitor;
 
   monitor = G_UNIX_VOLUME_MONITOR (object);
-  g_list_foreach (monitor->volumes, (GFunc)g_object_unref, NULL);
-  g_list_free (monitor->volumes);
+
+  g_list_free_full (monitor->volumes, g_object_unref);
   monitor->volumes = NULL;
   
-  g_list_foreach (monitor->mounts, (GFunc)g_object_unref, NULL);
-  g_list_free (monitor->mounts);
+  g_list_free_full (monitor->mounts, g_object_unref);
   monitor->mounts = NULL;
   
   G_OBJECT_CLASS (g_unix_volume_monitor_parent_class)->dispose (object);
@@ -111,28 +103,20 @@ static GList *
 get_mounts (GVolumeMonitor *volume_monitor)
 {
   GUnixVolumeMonitor *monitor;
-  GList *l;
   
   monitor = G_UNIX_VOLUME_MONITOR (volume_monitor);
 
-  l = g_list_copy (monitor->mounts);
-  g_list_foreach (l, (GFunc)g_object_ref, NULL);
-
-  return l;
+  return g_list_copy_deep (monitor->mounts, (GCopyFunc) g_object_ref, NULL);
 }
 
 static GList *
 get_volumes (GVolumeMonitor *volume_monitor)
 {
   GUnixVolumeMonitor *monitor;
-  GList *l;
   
   monitor = G_UNIX_VOLUME_MONITOR (volume_monitor);
 
-  l = g_list_copy (monitor->volumes);
-  g_list_foreach (l, (GFunc)g_object_ref, NULL);
-
-  return l;
+  return g_list_copy_deep (monitor->volumes, (GCopyFunc) g_object_ref, NULL);
 }
 
 static GList *
@@ -225,7 +209,7 @@ static void
 g_unix_volume_monitor_init (GUnixVolumeMonitor *unix_monitor)
 {
 
-  unix_monitor->mount_monitor = g_unix_mount_monitor_new ();
+  unix_monitor->mount_monitor = g_unix_mount_monitor_get ();
 
   g_signal_connect (unix_monitor->mount_monitor,
 		    "mounts-changed", G_CALLBACK (mounts_changed),
@@ -373,9 +357,7 @@ update_volumes (GUnixVolumeMonitor *monitor)
   
   g_list_free (added);
   g_list_free (removed);
-  g_list_foreach (monitor->last_mountpoints,
-		  (GFunc)g_unix_mount_point_free, NULL);
-  g_list_free (monitor->last_mountpoints);
+  g_list_free_full (monitor->last_mountpoints, (GDestroyNotify) g_unix_mount_point_free);
   monitor->last_mountpoints = new_mountpoints;
 }
 
@@ -429,8 +411,6 @@ update_mounts (GUnixVolumeMonitor *monitor)
   
   g_list_free (added);
   g_list_free (removed);
-  g_list_foreach (monitor->last_mounts,
-		  (GFunc)g_unix_mount_free, NULL);
-  g_list_free (monitor->last_mounts);
+  g_list_free_full (monitor->last_mounts, (GDestroyNotify) g_unix_mount_free);
   monitor->last_mounts = new_mounts;
 }

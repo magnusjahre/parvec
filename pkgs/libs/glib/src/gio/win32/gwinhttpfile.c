@@ -14,9 +14,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  * Author: Tor Lillqvist <tml@novell.com>
@@ -28,17 +26,15 @@
 #include <string.h>
 #include <wchar.h>
 
-#include "gfile.h"
-#include "gfileattribute.h"
-#include "gfileinfo.h"
+#include "gio/gfile.h"
+#include "gio/gfileattribute.h"
+#include "gio/gfileinfo.h"
 #include "gwinhttpfile.h"
 #include "gwinhttpfileinputstream.h"
 #include "gwinhttpfileoutputstream.h"
-#include "gioerror.h"
+#include "gio/gioerror.h"
 
 #include "glibintl.h"
-
-#include "gioalias.h"
 
 static void g_winhttp_file_file_iface_init (GFileIface *iface);
 
@@ -552,12 +548,15 @@ g_winhttp_file_query_info (GFile                *file,
     {
       gint64 cl;
       int n;
+      const char *gint64_format = "%"G_GINT64_FORMAT"%n";
+      wchar_t *gint64_format_w = g_utf8_to_utf16 (gint64_format, -1, NULL, NULL, NULL);
 
-      if (swscanf (content_length, L"%I64d%n", &cl, &n) == 1 &&
+      if (swscanf (content_length, gint64_format_w, &cl, &n) == 1 &&
           n == wcslen (content_length))
         g_file_info_set_size (info, cl);
 
       g_free (content_length);
+      g_free (gint64_format_w);
     }
 
   if (matcher == NULL)

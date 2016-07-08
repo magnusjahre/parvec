@@ -13,19 +13,17 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
 
+#ifndef __G_FILE_INFO_H__
+#define __G_FILE_INFO_H__
+
 #if !defined (__GIO_GIO_H_INSIDE__) && !defined (GIO_COMPILATION)
 #error "Only <gio/gio.h> can be included directly."
 #endif
-
-#ifndef __G_FILE_INFO_H__
-#define __G_FILE_INFO_H__
 
 #include <gio/giotypes.h>
 
@@ -89,6 +87,20 @@ typedef struct _GFileInfoClass   GFileInfoClass;
  * Corresponding #GFileAttributeType is %G_FILE_ATTRIBUTE_TYPE_BOOLEAN.
  **/
 #define G_FILE_ATTRIBUTE_STANDARD_IS_VIRTUAL "standard::is-virtual"         /* boolean */
+
+/**
+ * G_FILE_ATTRIBUTE_STANDARD_IS_VOLATILE:
+ *
+ * A key in the "standard" namespace for checking if a file is
+ * volatile. This is meant for opaque, non-POSIX-like backends to
+ * indicate that the URI is not persistent. Applications should look
+ * at #G_FILE_ATTRIBUTE_STANDARD_SYMLINK_TARGET for the persistent URI.
+ *
+ * Corresponding #GFileAttributeType is %G_FILE_ATTRIBUTE_TYPE_BOOLEAN.
+ *
+ * Since: 2.46
+ **/
+#define G_FILE_ATTRIBUTE_STANDARD_IS_VOLATILE "standard::is-volatile"      /* boolean */
 
 /**
  * G_FILE_ATTRIBUTE_STANDARD_NAME:
@@ -161,6 +173,17 @@ typedef struct _GFileInfoClass   GFileInfoClass;
  * The value for this key should contain a #GIcon.
  **/
 #define G_FILE_ATTRIBUTE_STANDARD_ICON "standard::icon"                     /* object (GIcon) */
+
+/**
+ * G_FILE_ATTRIBUTE_STANDARD_SYMBOLIC_ICON:
+ *
+ * A key in the "standard" namespace for getting the symbolic icon for the file.
+ * Corresponding #GFileAttributeType is %G_FILE_ATTRIBUTE_TYPE_OBJECT.
+ * The value for this key should contain a #GIcon.
+ *
+ * Since: 2.34
+ **/
+#define G_FILE_ATTRIBUTE_STANDARD_SYMBOLIC_ICON "standard::symbolic-icon"   /* object (GIcon) */
 
 /**
  * G_FILE_ATTRIBUTE_STANDARD_CONTENT_TYPE:
@@ -692,6 +715,21 @@ typedef struct _GFileInfoClass   GFileInfoClass;
  * #GFileAttributeType is %G_FILE_ATTRIBUTE_TYPE_BOOLEAN.
  **/
 #define G_FILE_ATTRIBUTE_THUMBNAILING_FAILED "thumbnail::failed"         /* boolean */
+/**
+ * G_FILE_ATTRIBUTE_THUMBNAIL_IS_VALID:
+ *
+ * A key in the "thumbnail" namespace for checking whether the thumbnail is outdated.
+ * This attribute is %TRUE if the thumbnail is up-to-date with the file it represents,
+ * and %FALSE if the file has been modified since the thumbnail was generated.
+ *
+ * If %G_FILE_ATTRIBUTE_THUMBNAILING_FAILED is %TRUE and this attribute is %FALSE,
+ * it indicates that thumbnailing may be attempted again and may succeed.
+ *
+ * Corresponding #GFileAttributeType is %G_FILE_ATTRIBUTE_TYPE_BOOLEAN.
+ *
+ * Since: 2.40
+ */
+#define G_FILE_ATTRIBUTE_THUMBNAIL_IS_VALID "thumbnail::is-valid"        /* boolean */
 
 /* Preview */
 
@@ -727,6 +765,17 @@ typedef struct _GFileInfoClass   GFileInfoClass;
  * %G_FILE_ATTRIBUTE_TYPE_UINT64.
  **/
 #define G_FILE_ATTRIBUTE_FILESYSTEM_FREE "filesystem::free"                       /* uint64 */
+
+/**
+ * G_FILE_ATTRIBUTE_FILESYSTEM_USED:
+ *
+ * A key in the "filesystem" namespace for getting the number of bytes of used on the
+ * file system. Corresponding #GFileAttributeType is
+ * %G_FILE_ATTRIBUTE_TYPE_UINT64.
+ *
+ * Since: 2.32
+ */
+#define G_FILE_ATTRIBUTE_FILESYSTEM_USED "filesystem::used"                       /* uint64 */
 
 /**
  * G_FILE_ATTRIBUTE_FILESYSTEM_TYPE:
@@ -789,11 +838,11 @@ typedef struct _GFileInfoClass   GFileInfoClass;
  * A key in the "trash" namespace.  When requested against
  * items in "trash:///", will return the original path to the file before it
  * was trashed. Corresponding #GFileAttributeType is
- * %G_FILE_ATTRIBUTE_TYPE_STRING.
+ * %G_FILE_ATTRIBUTE_TYPE_BYTE_STRING.
  *
- * Since: 2.24.
+ * Since: 2.24
  **/
-#define G_FILE_ATTRIBUTE_TRASH_ORIG_PATH "trash::orig-path"     /* string */
+#define G_FILE_ATTRIBUTE_TRASH_ORIG_PATH "trash::orig-path"     /* byte string */
 
 /**
  * G_FILE_ATTRIBUTE_TRASH_DELETION_DATE:
@@ -803,148 +852,232 @@ typedef struct _GFileInfoClass   GFileInfoClass;
  * was trashed. The format of the returned string is YYYY-MM-DDThh:mm:ss.
  * Corresponding #GFileAttributeType is %G_FILE_ATTRIBUTE_TYPE_STRING.
  *
- * Since: 2.24.
+ * Since: 2.24
  **/
 #define G_FILE_ATTRIBUTE_TRASH_DELETION_DATE "trash::deletion-date"  /* string */
 
+GLIB_AVAILABLE_IN_ALL
 GType              g_file_info_get_type                  (void) G_GNUC_CONST;
 
+GLIB_AVAILABLE_IN_ALL
 GFileInfo *        g_file_info_new                       (void);
+GLIB_AVAILABLE_IN_ALL
 GFileInfo *        g_file_info_dup                       (GFileInfo  *other);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_copy_into                 (GFileInfo  *src_info,
 							  GFileInfo  *dest_info);
+GLIB_AVAILABLE_IN_ALL
 gboolean           g_file_info_has_attribute             (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 gboolean           g_file_info_has_namespace             (GFileInfo  *info,
 							  const char *name_space);
+GLIB_AVAILABLE_IN_ALL
 char **            g_file_info_list_attributes           (GFileInfo  *info,
 							  const char *name_space);
+GLIB_AVAILABLE_IN_ALL
 gboolean           g_file_info_get_attribute_data        (GFileInfo  *info,
 							  const char *attribute,
 							  GFileAttributeType *type,
 							  gpointer   *value_pp,
 							  GFileAttributeStatus *status);
+GLIB_AVAILABLE_IN_ALL
 GFileAttributeType g_file_info_get_attribute_type        (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_remove_attribute          (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 GFileAttributeStatus g_file_info_get_attribute_status    (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 gboolean           g_file_info_set_attribute_status      (GFileInfo  *info,
 							  const char *attribute,
 							  GFileAttributeStatus status);
+GLIB_AVAILABLE_IN_ALL
 char *             g_file_info_get_attribute_as_string   (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 const char *       g_file_info_get_attribute_string      (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 const char *       g_file_info_get_attribute_byte_string (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 gboolean           g_file_info_get_attribute_boolean     (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 guint32            g_file_info_get_attribute_uint32      (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 gint32             g_file_info_get_attribute_int32       (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 guint64            g_file_info_get_attribute_uint64      (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 gint64             g_file_info_get_attribute_int64       (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 GObject *          g_file_info_get_attribute_object      (GFileInfo  *info,
 							  const char *attribute);
+GLIB_AVAILABLE_IN_ALL
 char **            g_file_info_get_attribute_stringv     (GFileInfo  *info,
 							  const char *attribute);
 
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute             (GFileInfo  *info,
 							  const char *attribute,
 							  GFileAttributeType type,
 							  gpointer    value_p);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_string      (GFileInfo  *info,
 							  const char *attribute,
 							  const char *attr_value);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_byte_string (GFileInfo  *info,
 							  const char *attribute,
 							  const char *attr_value);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_boolean     (GFileInfo  *info,
 							  const char *attribute,
 							  gboolean    attr_value);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_uint32      (GFileInfo  *info,
 							  const char *attribute,
 							  guint32     attr_value);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_int32       (GFileInfo  *info,
 							  const char *attribute,
 							  gint32      attr_value);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_uint64      (GFileInfo  *info,
 							  const char *attribute,
 							  guint64     attr_value);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_int64       (GFileInfo  *info,
 							  const char *attribute,
 							  gint64      attr_value);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_object      (GFileInfo  *info,
 							  const char *attribute,
 							  GObject    *attr_value);
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_set_attribute_stringv     (GFileInfo  *info,
 							  const char *attribute,
 							  char      **attr_value);
 
+GLIB_AVAILABLE_IN_ALL
 void               g_file_info_clear_status              (GFileInfo  *info);
 
 /* Helper getters: */
+GLIB_AVAILABLE_IN_2_36
+GDateTime *       g_file_info_get_deletion_date      (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 GFileType         g_file_info_get_file_type          (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 gboolean          g_file_info_get_is_hidden          (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 gboolean          g_file_info_get_is_backup          (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 gboolean          g_file_info_get_is_symlink         (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 const char *      g_file_info_get_name               (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 const char *      g_file_info_get_display_name       (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 const char *      g_file_info_get_edit_name          (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 GIcon *           g_file_info_get_icon               (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
+GIcon *           g_file_info_get_symbolic_icon      (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 const char *      g_file_info_get_content_type       (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 goffset           g_file_info_get_size               (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_get_modification_time  (GFileInfo         *info,
 						      GTimeVal          *result);
+GLIB_AVAILABLE_IN_ALL
 const char *      g_file_info_get_symlink_target     (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 const char *      g_file_info_get_etag               (GFileInfo         *info);
+GLIB_AVAILABLE_IN_ALL
 gint32            g_file_info_get_sort_order         (GFileInfo         *info);
 
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_attribute_mask     (GFileInfo         *info,
 						      GFileAttributeMatcher *mask);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_unset_attribute_mask   (GFileInfo         *info);
 
 /* Helper setters: */
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_file_type          (GFileInfo         *info,
 						      GFileType          type);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_is_hidden          (GFileInfo         *info,
 						      gboolean           is_hidden);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_is_symlink         (GFileInfo         *info,
 						      gboolean           is_symlink);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_name               (GFileInfo         *info,
 						      const char        *name);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_display_name       (GFileInfo         *info,
 						      const char        *display_name);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_edit_name          (GFileInfo         *info,
 						      const char        *edit_name);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_icon               (GFileInfo         *info,
 						      GIcon             *icon);
+GLIB_AVAILABLE_IN_ALL
+void              g_file_info_set_symbolic_icon      (GFileInfo         *info,
+						      GIcon             *icon);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_content_type       (GFileInfo         *info,
 						      const char        *content_type);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_size               (GFileInfo         *info,
 						      goffset            size);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_modification_time  (GFileInfo         *info,
 						      GTimeVal          *mtime);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_symlink_target     (GFileInfo         *info,
 						      const char        *symlink_target);
+GLIB_AVAILABLE_IN_ALL
 void              g_file_info_set_sort_order         (GFileInfo         *info,
 						      gint32             sort_order);
 
+#define G_TYPE_FILE_ATTRIBUTE_MATCHER (g_file_attribute_matcher_get_type ())
+GLIB_AVAILABLE_IN_ALL
+GType g_file_attribute_matcher_get_type (void) G_GNUC_CONST;
+
+GLIB_AVAILABLE_IN_ALL
 GFileAttributeMatcher *g_file_attribute_matcher_new            (const char            *attributes);
+GLIB_AVAILABLE_IN_ALL
 GFileAttributeMatcher *g_file_attribute_matcher_ref            (GFileAttributeMatcher *matcher);
+GLIB_AVAILABLE_IN_ALL
 void                   g_file_attribute_matcher_unref          (GFileAttributeMatcher *matcher);
+GLIB_AVAILABLE_IN_ALL
+GFileAttributeMatcher *g_file_attribute_matcher_subtract       (GFileAttributeMatcher *matcher,
+                                                                GFileAttributeMatcher *subtract);
+GLIB_AVAILABLE_IN_ALL
 gboolean               g_file_attribute_matcher_matches        (GFileAttributeMatcher *matcher,
 								const char            *attribute);
+GLIB_AVAILABLE_IN_ALL
 gboolean               g_file_attribute_matcher_matches_only   (GFileAttributeMatcher *matcher,
 								const char            *attribute);
+GLIB_AVAILABLE_IN_ALL
 gboolean               g_file_attribute_matcher_enumerate_namespace (GFileAttributeMatcher *matcher,
 								     const char            *ns);
+GLIB_AVAILABLE_IN_ALL
 const char *           g_file_attribute_matcher_enumerate_next (GFileAttributeMatcher *matcher);
+GLIB_AVAILABLE_IN_2_32
+char *                 g_file_attribute_matcher_to_string      (GFileAttributeMatcher *matcher);
 
 G_END_DECLS
 

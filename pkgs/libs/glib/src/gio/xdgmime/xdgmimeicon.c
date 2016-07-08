@@ -19,9 +19,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -163,6 +161,7 @@ _xdg_mime_icon_read_from_file (XdgIconList *list,
            sizeof (XdgIcon), icon_entry_cmp);
 }
 
+#ifdef NOT_USED_IN_GIO
 
 void
 _xdg_mime_icon_list_dump (XdgIconList *list)
@@ -180,4 +179,5 @@ _xdg_mime_icon_list_dump (XdgIconList *list)
     }
 }
 
+#endif
 

@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public
- * License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
- * Boston, MA 02111-1307, USA.
+ * License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Ryan Lortie <desrt@desrt.ca>
  */
@@ -31,7 +29,6 @@
 
 #include <string.h>
 
-#include "galias.h"
 
 /* GVariantSerialiser
  *
@@ -84,13 +81,13 @@
  * values is permitted (eg: 0 to 255 is a valid byte).  Special checks
  * need to be performed for booleans (only 0 or 1 allowed), strings
  * (properly nul-terminated) and object paths and signature strings
- * (meeting the DBus specification requirements).
+ * (meeting the D-Bus specification requirements).
  */
 
 /* < private >
  * GVariantSerialised:
  * @type_info: the #GVariantTypeInfo of this value
- * @data: the serialised data of this value, or %NULL
+ * @data: (allow-none): the serialised data of this value, or %NULL
  * @size: the size of this value
  *
  * A structure representing a GVariant in serialised form.  This
@@ -138,6 +135,34 @@ g_variant_serialised_check (GVariantSerialised serialised)
     g_assert_cmpint (serialised.size, ==, fixed_size);
   else
     g_assert (serialised.size == 0 || serialised.data != NULL);
+
+  /* Depending on the native alignment requirements of the machine, the
+   * compiler will insert either 3 or 7 padding bytes after the char.
+   * This will result in the sizeof() the struct being 12 or 16.
+   * Subtract 9 to get 3 or 7 which is a nice bitmask to apply to get
+   * the alignment bits that we "care about" being zero: in the
+   * 4-aligned case, we care about 2 bits, and in the 8-aligned case, we
+   * care about 3 bits.
+   */
+  alignment &= sizeof (struct {
+                         char a;
+                         union {
+                           guint64 x;
+                           void *y;
+                           gdouble z;
+                         } b;
+                       }
+                      ) - 9;
+
+  /* Some OSes (FreeBSD is a known example) have a malloc() that returns
+   * unaligned memory if you request small sizes.  'malloc (1);', for
+   * example, has been seen to return pointers aligned to 6 mod 16.
+   *
+   * Check if this is a small allocation and return without enforcing
+   * the alignment assertion if this is the case.
+   */
+  if (serialised.size <= alignment)
+    return;
 
   g_assert_cmpint (alignment & (gsize) serialised.data, ==, 0);
 }
@@ -484,7 +509,7 @@ gvs_fixed_sized_array_is_normal (GVariantSerialised value)
  * Variable sized arrays, containing variable-sized elements, must be
  * able to determine the boundaries between the elements.  The items
  * cannot simply be concatenated.  Additionally, we are faced with the
- * fact that non-fixed-sized values do not neccessarily have a size that
+ * fact that non-fixed-sized values do not necessarily have a size that
  * is a multiple of their alignment requirement, so we may need to
  * insert zero-filled padding.
  *
@@ -525,6 +550,7 @@ gvs_fixed_sized_array_is_normal (GVariantSerialised value)
  * normal form and that is the one that the serialiser must produce.
  */
 
+/* bytes may be NULL if (size == 0). */
 static inline gsize
 gvs_read_unaligned_le (guchar *bytes,
                        guint   size)
@@ -536,7 +562,8 @@ gvs_read_unaligned_le (guchar *bytes,
   } tmpvalue;
 
   tmpvalue.integer = 0;
-  memcpy (&tmpvalue.bytes, bytes, size);
+  if (bytes != NULL)
+    memcpy (&tmpvalue.bytes, bytes, size);
 
   return GSIZE_FROM_LE (tmpvalue.integer);
 }
@@ -835,7 +862,7 @@ gvs_tuple_get_child (GVariantSerialised value,
 
   /* tuples are the only (potentially) fixed-sized containers, so the
    * only ones that have to deal with the possibility of having %NULL
-   * data with a non-zero %size if errors occured elsewhere.
+   * data with a non-zero %size if errors occurred elsewhere.
    */
   if G_UNLIKELY (value.data == NULL && value.size != 0)
     {
@@ -891,7 +918,7 @@ gvs_tuple_get_child (GVariantSerialised value,
       child.size = fixed_size;
     }
 
-  else /* G_VARIANT_MEMEBER_ENDING_OFFSET */
+  else /* G_VARIANT_MEMBER_ENDING_OFFSET */
     end = gvs_read_unaligned_le (value.data + value.size -
                                  offset_size * (member_info->i + 2),
                                  offset_size);
@@ -995,6 +1022,10 @@ gvs_tuple_is_normal (GVariantSerialised value)
   gsize length;
   gsize offset;
   gsize i;
+
+  /* as per the comment in gvs_tuple_get_child() */
+  if G_UNLIKELY (value.data == NULL && value.size != 0)
+    return FALSE;
 
   offset_size = gvs_get_offset_size (value.size);
   length = g_variant_type_info_n_members (value.type_info);
@@ -1273,11 +1304,12 @@ gvs_variant_is_normal (GVariantSerialised value)
 /* < private >
  * g_variant_serialised_n_children:
  * @serialised: a #GVariantSerialised
- * @returns: the number of children
  *
  * For serialised data that represents a container value (maybes,
  * tuples, arrays, variants), determine how many child items are inside
  * that container.
+ *
+ * Returns: the number of children
  */
 gsize
 g_variant_serialised_n_children (GVariantSerialised serialised)
@@ -1296,7 +1328,6 @@ g_variant_serialised_n_children (GVariantSerialised serialised)
  * g_variant_serialised_get_child:
  * @serialised: a #GVariantSerialised
  * @index_: the index of the child to fetch
- * @returns: a #GVariantSerialised for the child
  *
  * Extracts a child from a serialised data representing a container
  * value.
@@ -1311,6 +1342,8 @@ g_variant_serialised_n_children (GVariantSerialised serialised)
  * item of a variable-sized type is being returned.
  *
  * .data is never non-%NULL if size is 0.
+ *
+ * Returns: a #GVariantSerialised for the child
  */
 GVariantSerialised
 g_variant_serialised_get_child (GVariantSerialised serialised,
@@ -1517,6 +1550,9 @@ g_variant_serialised_is_normal (GVariantSerialised serialised)
 
                  )
 
+  if (serialised.data == NULL)
+    return FALSE;
+
   /* some hard-coded terminal cases */
   switch (g_variant_type_info_get_type_char (serialised.type_info))
     {
@@ -1561,25 +1597,30 @@ gboolean
 g_variant_serialiser_is_string (gconstpointer data,
                                 gsize         size)
 {
-  const gchar *string = data;
+  const gchar *expected_end;
+  const gchar *end;
 
   if (size == 0)
     return FALSE;
 
-  if (string[size - 1] != '\0')
+  expected_end = ((gchar *) data) + size - 1;
+
+  if (*expected_end != '\0')
     return FALSE;
 
-  return strlen (string) == size - 1;
+  g_utf8_validate (data, size, &end);
+
+  return end == expected_end;
 }
 
 /* < private >
  * g_variant_serialiser_is_object_path:
- * @data: a possible DBus object path
+ * @data: a possible D-Bus object path
  * @size: the size of @data
  *
  * Performs the checks for being a valid string.
  *
- * Also, ensures that @data is a valid DBus object path, as per the DBus
+ * Also, ensures that @data is a valid DBus object path, as per the D-Bus
  * specification.
  */
 gboolean
@@ -1626,13 +1667,13 @@ g_variant_serialiser_is_object_path (gconstpointer data,
 
 /* < private >
  * g_variant_serialiser_is_signature:
- * @data: a possible DBus signature
+ * @data: a possible D-Bus signature
  * @size: the size of @data
  *
  * Performs the checks for being a valid string.
  *
- * Also, ensures that @data is a valid DBus type signature, as per the
- * DBus specification.
+ * Also, ensures that @data is a valid D-Bus type signature, as per the
+ * D-Bus specification.
  */
 gboolean
 g_variant_serialiser_is_signature (gconstpointer data,
@@ -1658,7 +1699,4 @@ g_variant_serialiser_is_signature (gconstpointer data,
 }
 
 /* Epilogue {{{1 */
-#define __G_VARIANT_SERIALISER_C__
-#include "galiasdef.c"
-
 /* vim:set foldmethod=marker: */

@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Christian Kellner <gicmo@gnome.org> 
  */
@@ -23,16 +21,18 @@
 #include "config.h"
 #include "gfilterinputstream.h"
 #include "ginputstream.h"
-#include "gsimpleasyncresult.h"
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 /**
  * SECTION:gfilterinputstream
  * @short_description: Filter Input Stream
  * @include: gio/gio.h
  *
+ * Base class for input stream implementations that perform some
+ * kind of filtering operation on a base stream. Typical examples
+ * of filtering operations are character set conversion, compression
+ * and byte order flipping.
  **/
 
 enum {
@@ -66,17 +66,12 @@ static gboolean g_filter_input_stream_close        (GInputStream         *stream
                                                     GCancellable         *cancellable,
                                                     GError              **error);
 
-G_DEFINE_TYPE (GFilterInputStream, g_filter_input_stream, G_TYPE_INPUT_STREAM)
-
-#define GET_PRIVATE(inst) G_TYPE_INSTANCE_GET_PRIVATE (inst, \
-  G_TYPE_FILTER_INPUT_STREAM, GFilterInputStreamPrivate)
-
 typedef struct
 {
   gboolean close_base;
-  GAsyncReadyCallback outstanding_callback;
-  gpointer outstanding_user_data;
 } GFilterInputStreamPrivate;
+
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE (GFilterInputStream, g_filter_input_stream, G_TYPE_INPUT_STREAM)
 
 static void
 g_filter_input_stream_class_init (GFilterInputStreamClass *klass)
@@ -94,8 +89,6 @@ g_filter_input_stream_class_init (GFilterInputStreamClass *klass)
   istream_class->skip  = g_filter_input_stream_skip;
   istream_class->close_fn = g_filter_input_stream_close;
 
-  g_type_class_add_private (klass, sizeof (GFilterInputStreamPrivate));
-
   g_object_class_install_property (object_class,
                                    PROP_BASE_STREAM,
                                    g_param_spec_object ("base-stream",
@@ -110,7 +103,7 @@ g_filter_input_stream_class_init (GFilterInputStreamClass *klass)
                                    g_param_spec_boolean ("close-base-stream",
                                                          P_("Close Base Stream"),
                                                          P_("If the base stream should be closed when the filter stream is closed."),
-                                                         TRUE, G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY | 
+                                                         TRUE, G_PARAM_READWRITE | G_PARAM_CONSTRUCT |
                                                          G_PARAM_STATIC_NAME|G_PARAM_STATIC_NICK|G_PARAM_STATIC_BLURB));
 }
 
@@ -151,8 +144,10 @@ g_filter_input_stream_get_property (GObject    *object,
                                     GParamSpec *pspec)
 {
   GFilterInputStream *filter_stream;
+  GFilterInputStreamPrivate *priv;
 
   filter_stream = G_FILTER_INPUT_STREAM (object);
+  priv = g_filter_input_stream_get_instance_private (filter_stream);
 
   switch (prop_id)
     {
@@ -161,7 +156,7 @@ g_filter_input_stream_get_property (GObject    *object,
       break;
 
     case PROP_CLOSE_BASE:
-      g_value_set_boolean (value, GET_PRIVATE (filter_stream)->close_base);
+      g_value_set_boolean (value, priv->close_base);
       break;
 
     default:
@@ -186,7 +181,6 @@ g_filter_input_stream_finalize (GObject *object)
 static void
 g_filter_input_stream_init (GFilterInputStream *stream)
 {
-
 }
 
 /**
@@ -195,7 +189,7 @@ g_filter_input_stream_init (GFilterInputStream *stream)
  * 
  * Gets the base stream for the filter stream.
  *
- * Returns: a #GInputStream.
+ * Returns: (transfer none): a #GInputStream.
  **/
 GInputStream *
 g_filter_input_stream_get_base_stream (GFilterInputStream *stream)
@@ -212,14 +206,18 @@ g_filter_input_stream_get_base_stream (GFilterInputStream *stream)
  * Returns whether the base stream will be closed when @stream is
  * closed.
  *
- * Return value: %TRUE if the base stream will be closed.
+ * Returns: %TRUE if the base stream will be closed.
  **/
 gboolean
 g_filter_input_stream_get_close_base_stream (GFilterInputStream *stream)
 {
+  GFilterInputStreamPrivate *priv;
+
   g_return_val_if_fail (G_IS_FILTER_INPUT_STREAM (stream), FALSE);
 
-  return GET_PRIVATE (stream)->close_base;
+  priv = g_filter_input_stream_get_instance_private (stream);
+
+  return priv->close_base;
 }
 
 /**
@@ -239,7 +237,7 @@ g_filter_input_stream_set_close_base_stream (GFilterInputStream *stream,
 
   close_base = !!close_base;
  
-  priv = GET_PRIVATE (stream);
+  priv = g_filter_input_stream_get_instance_private (stream);
 
   if (priv->close_base != close_base)
     {
@@ -296,23 +294,16 @@ g_filter_input_stream_close (GInputStream  *stream,
                              GCancellable  *cancellable,
                              GError       **error)
 {
+  GFilterInputStream *filter_stream = G_FILTER_INPUT_STREAM (stream);
+  GFilterInputStreamPrivate *priv = g_filter_input_stream_get_instance_private (filter_stream);
   gboolean res = TRUE;
 
-  if (GET_PRIVATE (stream)->close_base)
+  if (priv->close_base)
     {
-      GFilterInputStream *filter_stream;
-      GInputStream       *base_stream;
-
-      filter_stream = G_FILTER_INPUT_STREAM (stream);
-      base_stream = filter_stream->base_stream;
-
-      res = g_input_stream_close (base_stream,
+      res = g_input_stream_close (filter_stream->base_stream,
                                   cancellable,
                                   error);
     }
 
   return res;
 }
-
-#define __G_FILTER_INPUT_STREAM_C__
-#include "gioaliasdef.c"

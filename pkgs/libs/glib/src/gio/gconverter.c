@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
@@ -24,7 +22,6 @@
 #include "gconverter.h"
 #include "glibintl.h"
 
-#include "gioalias.h"
 
 /**
  * SECTION:gconverter
@@ -43,55 +40,28 @@
  * Since: 2.24
  **/
 
-static void g_converter_base_init (gpointer g_class);
 
-GType
-g_converter_get_type (void)
-{
-  static volatile gsize g_define_type_id__volatile = 0;
-
-  if (g_once_init_enter (&g_define_type_id__volatile))
-    {
-      const GTypeInfo converter_info =
-      {
-	sizeof (GConverterIface), /* class_size */
-	g_converter_base_init,   /* base_init */
-	NULL,		/* base_finalize */
-	NULL,
-	NULL,		/* class_finalize */
-	NULL,		/* class_data */
-	0,
-	0,              /* n_preallocs */
-	NULL
-      };
-      GType g_define_type_id =
-	g_type_register_static (G_TYPE_INTERFACE, I_("GConverter"),
-				&converter_info, 0);
-
-      g_type_interface_add_prerequisite (g_define_type_id, G_TYPE_OBJECT);
-
-      g_once_init_leave (&g_define_type_id__volatile, g_define_type_id);
-    }
-
-  return g_define_type_id__volatile;
-}
+typedef GConverterIface GConverterInterface;
+G_DEFINE_INTERFACE (GConverter, g_converter, G_TYPE_OBJECT)
 
 static void
-g_converter_base_init (gpointer g_class)
+g_converter_default_init (GConverterInterface *iface)
 {
 }
 
 /**
  * g_converter_convert:
  * @converter: a #GConverter.
- * @inbuf: the buffer containing the data to convert.
+ * @inbuf: (array length=inbuf_size) (element-type guint8): the buffer
+ *         containing the data to convert.
  * @inbuf_size: the number of bytes in @inbuf
- * @outbuf: a buffer to write converted data in.
+ * @outbuf: (element-type guint8) (array length=outbuf_size): a buffer to write
+ *    converted data in.
  * @outbuf_size: the number of bytes in @outbuf, must be at least one
- * @flags: a #GConvertFlags controlling the conversion details
- * @bytes_read: will be set to the number of bytes read from @inbuf on success
- * @bytes_written: will be set to the number of bytes written to @outbuf on success
- * @error: location to store the error occuring, or %NULL to ignore
+ * @flags: a #GConverterFlags controlling the conversion details
+ * @bytes_read: (out): will be set to the number of bytes read from @inbuf on success
+ * @bytes_written: (out): will be set to the number of bytes written to @outbuf on success
+ * @error: location to store the error occurring, or %NULL to ignore
  *
  * This is the main operation used when converting data. It is to be called
  * multiple times in a loop, and each time it will do some work, i.e.
@@ -119,9 +89,9 @@ g_converter_base_init (gpointer g_class)
  * When some data has successfully been converted @bytes_read and is set to
  * the number of bytes read from @inbuf, and @bytes_written is set to indicate
  * how many bytes was written to @outbuf. If there are more data to output
- * or consume (i.e. unless the G_CONVERTER_INPUT_AT_END is specified) then
- * G_CONVERTER_CONVERTED is returned, and if no more data is to be output
- * then G_CONVERTER_FINISHED is returned.
+ * or consume (i.e. unless the %G_CONVERTER_INPUT_AT_END is specified) then
+ * %G_CONVERTER_CONVERTED is returned, and if no more data is to be output
+ * then %G_CONVERTER_FINISHED is returned.
  *
  * On error %G_CONVERTER_ERROR is returned and @error is set accordingly.
  * Some errors need special handling:
@@ -155,7 +125,7 @@ g_converter_base_init (gpointer g_class)
  * If the flag %G_CONVERTER_FLUSH is set then conversion is modified
  * to try to write out all internal state to the output. The application
  * has to call the function multiple times with the flag set, and when
- * the availible input has been consumed and all internal state has
+ * the available input has been consumed and all internal state has
  * been produced then %G_CONVERTER_FLUSHED (or %G_CONVERTER_FINISHED if
  * really at the end) is returned instead of %G_CONVERTER_CONVERTED.
  * This is somewhat similar to what happens at the end of the input stream,
@@ -229,6 +199,3 @@ g_converter_reset (GConverter *converter)
 
   (* iface->reset) (converter);
 }
-
-#define __G_CONVERTER_C__
-#include "gioaliasdef.c"

@@ -13,9 +13,7 @@
  * Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General
- * Public License along with this library; if not, write to the
- * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
- * Boston, MA 02111-1307, USA.
+ * Public License along with this library; if not, see <http://www.gnu.org/licenses/>.
  *
  * Author: Alexander Larsson <alexl@redhat.com>
  */
@@ -25,37 +23,45 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #include <errno.h>
 
 #include <glib.h>
 #include <glib/gstdio.h>
 #include "gcancellable.h"
-#include "gfiledescriptorbased.h"
 #include "gioerror.h"
 #include "glocalfileinputstream.h"
 #include "glocalfileinfo.h"
 #include "glibintl.h"
 
+#ifdef G_OS_UNIX
+#include <unistd.h>
+#include "glib-unix.h"
+#include "gfiledescriptorbased.h"
+#endif
+
 #ifdef G_OS_WIN32
 #include <io.h>
 #endif
-
-#include "gioalias.h"
-
-
-static void       g_file_descriptor_based_iface_init   (GFileDescriptorBasedIface *iface);
-#define g_local_file_input_stream_get_type _g_local_file_input_stream_get_type
-G_DEFINE_TYPE_WITH_CODE (GLocalFileInputStream, g_local_file_input_stream, G_TYPE_FILE_INPUT_STREAM,
-			 G_IMPLEMENT_INTERFACE (G_TYPE_FILE_DESCRIPTOR_BASED,
-						g_file_descriptor_based_iface_init));
 
 struct _GLocalFileInputStreamPrivate {
   int fd;
   guint do_close : 1;
 };
+
+#ifdef G_OS_UNIX
+static void       g_file_descriptor_based_iface_init   (GFileDescriptorBasedIface *iface);
+#endif
+
+#define g_local_file_input_stream_get_type _g_local_file_input_stream_get_type
+#ifdef G_OS_UNIX
+G_DEFINE_TYPE_WITH_CODE (GLocalFileInputStream, g_local_file_input_stream, G_TYPE_FILE_INPUT_STREAM,
+                         G_ADD_PRIVATE (GLocalFileInputStream)
+			 G_IMPLEMENT_INTERFACE (G_TYPE_FILE_DESCRIPTOR_BASED,
+						g_file_descriptor_based_iface_init))
+#else
+G_DEFINE_TYPE_WITH_CODE (GLocalFileInputStream, g_local_file_input_stream, G_TYPE_FILE_INPUT_STREAM,
+                         G_ADD_PRIVATE (GLocalFileInputStream))
+#endif
 
 static gssize     g_local_file_input_stream_read       (GInputStream      *stream,
 							void              *buffer,
@@ -80,13 +86,9 @@ static GFileInfo *g_local_file_input_stream_query_info (GFileInputStream  *strea
 							const char        *attributes,
 							GCancellable      *cancellable,
 							GError           **error);
+#ifdef G_OS_UNIX
 static int        g_local_file_input_stream_get_fd     (GFileDescriptorBased *stream);
-
-static void
-g_local_file_input_stream_finalize (GObject *object)
-{
-  G_OBJECT_CLASS (g_local_file_input_stream_parent_class)->finalize (object);
-}
+#endif
 
 void
 _g_local_file_input_stream_set_do_close (GLocalFileInputStream *in,
@@ -98,13 +100,8 @@ _g_local_file_input_stream_set_do_close (GLocalFileInputStream *in,
 static void
 g_local_file_input_stream_class_init (GLocalFileInputStreamClass *klass)
 {
-  GObjectClass *gobject_class = G_OBJECT_CLASS (klass);
   GInputStreamClass *stream_class = G_INPUT_STREAM_CLASS (klass);
   GFileInputStreamClass *file_stream_class = G_FILE_INPUT_STREAM_CLASS (klass);
-  
-  g_type_class_add_private (klass, sizeof (GLocalFileInputStreamPrivate));
-  
-  gobject_class->finalize = g_local_file_input_stream_finalize;
 
   stream_class->read_fn = g_local_file_input_stream_read;
   stream_class->skip = g_local_file_input_stream_skip;
@@ -115,18 +112,18 @@ g_local_file_input_stream_class_init (GLocalFileInputStreamClass *klass)
   file_stream_class->query_info = g_local_file_input_stream_query_info;
 }
 
+#ifdef G_OS_UNIX
 static void
 g_file_descriptor_based_iface_init (GFileDescriptorBasedIface *iface)
 {
   iface->get_fd = g_local_file_input_stream_get_fd;
 }
+#endif
 
 static void
 g_local_file_input_stream_init (GLocalFileInputStream *info)
 {
-  info->priv = G_TYPE_INSTANCE_GET_PRIVATE (info,
-					    G_TYPE_LOCAL_FILE_INPUT_STREAM,
-					    GLocalFileInputStreamPrivate);
+  info->priv = g_local_file_input_stream_get_instance_private (info);
   info->priv->do_close = TRUE;
 }
 
@@ -184,7 +181,7 @@ g_local_file_input_stream_skip (GInputStream  *stream,
 				GCancellable  *cancellable,
 				GError       **error)
 {
-  off_t res, start;
+  off_t start, end;
   GLocalFileInputStream *file;
 
   file = G_LOCAL_FILE_INPUT_STREAM (stream);
@@ -204,8 +201,8 @@ g_local_file_input_stream_skip (GInputStream  *stream,
       return -1;
     }
   
-  res = lseek (file->priv->fd, count, SEEK_CUR);
-  if (res == -1)
+  end = lseek (file->priv->fd, 0, SEEK_END);
+  if (end == -1)
     {
       int errsv = errno;
 
@@ -216,7 +213,22 @@ g_local_file_input_stream_skip (GInputStream  *stream,
       return -1;
     }
 
-  return res - start;
+  if (end - start > count)
+    {
+      end = lseek (file->priv->fd, count - (end - start), SEEK_CUR);
+      if (end == -1)
+	{
+	  int errsv = errno;
+
+	  g_set_error (error, G_IO_ERROR,
+		       g_io_error_from_errno (errsv),
+		       _("Error seeking in file: %s"),
+		       g_strerror (errsv));
+	  return -1;
+	}
+    }
+
+  return end - start;
 }
 
 static gboolean
@@ -225,7 +237,6 @@ g_local_file_input_stream_close (GInputStream  *stream,
 				 GError       **error)
 {
   GLocalFileInputStream *file;
-  int res;
 
   file = G_LOCAL_FILE_INPUT_STREAM (stream);
 
@@ -235,22 +246,18 @@ g_local_file_input_stream_close (GInputStream  *stream,
   if (file->priv->fd == -1)
     return TRUE;
 
-  while (1)
+  if (!g_close (file->priv->fd, NULL))
     {
-      res = close (file->priv->fd);
-      if (res == -1)
-        {
-          int errsv = errno;
-
-          g_set_error (error, G_IO_ERROR,
-                       g_io_error_from_errno (errsv),
-                       _("Error closing file: %s"),
-                       g_strerror (errsv));
-        }
-      break;
+      int errsv = errno;
+      
+      g_set_error (error, G_IO_ERROR,
+                   g_io_error_from_errno (errsv),
+                   _("Error closing file: %s"),
+                   g_strerror (errsv));
+      return FALSE;
     }
 
-  return res != -1;
+  return TRUE;
 }
 
 
@@ -349,10 +356,11 @@ g_local_file_input_stream_query_info (GFileInputStream  *stream,
 					 error);
 }
 
+#ifdef G_OS_UNIX
 static int
 g_local_file_input_stream_get_fd (GFileDescriptorBased *fd_based)
 {
   GLocalFileInputStream *stream = G_LOCAL_FILE_INPUT_STREAM (fd_based);
   return stream->priv->fd;
 }
-
+#endif
