@@ -38,6 +38,7 @@
 
 #include <immintrin.h>
 #include "simd_defines.h"
+#include <stdint.h>
 
 /* yes I know, the top of this file is quite ugly */
 
@@ -75,25 +76,29 @@ typedef __m128i v4si; // vector of 4 int (sse2)
   static const ALIGN32_BEG Type _256pd_##Name[4] ALIGN32_END = { Val, Val, Val, Val }
 
 #define _PI32_CONST(Name, Val)                                            \
-  static const ALIGN16_BEG int _pi32_##Name[4] ALIGN16_END = { Val, Val, Val, Val };\
-  static const ALIGN32_BEG int _256pi32_##Name[8] ALIGN32_END = { Val, Val, Val, Val, Val, Val, Val, Val }
+  static const ALIGN16_BEG uint32_t _pi32_##Name[4] ALIGN16_END = { Val, Val, Val, Val };\
+  static const ALIGN32_BEG uint32_t _256pi32_##Name[8] ALIGN32_END = { Val, Val, Val, Val, Val, Val, Val, Val }
+
+#define _PI32_CONST_TYPE(Name, Type, Val)				\
+  static const ALIGN16_BEG Type _pi32_##Name[4] ALIGN16_END = { Val, Val, Val, Val };\
+  static const ALIGN32_BEG Type _256pi32_##Name[8] ALIGN32_END = { Val, Val, Val, Val, Val, Val, Val, Val }
 
 #define DECLARE_LONG_CONST(Name, Val1, Val2) \
-  static const ALIGN16_BEG int _pi32_##Name[4] ALIGN16_END ALIGN16_END = { Val1, Val2, Val1, Val2 }; \
-  static const ALIGN32_BEG int _256pi32_##Name[8] ALIGN32_END ALIGN32_END = { Val1, Val2, Val1, Val2, Val1, Val2, Val1, Val2 };
+  static const ALIGN16_BEG uint32_t _pi32_##Name[4] ALIGN16_END ALIGN16_END = { Val1, Val2, Val1, Val2 }; \
+  static const ALIGN32_BEG uint32_t _256pi32_##Name[8] ALIGN32_END ALIGN32_END = { Val1, Val2, Val1, Val2, Val1, Val2, Val1, Val2 };
 
 _PS_CONST(1  , 1.0f);
 _PS_CONST(0p5, 0.5f);
 /* the smallest non denormalized float number */
-_PS_CONST_TYPE(min_norm_pos, int, 0x00800000);
-_PS_CONST_TYPE(mant_mask, int, 0x7f800000);
+_PS_CONST_TYPE(min_norm_pos, uint32_t, 0x00800000);
+_PS_CONST_TYPE(mant_mask, uint32_t, 0x7f800000);
 _PS_CONST_TYPE(inv_mant_mask, int, ~0x7f800000);
 
-_PS_CONST_TYPE(sign_mask, int, 0x80000000);
+_PS_CONST_TYPE(sign_mask, uint32_t, 0x80000000);
 _PS_CONST_TYPE(inv_sign_mask, int, ~0x80000000);
 
 _PI32_CONST(1, 1);
-_PI32_CONST(inv1, ~1);
+_PI32_CONST_TYPE(inv1, int, ~1);
 _PI32_CONST(2, 2);
 _PI32_CONST(4, 4);
 _PI32_CONST(0x7f, 0x7f);

@@ -154,9 +154,9 @@ static inline void print_xmm_i(_MM_TYPE_I in, char* s) {
 
 
 
-__attribute__((aligned (16))) static const int absmask_double[] = { 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff};
+__attribute__((aligned (16))) static const uint32_t absmask_double[] = { 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff};
 #define _mm_abs_pd(x) _mm_and_pd((x), *(const __m128d*)absmask_double)
-__attribute__((aligned (16))) static const int negmask_double[] = { 0xffffffff, 0x80000000, 0xffffffff, 0x80000000};
+__attribute__((aligned (16))) static const uint32_t negmask_double[] = { 0xffffffff, 0x80000000, 0xffffffff, 0x80000000};
 #define _mm_neg_pd(x) _mm_xor_pd((x), *(const __m128d*)negmask_double)
 
 static inline _MM_TYPE _mm_copysign_pd(_MM_TYPE x, _MM_TYPE y) {
@@ -274,14 +274,18 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 
 #ifndef __AVX2__ // GCC 5+ ALWAYS define cmpeq even if AVX2 is not available, so we can no longer implement our own with the same name
 #define _MM_CMPEQ_SIG _custom_mm256_cmpeq_epi64
+#define _MM_SRLI_I _custom_mm256_srli_epi64
+#define _MM_SLLI_I _custom_mm256_slli_epi64
+#define _MM_ADD_I _custom_mm256_add_epi64
+#define _MM_SUB_I _custom_mm256_sub_epi64
 #else
 #define _MM_CMPEQ_SIG _mm256_cmpeq_epi64
-#endif
-
 #define _MM_SRLI_I _mm256_srli_epi64
 #define _MM_SLLI_I _mm256_slli_epi64
 #define _MM_ADD_I _mm256_add_epi64
 #define _MM_SUB_I _mm256_sub_epi64
+#endif
+
 #define _MM_CAST_FP_TO_I _mm256_castpd_si256
 #define _MM_CAST_I_TO_FP _mm256_castsi256_pd
 #define _MM_OR  _mm256_or_pd
@@ -357,7 +361,7 @@ static inline _MM_TYPE_I _mm256_cvtpd_epi64(_MM_TYPE x) {
 #endif
 
 #ifndef __AVX2__
-static inline _MM_TYPE_I _mm256_srli_epi64(_MM_TYPE_I x, uint32_t imm8) {
+static inline _MM_TYPE_I _custom_mm256_srli_epi64(_MM_TYPE_I x, uint32_t imm8) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_srli_epi64(_mm256_extractf128_si256(x, 0), imm8);
   __m128i emm02 = _mm_srli_epi64(_mm256_extractf128_si256(x, 1), imm8);
@@ -365,7 +369,7 @@ static inline _MM_TYPE_I _mm256_srli_epi64(_MM_TYPE_I x, uint32_t imm8) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
-static inline _MM_TYPE_I _mm256_slli_epi64(_MM_TYPE_I x, uint32_t imm8) {
+static inline _MM_TYPE_I _custom_mm256_slli_epi64(_MM_TYPE_I x, uint32_t imm8) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_slli_epi64(_mm256_extractf128_si256(x, 0), imm8);
   __m128i emm02 = _mm_slli_epi64(_mm256_extractf128_si256(x, 1), imm8);
@@ -373,7 +377,7 @@ static inline _MM_TYPE_I _mm256_slli_epi64(_MM_TYPE_I x, uint32_t imm8) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
-static inline _MM_TYPE_I _mm256_add_epi64(_MM_TYPE_I x, _MM_TYPE_I y) {
+static inline _MM_TYPE_I _custom_mm256_add_epi64(_MM_TYPE_I x, _MM_TYPE_I y) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_add_epi64(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
   __m128i emm02 = _mm_add_epi64(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
@@ -381,7 +385,7 @@ static inline _MM_TYPE_I _mm256_add_epi64(_MM_TYPE_I x, _MM_TYPE_I y) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
-static inline _MM_TYPE_I _mm256_sub_epi64(_MM_TYPE_I x, _MM_TYPE_I y) {
+static inline _MM_TYPE_I _custom_mm256_sub_epi64(_MM_TYPE_I x, _MM_TYPE_I y) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_sub_epi64(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
   __m128i emm02 = _mm_sub_epi64(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
@@ -399,9 +403,9 @@ static inline _MM_TYPE _mm256_fmadd_pd(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
 #endif
 #endif
 
-__attribute__((aligned (32))) static const int absmask_double_256[] = { 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff};
+__attribute__((aligned (32))) static const uint32_t absmask_double_256[] = { 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff};
 #define _mm256_abs_pd(x) _mm256_and_pd((x), *(const __m256d*)absmask_double_256)
-__attribute__((aligned (32))) static const int negmask_double_256[] = { 0xffffffff, 0x80000000, 0xffffffff, 0x80000000, 0xffffffff, 0x80000000, 0xffffffff, 0x80000000};
+__attribute__((aligned (32))) static const uint32_t negmask_double_256[] = { 0xffffffff, 0x80000000, 0xffffffff, 0x80000000, 0xffffffff, 0x80000000, 0xffffffff, 0x80000000};
 #define _mm256_neg_pd(x) _mm256_xor_pd((x), *(const __m256d*)negmask_double_256)
 
 static inline _MM_TYPE _mm256_copysign_pd(_MM_TYPE x, _MM_TYPE y) {
@@ -659,9 +663,9 @@ static inline _MM_TYPE _mm_fmadd_ps(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
 #endif
 #endif
 
-__attribute__((aligned (16))) static const int absmask[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
+__attribute__((aligned (16))) static const uint32_t absmask[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
 #define _mm_abs_ps(x) _mm_and_ps((x), *(const __m128*)absmask)
-__attribute__((aligned (16))) static const int negmask[] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
+__attribute__((aligned (16))) static const uint32_t negmask[] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
 #define _mm_neg_ps(x) _mm_xor_ps((x), *(const __m128*)negmask)
 
 static inline _MM_TYPE _mm_copysign_ps(_MM_TYPE x, _MM_TYPE y) {
@@ -772,16 +776,20 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #define _MM_CMPLE _mm256_cmple_ps
 #define _MM_CMPEQ _mm256_cmpeq_ps
 
-#ifndef __AVX2__ // GCC 5+ ALWAYS define cmpeq even if AVX2 is not available, so we can no longer implement our own with the same name
+#ifndef __AVX2__ // GCC 5+ ALWAYS define intrinsics even if not available, so we can no longer implement our own with the same name
 #define _MM_CMPEQ_SIG _custom_mm256_cmpeq_epi32
+#define _MM_SRLI_I _custom_mm256_srli_epi32
+#define _MM_SLLI_I _custom_mm256_slli_epi32
+#define _MM_ADD_I _custom_mm256_add_epi32
+#define _MM_SUB_I _custom_mm256_sub_epi32
 #else
 #define _MM_CMPEQ_SIG _mm256_cmpeq_epi32
-#endif
-
 #define _MM_SRLI_I _mm256_srli_epi32
 #define _MM_SLLI_I _mm256_slli_epi32
 #define _MM_ADD_I _mm256_add_epi32
 #define _MM_SUB_I _mm256_sub_epi32
+#endif
+
 #define _MM_CAST_FP_TO_I _mm256_castps_si256
 #define _MM_CAST_I_TO_FP _mm256_castsi256_ps
 #define _MM_OR  _mm256_or_ps
@@ -831,7 +839,7 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #endif
 
 #ifndef __AVX2__
-static inline _MM_TYPE_I _mm256_srli_epi32(_MM_TYPE_I x, uint32_t imm8) {
+static inline _MM_TYPE_I _custom_mm256_srli_epi32(_MM_TYPE_I x, uint32_t imm8) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_srli_epi32(_mm256_extractf128_si256(x, 0), imm8);
   __m128i emm02 = _mm_srli_epi32(_mm256_extractf128_si256(x, 1), imm8);
@@ -839,7 +847,7 @@ static inline _MM_TYPE_I _mm256_srli_epi32(_MM_TYPE_I x, uint32_t imm8) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
-static inline _MM_TYPE_I _mm256_slli_epi32(_MM_TYPE_I x, uint32_t imm8) {
+static inline _MM_TYPE_I _custom_mm256_slli_epi32(_MM_TYPE_I x, uint32_t imm8) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_slli_epi32(_mm256_extractf128_si256(x, 0), imm8);
   __m128i emm02 = _mm_slli_epi32(_mm256_extractf128_si256(x, 1), imm8);
@@ -847,7 +855,7 @@ static inline _MM_TYPE_I _mm256_slli_epi32(_MM_TYPE_I x, uint32_t imm8) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
-static inline _MM_TYPE_I _mm256_add_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
+static inline _MM_TYPE_I _custom_mm256_add_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_add_epi32(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
   __m128i emm02 = _mm_add_epi32(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
@@ -855,7 +863,7 @@ static inline _MM_TYPE_I _mm256_add_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
-static inline _MM_TYPE_I _mm256_sub_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
+static inline _MM_TYPE_I _custom_mm256_sub_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_sub_epi32(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
   __m128i emm02 = _mm_sub_epi32(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
@@ -873,9 +881,9 @@ static inline _MM_TYPE _mm256_fmadd_ps(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
 #endif
 #endif
 
-__attribute__((aligned (32))) static const int absmask_256[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
+__attribute__((aligned (32))) static const uint32_t absmask_256[] = {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff};
 #define _mm256_abs_ps(x) _mm256_and_ps((x), *(const __m256*)absmask_256)
-__attribute__((aligned (32))) static const int negmask_256[] = {0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000};
+__attribute__((aligned (32))) static const uint32_t negmask_256[] = {0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000, 0x80000000};
 #define _mm256_neg_ps(x) _mm256_xor_ps((x), *(const __m256*)negmask_256)
 
 
@@ -1228,7 +1236,7 @@ static inline int vmovemaskq_f32( _MM_TYPE in ) {
   return vget_lane_u32( dMask, 0 );
 }
 
-__attribute__((aligned (16))) static const int negmask[] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
+__attribute__((aligned (16))) static const uint32_t negmask[] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
 
 static inline _MM_TYPE vcopysignq_f32(_MM_TYPE x, _MM_TYPE y) {
   return (_MM_TYPE)vorrq_s32((_MM_TYPE_I)_MM_ABS(x),vandq_s32((_MM_TYPE_I)y,*(const int32x4_t*)negmask));
