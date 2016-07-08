@@ -84,7 +84,7 @@ void	<a href="#xmlResetError">xmlResetError</a>			(<a href="libxml2-xmlerror.htm
     char *	str2	: extra string information
     char *	str3	: extra string information
     int	int1	: extra number information
-    int	int2	: column number of the error or 0 if N/A (todo: rename this field when
+    int	int2	: error column # or 0 if N/A (todo: rename field when we would brk ABI)
     void *	ctxt	: the parser context if available
     void *	node	: the node in the tree
 } xmlError;
@@ -119,7 +119,10 @@ void	<a href="#xmlResetError">xmlResetError</a>			(<a href="libxml2-xmlerror.htm
     <a name="XML_FROM_CHECK">XML_FROM_CHECK</a> = 24 /* The error checking module */
     <a name="XML_FROM_WRITER">XML_FROM_WRITER</a> = 25 /* The xmlwriter module */
     <a name="XML_FROM_MODULE">XML_FROM_MODULE</a> = 26 /* The dynamically loaded module modul */
-    <a name="XML_FROM_I18N">XML_FROM_I18N</a> = 27 /*  The module handling character conversion */
+    <a name="XML_FROM_I18N">XML_FROM_I18N</a> = 27 /* The module handling character conversion */
+    <a name="XML_FROM_SCHEMATRONV">XML_FROM_SCHEMATRONV</a> = 28 /* The Schematron validator module */
+    <a name="XML_FROM_BUFFER">XML_FROM_BUFFER</a> = 29 /* The buffers module */
+    <a name="XML_FROM_URI">XML_FROM_URI</a> = 30 /*  The URI module */
 };
 </pre><p/>
 </div>
@@ -246,11 +249,16 @@ void	<a href="#xmlResetError">xmlResetError</a>			(<a href="libxml2-xmlerror.htm
     <a name="XML_ERR_NOTATION_PROCESSING">XML_ERR_NOTATION_PROCESSING</a> = 105 /* 105 */
     <a name="XML_WAR_NS_COLUMN">XML_WAR_NS_COLUMN</a> = 106 /* 106 */
     <a name="XML_WAR_ENTITY_REDEFINED">XML_WAR_ENTITY_REDEFINED</a> = 107 /* 107 */
+    <a name="XML_ERR_UNKNOWN_VERSION">XML_ERR_UNKNOWN_VERSION</a> = 108 /* 108 */
+    <a name="XML_ERR_VERSION_MISMATCH">XML_ERR_VERSION_MISMATCH</a> = 109 /* 109 */
+    <a name="XML_ERR_NAME_TOO_LONG">XML_ERR_NAME_TOO_LONG</a> = 110 /* 110 */
+    <a name="XML_ERR_USER_STOP">XML_ERR_USER_STOP</a> = 111 /* 111 */
     <a name="XML_NS_ERR_XML_NAMESPACE">XML_NS_ERR_XML_NAMESPACE</a> = 200
     <a name="XML_NS_ERR_UNDEFINED_NAMESPACE">XML_NS_ERR_UNDEFINED_NAMESPACE</a> = 201 /* 201 */
     <a name="XML_NS_ERR_QNAME">XML_NS_ERR_QNAME</a> = 202 /* 202 */
     <a name="XML_NS_ERR_ATTRIBUTE_REDEFINED">XML_NS_ERR_ATTRIBUTE_REDEFINED</a> = 203 /* 203 */
     <a name="XML_NS_ERR_EMPTY">XML_NS_ERR_EMPTY</a> = 204 /* 204 */
+    <a name="XML_NS_ERR_COLON">XML_NS_ERR_COLON</a> = 205 /* 205 */
     <a name="XML_DTD_ATTRIBUTE_DEFAULT">XML_DTD_ATTRIBUTE_DEFAULT</a> = 500
     <a name="XML_DTD_ATTRIBUTE_REDEFINED">XML_DTD_ATTRIBUTE_REDEFINED</a> = 501 /* 501 */
     <a name="XML_DTD_ATTRIBUTE_VALUE">XML_DTD_ATTRIBUTE_VALUE</a> = 502 /* 502 */
@@ -292,6 +300,7 @@ void	<a href="#xmlResetError">xmlResetError</a>			(<a href="libxml2-xmlerror.htm
     <a name="XML_DTD_STANDALONE_DEFAULTED">XML_DTD_STANDALONE_DEFAULTED</a> = 538 /* 538 */
     <a name="XML_DTD_XMLID_VALUE">XML_DTD_XMLID_VALUE</a> = 539 /* 539 */
     <a name="XML_DTD_XMLID_TYPE">XML_DTD_XMLID_TYPE</a> = 540 /* 540 */
+    <a name="XML_DTD_DUP_TOKEN">XML_DTD_DUP_TOKEN</a> = 541 /* 541 */
     <a name="XML_HTML_STRUCURE_ERROR">XML_HTML_STRUCURE_ERROR</a> = 800
     <a name="XML_HTML_UNKNOWN_TAG">XML_HTML_UNKNOWN_TAG</a> = 801 /* 801 */
     <a name="XML_RNGP_ANYNAME_ATTR_ANCESTOR">XML_RNGP_ANYNAME_ATTR_ANCESTOR</a> = 1000
@@ -442,6 +451,7 @@ void	<a href="#xmlResetError">xmlResetError</a>			(<a href="libxml2-xmlerror.htm
     <a name="XML_TREE_INVALID_HEX">XML_TREE_INVALID_HEX</a> = 1300
     <a name="XML_TREE_INVALID_DEC">XML_TREE_INVALID_DEC</a> = 1301 /* 1301 */
     <a name="XML_TREE_UNTERMINATED_ENTITY">XML_TREE_UNTERMINATED_ENTITY</a> = 1302 /* 1302 */
+    <a name="XML_TREE_NOT_UTF8">XML_TREE_NOT_UTF8</a> = 1303 /* 1303 */
     <a name="XML_SAVE_NOT_UTF8">XML_SAVE_NOT_UTF8</a> = 1400
     <a name="XML_SAVE_CHAR_INVALID">XML_SAVE_CHAR_INVALID</a> = 1401 /* 1401 */
     <a name="XML_SAVE_NO_DOCTYPE">XML_SAVE_NO_DOCTYPE</a> = 1402 /* 1402 */
@@ -817,6 +827,8 @@ void	<a href="#xmlResetError">xmlResetError</a>			(<a href="libxml2-xmlerror.htm
     <a name="XML_SCHEMAP_AU_PROPS_CORRECT">XML_SCHEMAP_AU_PROPS_CORRECT</a> = 3089 /* 3088 */
     <a name="XML_SCHEMAP_A_PROPS_CORRECT_3">XML_SCHEMAP_A_PROPS_CORRECT_3</a> = 3090 /* 3089 */
     <a name="XML_SCHEMAP_COS_ALL_LIMITED">XML_SCHEMAP_COS_ALL_LIMITED</a> = 3091 /* 3090 */
+    <a name="XML_SCHEMATRONV_ASSERT">XML_SCHEMATRONV_ASSERT</a> = 4000 /* 4000 */
+    <a name="XML_SCHEMATRONV_REPORT">XML_SCHEMATRONV_REPORT</a> = 4001
     <a name="XML_MODULE_OPEN">XML_MODULE_OPEN</a> = 4900 /* 4900 */
     <a name="XML_MODULE_CLOSE">XML_MODULE_CLOSE</a> = 4901 /* 4901 */
     <a name="XML_CHECK_FOUND_ELEMENT">XML_CHECK_FOUND_ELEMENT</a> = 5000
@@ -862,8 +874,7 @@ void	<a href="#xmlResetError">xmlResetError</a>			(<a href="libxml2-xmlerror.htm
     <a name="XML_I18N_EXCESS_HANDLER">XML_I18N_EXCESS_HANDLER</a> = 6002 /* 6002 */
     <a name="XML_I18N_CONV_FAILED">XML_I18N_CONV_FAILED</a> = 6003 /* 6003 */
     <a name="XML_I18N_NO_OUTPUT">XML_I18N_NO_OUTPUT</a> = 6004 /* 6004 */
-    <a name="XML_CHECK_">XML_CHECK_</a> = 6005 /* 5033 */
-    <a name="XML_CHECK_X">XML_CHECK_X</a> = 6006 /*  503 */
+    <a name="XML_BUF_OVERFLOW">XML_BUF_OVERFLOW</a> = 7000
 };
 </pre><p/>
 </div>

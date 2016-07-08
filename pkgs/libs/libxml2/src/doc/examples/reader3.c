@@ -7,7 +7,7 @@
  *          (Note that the XMLReader functions require libxml2 version later
  *          than 2.6.)
  * usage: reader3
- * test: reader3 > reader3.tmp ; diff reader3.tmp reader3.res ; rm reader3.tmp
+ * test: reader3 > reader3.tmp && diff reader3.tmp $(srcdir)/reader3.res
  * author: Daniel Veillard
  * copy: see Copyright for the status of this software.
  */
@@ -15,7 +15,8 @@
 #include <stdio.h>
 #include <libxml/xmlreader.h>
 
-#if defined(LIBXML_READER_ENABLED) && defined(LIBXML_PATTERN_ENABLED)
+#if defined(LIBXML_READER_ENABLED) && defined(LIBXML_PATTERN_ENABLED) && defined(LIBXML_OUTPUT_ENABLED)
+
 
 /**
  * streamFile:
@@ -113,7 +114,7 @@ int main(int argc, char **argv) {
 
 #else
 int main(void) {
-    fprintf(stderr, "Reader or Pattern support not compiled in\n");
+    fprintf(stderr, "Reader, Pattern or output support not compiled in\n");
     exit(1);
 }
 #endif

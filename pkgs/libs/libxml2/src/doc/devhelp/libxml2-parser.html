@@ -97,7 +97,7 @@ int	<a href="#xmlGetFeature">xmlGetFeature</a>			(<a href="libxml2-tree.html#xml
 <a href="libxml2-tree.html#xmlDtdPtr">xmlDtdPtr</a>	<a href="#xmlIOParseDTD">xmlIOParseDTD</a>		(<a href="libxml2-tree.html#xmlSAXHandlerPtr">xmlSAXHandlerPtr</a> sax, <br/>					 <a href="libxml2-tree.html#xmlParserInputBufferPtr">xmlParserInputBufferPtr</a> input, <br/>					 <a href="libxml2-encoding.html#xmlCharEncoding">xmlCharEncoding</a> enc);
 void	<a href="#xmlFreeParserCtxt">xmlFreeParserCtxt</a>		(<a href="libxml2-tree.html#xmlParserCtxtPtr">xmlParserCtxtPtr</a> ctxt);
 <a href="libxml2-tree.html#xmlDtdPtr">xmlDtdPtr</a>	<a href="#xmlParseDTD">xmlParseDTD</a>		(const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * ExternalID, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * SystemID);
-<a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a>	<a href="#xmlRecoverDoc">xmlRecoverDoc</a>		(<a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * cur);
+<a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a>	<a href="#xmlRecoverDoc">xmlRecoverDoc</a>		(const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * cur);
 typedef void <a href="#commentSAXFunc">commentSAXFunc</a>			(void * ctx, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * value);
 int	<a href="#xmlInitParserCtxt">xmlInitParserCtxt</a>		(<a href="libxml2-tree.html#xmlParserCtxtPtr">xmlParserCtxtPtr</a> ctxt);
 typedef void <a href="#attributeSAXFunc">attributeSAXFunc</a>		(void * ctx, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * name, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * value);
@@ -220,6 +220,8 @@ void	<a href="#xmlSetExternalEntityLoader">xmlSetExternalEntityLoader</a>	(<a hr
     <a name="XML_WITH_DEBUG_MEM">XML_WITH_DEBUG_MEM</a> = 29
     <a name="XML_WITH_DEBUG_RUN">XML_WITH_DEBUG_RUN</a> = 30
     <a name="XML_WITH_ZLIB">XML_WITH_ZLIB</a> = 31
+    <a name="XML_WITH_ICU">XML_WITH_ICU</a> = 32
+    <a name="XML_WITH_LZMA">XML_WITH_LZMA</a> = 33
     <a name="XML_WITH_NONE">XML_WITH_NONE</a> = 99999 /*  just to be sure of allocation size */
 };
 </pre><p/>
@@ -298,11 +300,17 @@ void	<a href="#xmlSetExternalEntityLoader">xmlSetExternalEntityLoader</a>	(<a hr
     <a name="XML_PARSE_SAX1">XML_PARSE_SAX1</a> = 512 /* use the SAX1 interface internally */
     <a name="XML_PARSE_XINCLUDE">XML_PARSE_XINCLUDE</a> = 1024 /* Implement XInclude substitition */
     <a name="XML_PARSE_NONET">XML_PARSE_NONET</a> = 2048 /* Forbid network access */
-    <a name="XML_PARSE_NODICT">XML_PARSE_NODICT</a> = 4096 /* Do not reuse the context dictionnary */
+    <a name="XML_PARSE_NODICT">XML_PARSE_NODICT</a> = 4096 /* Do not reuse the context dictionary */
     <a name="XML_PARSE_NSCLEAN">XML_PARSE_NSCLEAN</a> = 8192 /* remove redundant namespaces declarations */
     <a name="XML_PARSE_NOCDATA">XML_PARSE_NOCDATA</a> = 16384 /* merge CDATA as text nodes */
     <a name="XML_PARSE_NOXINCNODE">XML_PARSE_NOXINCNODE</a> = 32768 /* do not generate XINCLUDE START/END nodes */
-    <a name="XML_PARSE_COMPACT">XML_PARSE_COMPACT</a> = 65536 /*  compact small text nodes; no modification of the tree allowed afterwards (will possibly crash if you try to modify the tree) */
+    <a name="XML_PARSE_COMPACT">XML_PARSE_COMPACT</a> = 65536 /* compact small text nodes; no modification of the tree allowed afterwards (will possibly crash if you try to modify the tree) */
+    <a name="XML_PARSE_OLD10">XML_PARSE_OLD10</a> = 131072 /* parse using XML-1.0 before update 5 */
+    <a name="XML_PARSE_NOBASEFIX">XML_PARSE_NOBASEFIX</a> = 262144 /* do not fixup XINCLUDE xml:base uris */
+    <a name="XML_PARSE_HUGE">XML_PARSE_HUGE</a> = 524288 /* relax any hardcoded limit from the parser */
+    <a name="XML_PARSE_OLDSAX">XML_PARSE_OLDSAX</a> = 1048576 /* parse using SAX2 interface before 2.7.0 */
+    <a name="XML_PARSE_IGNORE_ENC">XML_PARSE_IGNORE_ENC</a> = 2097152 /* ignore internal document encoding hint */
+    <a name="XML_PARSE_BIG_LINES">XML_PARSE_BIG_LINES</a> = 4194304 /*  Store big lines numbers in text PSVI field */
 };
 </pre><p/>
 </div>
@@ -477,7 +485,7 @@ void	<a href="#xmlSetExternalEntityLoader">xmlSetExternalEntityLoader</a>	(<a hr
 <div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>ctxt</tt></i>:</span></td><td>an XML parser context</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the index in bytes from the beginning of the entity or -1 in case the index could not be computed.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlCleanupParser"/>xmlCleanupParser ()</h3><pre class="programlisting">void	xmlCleanupParser		(void)<br/>
-</pre><p>Cleanup function for the XML library. It tries to reclaim all parsing related global memory allocated for the library processing. It doesn't deallocate any document related memory. Calling this function should not prevent reusing the library but one should call xmlCleanupParser() only when the process has finished using the library or XML document built with it.</p>
+</pre><p>This function name is somewhat misleading. It does not clean up parser state, it cleans up memory allocated by the library itself. It is a cleanup function for the XML library. It tries to reclaim all related global memory allocated for the library processing. It doesn't deallocate any document related memory. One should call xmlCleanupParser() only when the process has finished using the library and all XML/HTML documents built with it. See also xmlInitParser() which has the opposite function of preparing the library for operations. WARNING: if your application is multithreaded or has plugin support calling this may crash the application if another thread or a plugin is still using libxml2. It's sometimes very hard to guess if libxml2 is in use in the application, some libraries or plugins may use it without notice. In case of doubt abstain from calling this function or do it just before calling exit() to avoid leak reports from valgrind !</p>
 </div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlClearNodeInfoSeq"/>xmlClearNodeInfoSeq ()</h3><pre class="programlisting">void	xmlClearNodeInfoSeq		(<a href="libxml2-parser.html#xmlParserNodeInfoSeqPtr">xmlParserNodeInfoSeqPtr</a> seq)<br/>
@@ -594,7 +602,7 @@ void	<a href="#xmlSetExternalEntityLoader">xmlSetExternalEntityLoader</a>	(<a hr
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlParseBalancedChunkMemoryRecover"/>xmlParseBalancedChunkMemoryRecover ()</h3><pre class="programlisting">int	xmlParseBalancedChunkMemoryRecover	(<a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a> doc, <br/>						 <a href="libxml2-tree.html#xmlSAXHandlerPtr">xmlSAXHandlerPtr</a> sax, <br/>						 void * user_data, <br/>						 int depth, <br/>						 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * string, <br/>						 <a href="libxml2-tree.html#xmlNodePtr">xmlNodePtr</a> * lst, <br/>						 int recover)<br/>
 </pre><p>Parse a well-balanced chunk of an XML document called by the parser The allowed sequence for the Well Balanced Chunk is the one defined by the content production in the XML grammar: [43] content ::= (element | CharData | Reference | CDSect | PI | Comment)*</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>doc</tt></i>:</span></td><td>the document the chunk pertains to</td></tr><tr><td><span class="term"><i><tt>sax</tt></i>:</span></td><td>the SAX handler bloc (possibly NULL)</td></tr><tr><td><span class="term"><i><tt>user_data</tt></i>:</span></td><td>The user data returned on SAX callbacks (possibly NULL)</td></tr><tr><td><span class="term"><i><tt>depth</tt></i>:</span></td><td>Used for loop detection, use 0</td></tr><tr><td><span class="term"><i><tt>string</tt></i>:</span></td><td>the input string in UTF8 or ISO-Latin (zero terminated)</td></tr><tr><td><span class="term"><i><tt>lst</tt></i>:</span></td><td>the return value for the set of parsed nodes</td></tr><tr><td><span class="term"><i><tt>recover</tt></i>:</span></td><td>return nodes even if the data is broken (use 0)</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>0 if the chunk is well balanced, -1 in case of args problem and the parser error code otherwise In case recover is set to 1, the nodelist will not be empty even if the parsed chunk is not well balanced.</td></tr></tbody></table></div></div>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>doc</tt></i>:</span></td><td>the document the chunk pertains to</td></tr><tr><td><span class="term"><i><tt>sax</tt></i>:</span></td><td>the SAX handler bloc (possibly NULL)</td></tr><tr><td><span class="term"><i><tt>user_data</tt></i>:</span></td><td>The user data returned on SAX callbacks (possibly NULL)</td></tr><tr><td><span class="term"><i><tt>depth</tt></i>:</span></td><td>Used for loop detection, use 0</td></tr><tr><td><span class="term"><i><tt>string</tt></i>:</span></td><td>the input string in UTF8 or ISO-Latin (zero terminated)</td></tr><tr><td><span class="term"><i><tt>lst</tt></i>:</span></td><td>the return value for the set of parsed nodes</td></tr><tr><td><span class="term"><i><tt>recover</tt></i>:</span></td><td>return nodes even if the data is broken (use 0)</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>0 if the chunk is well balanced, -1 in case of args problem and the parser error code otherwise In case recover is set to 1, the nodelist will not be empty even if the parsed chunk is not well balanced, assuming the parsing succeeded to some extent.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlParseChunk"/>xmlParseChunk ()</h3><pre class="programlisting">int	xmlParseChunk			(<a href="libxml2-tree.html#xmlParserCtxtPtr">xmlParserCtxtPtr</a> ctxt, <br/>					 const char * chunk, <br/>					 int size, <br/>					 int terminate)<br/>
 </pre><p>Parse a Chunk of memory</p>
@@ -654,11 +662,11 @@ void	<a href="#xmlSetExternalEntityLoader">xmlSetExternalEntityLoader</a>	(<a hr
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlParserInputGrow"/>xmlParserInputGrow ()</h3><pre class="programlisting">int	xmlParserInputGrow		(<a href="libxml2-tree.html#xmlParserInputPtr">xmlParserInputPtr</a> in, <br/>					 int len)<br/>
 </pre><p>This function increase the input for the parser. It tries to preserve pointers to the input buffer, and keep already read data</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>in</tt></i>:</span></td><td>an XML parser input</td></tr><tr><td><span class="term"><i><tt>len</tt></i>:</span></td><td>an indicative size for the lookahead</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the number of xmlChars read, or -1 in case of error, 0 indicate the end of this entity</td></tr></tbody></table></div></div>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>in</tt></i>:</span></td><td>an XML parser input</td></tr><tr><td><span class="term"><i><tt>len</tt></i>:</span></td><td>an indicative size for the lookahead</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the amount of char read, or -1 in case of error, 0 indicate the end of this entity</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlParserInputRead"/>xmlParserInputRead ()</h3><pre class="programlisting">int	xmlParserInputRead		(<a href="libxml2-tree.html#xmlParserInputPtr">xmlParserInputPtr</a> in, <br/>					 int len)<br/>
-</pre><p>This function refresh the input for the parser. It doesn't try to preserve pointers to the input buffer, and discard already read data</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>in</tt></i>:</span></td><td>an XML parser input</td></tr><tr><td><span class="term"><i><tt>len</tt></i>:</span></td><td>an indicative size for the lookahead</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the number of xmlChars read, or -1 in case of error, 0 indicate the end of this entity</td></tr></tbody></table></div></div>
+</pre><p>This function was internal and is deprecated.</p>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>in</tt></i>:</span></td><td>an XML parser input</td></tr><tr><td><span class="term"><i><tt>len</tt></i>:</span></td><td>an indicative size for the lookahead</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>-1 as this is an error to use it.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlPedanticParserDefault"/>xmlPedanticParserDefault ()</h3><pre class="programlisting">int	xmlPedanticParserDefault	(int val)<br/>
 </pre><p>Set and return the previous value for enabling pedantic warnings.</p>
@@ -684,17 +692,17 @@ void	<a href="#xmlSetExternalEntityLoader">xmlSetExternalEntityLoader</a>	(<a hr
 </pre><p>parse an XML in-memory document and build a tree.</p>
 <div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buffer</tt></i>:</span></td><td>a pointer to a char array</td></tr><tr><td><span class="term"><i><tt>size</tt></i>:</span></td><td>the size of the array</td></tr><tr><td><span class="term"><i><tt>URL</tt></i>:</span></td><td>the base URL to use for the document</td></tr><tr><td><span class="term"><i><tt>encoding</tt></i>:</span></td><td>the document encoding, or NULL</td></tr><tr><td><span class="term"><i><tt>options</tt></i>:</span></td><td>a combination of <a href="libxml2-parser.html#xmlParserOption">xmlParserOption</a></td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the resulting document tree</td></tr></tbody></table></div></div>
         <hr/>
-        <div class="refsect2" lang="en"><h3><a name="xmlRecoverDoc"/>xmlRecoverDoc ()</h3><pre class="programlisting"><a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a>	xmlRecoverDoc		(<a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * cur)<br/>
-</pre><p>parse an XML in-memory document and build a tree. In the case the document is not Well Formed, a tree is built anyway</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>cur</tt></i>:</span></td><td>a pointer to an array of <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a></td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the resulting document tree</td></tr></tbody></table></div></div>
+        <div class="refsect2" lang="en"><h3><a name="xmlRecoverDoc"/>xmlRecoverDoc ()</h3><pre class="programlisting"><a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a>	xmlRecoverDoc		(const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * cur)<br/>
+</pre><p>parse an XML in-memory document and build a tree. In the case the document is not Well Formed, a attempt to build a tree is tried anyway</p>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>cur</tt></i>:</span></td><td>a pointer to an array of <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a></td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the resulting document tree or NULL in case of failure</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlRecoverFile"/>xmlRecoverFile ()</h3><pre class="programlisting"><a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a>	xmlRecoverFile		(const char * filename)<br/>
-</pre><p>parse an XML file and build a tree. Automatic support for ZLIB/Compress compressed document is provided by default if found at compile-time. In the case the document is not Well Formed, a tree is built anyway</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>filename</tt></i>:</span></td><td>the filename</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the resulting document tree</td></tr></tbody></table></div></div>
+</pre><p>parse an XML file and build a tree. Automatic support for ZLIB/Compress compressed document is provided by default if found at compile-time. In the case the document is not Well Formed, it attempts to build a tree anyway</p>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>filename</tt></i>:</span></td><td>the filename</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the resulting document tree or NULL in case of failure</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlRecoverMemory"/>xmlRecoverMemory ()</h3><pre class="programlisting"><a href="libxml2-tree.html#xmlDocPtr">xmlDocPtr</a>	xmlRecoverMemory	(const char * buffer, <br/>					 int size)<br/>
-</pre><p>parse an XML in-memory block and build a tree. In the case the document is not Well Formed, a tree is built anyway</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buffer</tt></i>:</span></td><td>an pointer to a char array</td></tr><tr><td><span class="term"><i><tt>size</tt></i>:</span></td><td>the size of the array</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the resulting document tree</td></tr></tbody></table></div></div>
+</pre><p>parse an XML in-memory block and build a tree. In the case the document is not Well Formed, an attempt to build a tree is tried anyway</p>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>buffer</tt></i>:</span></td><td>an pointer to a char array</td></tr><tr><td><span class="term"><i><tt>size</tt></i>:</span></td><td>the size of the array</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>the resulting document tree or NULL in case of error</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlSAXParseDTD"/>xmlSAXParseDTD ()</h3><pre class="programlisting"><a href="libxml2-tree.html#xmlDtdPtr">xmlDtdPtr</a>	xmlSAXParseDTD		(<a href="libxml2-tree.html#xmlSAXHandlerPtr">xmlSAXHandlerPtr</a> sax, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * ExternalID, <br/>					 const <a href="libxml2-xmlstring.html#xmlChar">xmlChar</a> * SystemID)<br/>
 </pre><p>Load and parse an external subset.</p>

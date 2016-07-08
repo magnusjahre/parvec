@@ -16,7 +16,7 @@
   <xsl:import href="site.xsl"/>
 
   <!-- Generate XHTML-1.0 transitional -->
-  <xsl:output method="xml" encoding="ISO-8859-1" indent="yes"
+  <xsl:output method="xml" encoding="UTF-8" indent="yes"
       doctype-public="-//W3C//DTD XHTML 1.0 Transitional//EN"
       doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"/>
 
@@ -556,6 +556,7 @@
     </xsl:if>
   </xsl:template>
 
+<!--
   <xsl:template name="docomponents">
     <xsl:param name="mode"/>
     <xsl:apply-templates select="exports[@type='macro']" mode="$mode">
@@ -574,11 +575,12 @@
       <xsl:sort select='@symbol'/>
     </xsl:apply-templates>
   </xsl:template>
-  
+-->
+
   <xsl:template match="file">
     <xsl:variable name="name" select="@name"/>
     <xsl:variable name="title">Module <xsl:value-of select="$name"/> from <xsl:value-of select="/api/@name"/></xsl:variable>
-    <xsl:document href="{$htmldir}/libxml-{$name}.html" method="xml" encoding="ISO-8859-1"
+    <xsl:document href="{$htmldir}/libxml-{$name}.html" method="xml" encoding="UTF-8"
       doctype-public="-//W3C//DTD XHTML 1.0 Transitional//EN"
       doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 	<html>
@@ -692,7 +694,7 @@
   <xsl:template name="mainpage">
     <xsl:param name="file" select="concat($htmldir, '/index.html')"/>
     <xsl:variable name="title">Reference Manual for <xsl:value-of select="/api/@name"/></xsl:variable>
-    <xsl:document href="{$file}" method="xml" encoding="ISO-8859-1"
+    <xsl:document href="{$file}" method="xml" encoding="UTF-8"
       doctype-public="-//W3C//DTD XHTML 1.0 Transitional//EN"
       doctype-system="http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 	<html>

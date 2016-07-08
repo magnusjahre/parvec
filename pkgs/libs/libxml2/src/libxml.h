@@ -9,6 +9,8 @@
 #ifndef __XML_LIBXML_H__
 #define __XML_LIBXML_H__
 
+#include <libxml/xmlstring.h>
+
 #ifndef NO_LARGEFILE_SOURCE
 #ifndef _LARGEFILE_SOURCE
 #define _LARGEFILE_SOURCE
@@ -20,7 +22,20 @@
 
 #if defined(macintosh)
 #include "config-mac.h"
+#elif defined(_WIN32_WCE)
+/*
+ * Windows CE compatibility definitions and functions
+ * This is needed to compile libxml2 for Windows CE.
+ * At least I tested it with WinCE 5.0 for Emulator and WinCE 4.2/SH4 target
+ */
+#include <win32config.h>
+#include <libxml/xmlversion.h>
 #else
+/*
+ * Currently supported platforms use either autoconf or
+ * copy to config.h own "preset" configuration file.
+ * As result ifdef HAVE_CONFIG_H is omited here.
+ */
 #include "config.h"
 #include <libxml/xmlversion.h>
 #endif
@@ -30,15 +45,6 @@
 #include <varargs.h>
 int snprintf(char *, size_t, const char *, ...);
 int vfprintf(FILE *, const char *, va_list);
-#endif
-
-/*
- * Windows CE compatibility definitions and functions
- * This is needed to compile libxml2 for Windows CE.
- * At least I tested it with WinCE 4.2 for Emulator and SH4 target
- */
-#if defined(_WIN32_WCE)
-#include <wincecompat.h>
 #endif
 
 #ifndef WITH_TRIO
@@ -64,7 +70,7 @@ extern int __xmlRegisterCallbacks;
  * internal error reporting routines, shared but not partof the API.
  */
 void __xmlIOErr(int domain, int code, const char *extra);
-void __xmlLoaderErr(void *ctx, const char *msg, const char *filename);
+void __xmlLoaderErr(void *ctx, const char *msg, const char *filename) LIBXML_ATTR_FORMAT(2,0);
 #ifdef LIBXML_HTML_ENABLED
 /*
  * internal function of HTML parser needed for xmlParseInNodeContext
@@ -78,6 +84,19 @@ void __htmlParseContent(void *ctx);
  */
 void __xmlGlobalInitMutexLock(void);
 void __xmlGlobalInitMutexUnlock(void);
+void __xmlGlobalInitMutexDestroy(void);
+
+int __xmlInitializeDict(void);
+
+#if defined(HAVE_RAND) && defined(HAVE_SRAND) && defined(HAVE_TIME)
+/*
+ * internal thread safe random function
+ */
+int __xmlRandom(void);
+#endif
+
+XMLPUBFUN xmlChar * XMLCALL xmlEscapeFormatString(xmlChar **msg);
+int xmlNop(void);
 
 #ifdef IN_LIBXML
 #ifdef __GNUC__
@@ -89,5 +108,8 @@ void __xmlGlobalInitMutexUnlock(void);
 #endif
 #endif
 #endif
+#endif
+#if !defined(PIC) && !defined(NOLIBTOOL)
+#  define LIBXML_STATIC
 #endif
 #endif /* ! __XML_LIBXML_H__ */

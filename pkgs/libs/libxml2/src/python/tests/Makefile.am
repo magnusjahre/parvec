@@ -1,4 +1,5 @@
-EXAMPLE_DIR = $(datadir)/doc/libxml2-python-$(LIBXML_VERSION)/examples
+exampledir = $(datadir)/doc/libxml2-python-$(LIBXML_VERSION)/examples
+dist_example_DATA = $(PYTESTS) $(XMLS)
 
 PYTESTS=	\
     build.py	\
@@ -18,6 +19,7 @@ PYTESTS=	\
     xpath.py	\
     outbuf.py	\
     inbuf.py	\
+    input_callback.py \
     resolver.py \
     regexp.py	\
     reader.py	\
@@ -44,7 +46,9 @@ PYTESTS=	\
     validDTD.py	\
     validSchemas.py \
     validRNG.py \
-    compareNodes.py
+    compareNodes.py \
+    xpathns.py \
+    xpathleak.py
 
 XMLS=		\
     tst.xml	\
@@ -52,10 +56,11 @@ XMLS=		\
     invalid.xml	\
     test.dtd
 
-EXTRA_DIST = $(PYTESTS) $(XMLS)
+CLEANFILES = core tmp.xml *.pyc
 
 if WITH_PYTHON
 tests: $(PYTESTS)
+	@for f in $(XMLS) ; do test -f $$f || $(LN_S) $(srcdir)/$$f . ; done
 	@echo "## running Python regression tests"
 	-@(PYTHONPATH="..:../.libs:$(srcdir)/..:$$PYTHONPATH" ; \
 	   export PYTHONPATH; \
@@ -68,12 +73,3 @@ tests: $(PYTESTS)
 else
 tests:
 endif
-
-clean:
-	rm -f *.pyc core
-
-install-data-local:
-	$(mkinstalldirs) $(DESTDIR)$(EXAMPLE_DIR)
-	-(for test in $(PYTESTS) $(XMLS); \
-	  do @INSTALL@ -m 0644 $(srcdir)/$$test $(DESTDIR)$(EXAMPLE_DIR) ; done)
-

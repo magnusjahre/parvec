@@ -15,17 +15,19 @@
    header when compiled with Borland C++ 6 */
 #if defined(__BORLANDC__) && !defined(__cplusplus)
 #define inline __inline
+#define _inline __inline
 #endif
 
 #include <ws2tcpip.h>
 
 /* Check if ws2tcpip.h is a recent version which provides getaddrinfo() */
 #if defined(GetAddrInfo)
+#include <wspiapi.h>
 #define HAVE_GETADDRINFO
 #endif
 #endif
 
-#ifdef __MINGW32__
+#if defined( __MINGW32__ ) || defined( _MSC_VER )
 /* Include <errno.h> here to ensure that it doesn't get included later
  * (e.g. by iconv.h) and overwrites the definition of EWOULDBLOCK. */
 #include <errno.h>
@@ -37,6 +39,9 @@
 #endif
 
 #define EWOULDBLOCK             WSAEWOULDBLOCK
+#define ESHUTDOWN               WSAESHUTDOWN
+
+#if (!defined(_MSC_VER) || (_MSC_VER < 1600))
 #define EINPROGRESS             WSAEINPROGRESS
 #define EALREADY                WSAEALREADY
 #define ENOTSOCK                WSAENOTSOCK
@@ -59,7 +64,6 @@
 #define ENOBUFS                 WSAENOBUFS
 #define EISCONN                 WSAEISCONN
 #define ENOTCONN                WSAENOTCONN
-#define ESHUTDOWN               WSAESHUTDOWN
 #define ETOOMANYREFS            WSAETOOMANYREFS
 #define ETIMEDOUT               WSAETIMEDOUT
 #define ECONNREFUSED            WSAECONNREFUSED
@@ -77,5 +81,6 @@
 #define ENAMETOOLONG            WSAENAMETOOLONG
 #define ENOTEMPTY               WSAENOTEMPTY
 */
+#endif /* _MSC_VER */
 
 #endif /* __XML_WSOCKCOMPAT_H__ */

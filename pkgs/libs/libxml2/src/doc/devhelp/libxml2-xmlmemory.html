@@ -52,6 +52,7 @@ void *	<a href="#xmlMemRealloc">xmlMemRealloc</a>			(void * ptr, <br/>					 size
 int	<a href="#xmlInitMemory">xmlInitMemory</a>			(void);
 void	<a href="#xmlMemFree">xmlMemFree</a>			(void * ptr);
 void *	<a href="#xmlMemMalloc">xmlMemMalloc</a>			(size_t size);
+void	<a href="#xmlMemDisplayLast">xmlMemDisplayLast</a>		(FILE * fp, <br/>					 long nbBytes);
 int	<a href="#xmlMemGet">xmlMemGet</a>			(<a href="libxml2-xmlmemory.html#xmlFreeFunc">xmlFreeFunc</a> * freeFunc, <br/>					 <a href="libxml2-xmlmemory.html#xmlMallocFunc">xmlMallocFunc</a> * mallocFunc, <br/>					 <a href="libxml2-xmlmemory.html#xmlReallocFunc">xmlReallocFunc</a> * reallocFunc, <br/>					 <a href="libxml2-xmlmemory.html#xmlStrdupFunc">xmlStrdupFunc</a> * strdupFunc);
 void	<a href="#xmlMemoryDump">xmlMemoryDump</a>			(void);
 void *	<a href="#xmlMallocLoc">xmlMallocLoc</a>			(size_t size, <br/>					 const char * file, <br/>					 int line);
@@ -117,7 +118,7 @@ char *	<a href="#xmlMemStrdupLoc">xmlMemStrdupLoc</a>			(const char * str, <br/>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlMallocAtomicLoc"/>xmlMallocAtomicLoc ()</h3><pre class="programlisting">void *	xmlMallocAtomicLoc		(size_t size, <br/>					 const char * file, <br/>					 int line)<br/>
 </pre><p>a malloc() equivalent, with logging of the allocation info.</p>
-<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>size</tt></i>:</span></td><td>an int specifying the size in byte to allocate.</td></tr><tr><td><span class="term"><i><tt>file</tt></i>:</span></td><td>the file name or NULL</td></tr><tr><td><span class="term"><i><tt>line</tt></i>:</span></td><td>the line number</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>a pointer to the allocated area or NULL in case of lack of memory.</td></tr></tbody></table></div></div>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>size</tt></i>:</span></td><td>an unsigned int specifying the size in byte to allocate.</td></tr><tr><td><span class="term"><i><tt>file</tt></i>:</span></td><td>the file name or NULL</td></tr><tr><td><span class="term"><i><tt>line</tt></i>:</span></td><td>the line number</td></tr><tr><td><span class="term"><i><tt>Returns</tt></i>:</span></td><td>a pointer to the allocated area or NULL in case of lack of memory.</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlMallocLoc"/>xmlMallocLoc ()</h3><pre class="programlisting">void *	xmlMallocLoc			(size_t size, <br/>					 const char * file, <br/>					 int line)<br/>
 </pre><p>a malloc() equivalent, with logging of the allocation info.</p>
@@ -130,6 +131,10 @@ char *	<a href="#xmlMemStrdupLoc">xmlMemStrdupLoc</a>			(const char * str, <br/>
         <div class="refsect2" lang="en"><h3><a name="xmlMemDisplay"/>xmlMemDisplay ()</h3><pre class="programlisting">void	xmlMemDisplay			(FILE * fp)<br/>
 </pre><p>show in-extenso the memory blocks allocated</p>
 <div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>fp</tt></i>:</span></td><td>a FILE descriptor used as the output file, if NULL, the result is written to the file .memorylist</td></tr></tbody></table></div></div>
+        <hr/>
+        <div class="refsect2" lang="en"><h3><a name="xmlMemDisplayLast"/>xmlMemDisplayLast ()</h3><pre class="programlisting">void	xmlMemDisplayLast		(FILE * fp, <br/>					 long nbBytes)<br/>
+</pre><p>the last nbBytes of memory allocated and not freed, useful for dumping the memory left allocated between two places at runtime.</p>
+<div class="variablelist"><table border="0"><col align="left"/><tbody><tr><td><span class="term"><i><tt>fp</tt></i>:</span></td><td>a FILE descriptor used as the output file, if NULL, the result is written to the file .memorylist</td></tr><tr><td><span class="term"><i><tt>nbBytes</tt></i>:</span></td><td>the amount of memory to dump</td></tr></tbody></table></div></div>
         <hr/>
         <div class="refsect2" lang="en"><h3><a name="xmlMemFree"/>xmlMemFree ()</h3><pre class="programlisting">void	xmlMemFree			(void * ptr)<br/>
 </pre><p>a free() equivalent, with error checking.</p>

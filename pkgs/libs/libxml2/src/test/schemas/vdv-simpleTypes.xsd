@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- $Header: /cvs/bao-parsec/pkgs/libs/libxml2/src/test/schemas/vdv-simpleTypes.xsd,v 1.1.1.1 2012/03/29 17:21:28 uid42307 Exp $ -->
+<!-- $Header: /home/cvsroot/w3c-xml-schema/user/examples/simpleTypes.xsd,v 1.1 2001/11/26 13:27:08 vdv Exp $ -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
 
 	<xs:simpleType name="string255">

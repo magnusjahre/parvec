@@ -2,7 +2,7 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
                 xmlns:xhtml="http://www.w3.org/1999/xhtml"
                 version="1.0">
-  <xsl:output method="text" encoding="ISO-8859-1"/>
+  <xsl:output method="text" encoding="UTF-8"/>
 
   <xsl:template match="/">
     <xsl:text>/*
@@ -106,7 +106,7 @@ extern __typeof (__xmlGenericErrorContext) __xmlGenericErrorContext__internal_al
 
   <xsl:template match="function">
     <xsl:variable name="str" select="string(@name)"/>
-    <xsl:if test="starts-with(@name, 'xml') or starts-with(@name, 'html') or contains(@name, 'Push') or contains(@name, 'Pop')">
+    <xsl:if test="(starts-with(@name, 'xml') or starts-with(@name, 'html') or contains(@name, 'Push') or contains(@name, 'Pop')) and (not(contains(@name, 'xmlDllMain')))">
       <xsl:variable name="alias" select="concat($str, '__internal_alias')"/>
       <xsl:apply-templates select="cond"/>
       <xsl:text>#ifdef bottom_</xsl:text>

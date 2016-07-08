@@ -1,75 +1,54 @@
 # Makefile for libxml2 python library
 AUTOMAKE_OPTIONS = 1.4 foreign
 
-SUBDIRS= . tests
+SUBDIRS = . tests
 
-INCLUDES = \
-	-I$(PYTHON_INCLUDES) \
-	-I$(top_srcdir)/include	\
-	-I$(top_builddir)/include \
-	-I$(top_builddir)/$(subdir)
-
-DOCS_DIR = $(datadir)/doc/libxml2-python-$(LIBXML_VERSION)
-# libxml2class.txt is generated
-DOCS = ${srcdir}/TODO
+docsdir = $(datadir)/doc/libxml2-python-$(LIBXML_VERSION)
+dist_docs_DATA = TODO
 
 EXTRA_DIST = 			\
-	libxml.c		\
-	types.c			\
 	setup.py		\
-	setup.py.in		\
 	generator.py		\
-	libxml_wrap.h		\
 	libxml.py		\
-	drv_libxml2.py		\
+	libxml2-export.c	\
 	libxml2-python-api.xml	\
-	$(DOCS)
-
-libxml2mod_la_LDFLAGS = @CYGWIN_EXTRA_LDFLAGS@ @WIN32_EXTRA_LDFLAGS@ -module -avoid-version 
+	libxml2class.py		\
+	libxml2class.txt
 
 if WITH_PYTHON
-mylibs = \
-	$(top_builddir)/libxml2.la
-
-all-local:	libxml2.py
+AM_CPPFLAGS = \
+	-I$(top_builddir)/include \
+	-I$(top_srcdir)/include	\
+	-I$(PYTHON_INCLUDES)
 
 python_LTLIBRARIES = libxml2mod.la
 
-libxml2mod_la_SOURCES = libxml.c types.c libxml2-py.c
-libxml2mod_la_LIBADD = $(mylibs) @CYGWIN_EXTRA_PYTHON_LIBADD@
+libxml2mod_la_SOURCES = libxml.c libxml_wrap.h libxml2-py.h libxml2-py.c types.c
+libxml2mod_la_LDFLAGS = $(CYGWIN_EXTRA_LDFLAGS) $(WIN32_EXTRA_LDFLAGS) -module -avoid-version \
+        $(top_builddir)/libxml2.la $(CYGWIN_EXTRA_PYTHON_LIBADD) $(WIN32_EXTRA_PYTHON_LIBADD) $(PYTHON_LIBS)
+
+BUILT_SOURCES = libxml2-export.c libxml2-py.h libxml2-py.c
+
+# libxml.c #includes libxml2-export.c
+libxml.$(OBJEXT): libxml2-export.c
 
 libxml2.py: $(srcdir)/libxml.py libxml2class.py
-	cat $(srcdir)/libxml.py libxml2class.py > libxml2.py
+	cat $(srcdir)/libxml.py `test -f libxml2class.py || echo $(srcdir)/`libxml2class.py > $@
 
-install-data-local:
-	$(mkinstalldirs) $(DESTDIR)$(pythondir)
-	@INSTALL@ -m 0644 libxml2.py $(DESTDIR)$(pythondir)
-	@INSTALL@ -m 0644 $(srcdir)/drv_libxml2.py $(DESTDIR)$(pythondir)
-	$(mkinstalldirs) $(DESTDIR)$(DOCS_DIR)
-	@(for doc in $(DOCS) ; \
-	   do @INSTALL@ -m 0644 $$doc $(DESTDIR)$(DOCS_DIR) ; done)
+dist_python_DATA = \
+	drv_libxml2.py \
+	libxml2.py
+	
+CLEANFILES = *.pyc
 
-GENERATE = generator.py
+MAINTAINERCLEANFILES = libxml2.py libxml2class.*
+
 API_DESC = $(top_srcdir)/doc/libxml2-api.xml $(srcdir)/libxml2-python-api.xml
-GENERATED= libxml2class.py \
-           libxml2-export.c \
-           libxml2class.txt \
-	   libxml2-py.c \
-	   libxml2-py.h
+GENERATED = libxml2class.py libxml2class.txt $(BUILT_SOURCES)
 
-CLEANFILES= $(GENERATED) gen_prog libxml2.py
-
-$(GENERATED): gen_prog
-
-gen_prog: $(srcdir)/$(GENERATE) $(API_DESC)
-	$(PYTHON) $(srcdir)/$(GENERATE) $(srcdir)
-	touch gen_prog
-
-$(libxml2mod_la_OBJECTS): $(GENERATED)
-
-else
-all: 
+$(GENERATED): $(srcdir)/generator.py $(API_DESC)
+	$(PYTHON) $(srcdir)/generator.py $(srcdir)
 endif
-tests test: all
-	cd tests && $(MAKE) MAKEFLAGS+=--silent tests
 
+tests test: all
+	cd tests && $(MAKE) tests
