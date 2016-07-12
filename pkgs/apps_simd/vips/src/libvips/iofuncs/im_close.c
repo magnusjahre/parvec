@@ -2,12 +2,12 @@
  *
  * Copyright: Nicos Dessipris
  * Written on: 12/04/1990
- * Modified on :  
+ * Modified on :
  * 24/7/92 JC
  *	- im_update_descfile code tidied up
  *     	- free on NULL string when junking Hist fixed
  *     	- now calls im_unmapfile
- *     	- better behaviour if image has been opened and closed with 
+ *     	- better behaviour if image has been opened and closed with
  *	  no im_setupout call
  *      - better behaviour for half-made IMAGE descriptors
  * 15/4/93 JC
@@ -36,7 +36,7 @@
  * 11/7/05
  *	- call im__writehist() to send history to XML after image data
  * 3/1/07
- * 	- free history_list 
+ * 	- free history_list
  * 7/11/07
  * 	- added preclose, removed evalend triggers
  * 23/7/08
@@ -59,7 +59,7 @@
 /*
 
     This file is part of VIPS.
-    
+
     VIPS is free software; you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
@@ -122,7 +122,7 @@
  * image! On an error, return non-zero and leave the image in an indeterminate
  * state. Too hard to recover gracefully.
  */
-int 
+int
 im__close( IMAGE *im )
 {
 	int result;
@@ -165,7 +165,7 @@ im__close( IMAGE *im )
 			im_window_print( (im_window_t *) p->data );
 	}
 
-	/* Junk generate functions. 
+	/* Junk generate functions.
 	 */
 	im->start = NULL;
 	im->generate = NULL;
@@ -196,10 +196,10 @@ im__close( IMAGE *im )
 		printf( "im__close: closing output file ..\n" );
 #endif /*DEBUG_IO*/
 
-		if( im->dtype == IM_OPENOUT && im__writehist( im ) ) 
+		if( im->dtype == IM_OPENOUT && im__writehist( im ) )
 			result = -1;
 		if( close( im->fd ) == -1 ) {
-			im_error( "im_close", _( "unable to close fd for %s" ), 
+			im_error( "im_close", _( "unable to close fd for %s" ),
 				im->filename );
 			result = -1;
 		}
@@ -241,7 +241,7 @@ im__close( IMAGE *im )
 	im->sizeof_header = IM_SIZEOF_HEADER;
 
 #ifdef DEBUG_IO
-	printf( "im__close: final success for %s (%p)\n", 
+	printf( "im__close: final success for %s (%p)\n",
 		im->filename, im );
 #endif /*DEBUG_IO*/
 
@@ -252,7 +252,7 @@ im__close( IMAGE *im )
  * im_close:
  * @im: image to close
  *
- * Frees all resources associated with @im. 
+ * Frees all resources associated with @im.
  *
  * If there are open #REGION s on @im, close is delayed until the last region
  * is freed.
@@ -261,7 +261,7 @@ im__close( IMAGE *im )
  *
  * Returns: 0 on success and 1 on error.
  */
-int 
+int
 im_close( IMAGE *im )
 {
 	int result = 0;
@@ -272,30 +272,30 @@ im_close( IMAGE *im )
 		return( result );
 
 	if( im->regions ) {
-		/* There are regions left on this image. 
-		 * Set close_pending and return. The image will be then 
-		 * be closed when the last region is freed 
-		 * (see im_region_free()). 
+		/* There are regions left on this image.
+		 * Set close_pending and return. The image will be then
+		 * be closed when the last region is freed
+		 * (see im_region_free()).
 		 */
 #ifdef DEBUG_NEW
-		printf( "im_close: pending close for 0x%p, \"%s\"\n", 
+		printf( "im_close: pending close for 0x%p, \"%s\"\n",
 			im, im->filename );
 #endif /*DEBUG_NEW*/
 
 		im->close_pending = 1;
 	}
 	else if( !im->closing ) {
-		/* Is this descriptor currently being closed somewhere else? 
+		/* Is this descriptor currently being closed somewhere else?
 		 * This prevents infinite descent if a close callback
-		 * includes an im_close for this image. 
+		 * includes an im_close for this image.
 		 */
 		im->closing = 1;
 
-		if( im__close( im ) ) 
+		if( im__close( im ) )
 			result = -1;
 
 #ifdef DEBUG_NEW
-		printf( "im_close: freeing IMAGE 0x%p, \"%s\"\n", 
+		printf( "im_close: freeing IMAGE 0x%p, \"%s\"\n",
 			im, im->filename );
 #endif /*DEBUG_NEW*/
 
@@ -303,7 +303,8 @@ im_close( IMAGE *im )
 		 */
 		result |= im__trigger_callbacks( im->postclosefns );
 		IM_FREEF( im_slist_free_all, im->postclosefns );
-		IM_FREEF( g_mutex_free, im->sslock );
+//		IM_FREEF( g_mutex_free, im->sslock );
+		g_mutex_clear(im->sslock);
 		IM_FREE( im->filename );
 		IM_FREE( im->Hist );
 		IM_FREEF( im__gslist_gvalue_free, im->history_list );

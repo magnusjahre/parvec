@@ -1,5 +1,5 @@
 /*
- * 
+ *
  * (c) Copyright, 1986-1991
  * Biodynamics Research Unit
  * Mayo Foundation
@@ -41,7 +41,7 @@ struct image_dimension           /*      image_dimension  */
         short int bitpix;              /* 32 + 2    */
         short int dim_un0;             /* 34 + 2    */
         float pixdim[8];               /* 36 + 32   */
-        		 
+
         		/*	pixdim[] specifies the voxel dimensions:
         			pixdim[1] - voxel width
         			pixdim[2] - voxel height
@@ -57,7 +57,7 @@ struct image_dimension           /*      image_dimension  */
         int compressed;                /* 92 + 4    */
         int verified;                  /* 96 + 4    */
         int glmax, glmin;              /* 100 + 8   */
-    };          
+    };
 
 struct data_history               /*      data_history     */
     {                                  /* off + size*/
@@ -87,7 +87,9 @@ struct dsr                        /*      dsr              */
     };                     	       /* total=348 */
 
 /* Acceptable values for hdr.dime.datatype */
+#ifndef DT_UNKNOWN
 #define DT_UNKNOWN			0
+#endif
 #define DT_BINARY			1
 #define DT_UNSIGNED_CHAR		2
 #define DT_SIGNED_SHORT			4

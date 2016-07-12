@@ -1,7 +1,7 @@
 /* Tile tile cache from tiff2vips ... broken out so it can be shared with
  * openexr read.
  *
- * This isn't the same as im_cache(): we don't sub-divide, and we 
+ * This isn't the same as im_cache(): we don't sub-divide, and we
  * single-thread our callee.
  *
  * 23/8/06
@@ -16,7 +16,7 @@
 /*
 
     This file is part of VIPS.
-    
+
     VIPS is free software; you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
@@ -84,7 +84,7 @@ typedef struct _Read {
 	 */
 	IMAGE *in;
 	IMAGE *out;
-	int tile_width;	
+	int tile_width;
 	int tile_height;
 	int max_tiles;
 
@@ -114,7 +114,8 @@ tile_destroy( Tile *tile )
 static void
 read_destroy( Read *read )
 {
-	IM_FREEF( g_mutex_free, read->lock );
+//	IM_FREEF( g_mutex_free, read->lock );
+        g_mutex_clear(read->lock);
 
 	while( read->cache ) {
 		Tile *tile = (Tile *) read->cache->data;
@@ -126,7 +127,7 @@ read_destroy( Read *read )
 }
 
 static Read *
-read_new( IMAGE *in, IMAGE *out, 
+read_new( IMAGE *in, IMAGE *out,
 	int tile_width, int tile_height, int max_tiles )
 {
 	Read *read;
@@ -140,10 +141,11 @@ read_new( IMAGE *in, IMAGE *out,
 	read->max_tiles = max_tiles;
 	read->time = 0;
 	read->ntiles = 0;
-	read->lock = g_mutex_new();
+	//read->lock = g_mutex_new();
+	g_mutex_init(read->lock);
 	read->cache = NULL;
 
-	if( im_add_close_callback( out, 
+	if( im_add_close_callback( out,
 		(im_callback_fn) read_destroy, read, NULL ) ) {
 		read_destroy( read );
 		return( NULL );
@@ -233,7 +235,7 @@ tile_fill( Tile *tile, int x, int y )
 	return( 0 );
 }
 
-/* Find existing tile, make a new tile, or if we have a full set of tiles, 
+/* Find existing tile, make a new tile, or if we have a full set of tiles,
  * reuse LRU.
  */
 static Tile *
@@ -365,7 +367,7 @@ fill_region( REGION *out, void *seq, void *a, void *b )
 	return( 0 );
 }
 
-/** 
+/**
  * im_tile_cache:
  * @in: input image
  * @out: output image
@@ -374,13 +376,13 @@ fill_region( REGION *out, void *seq, void *a, void *b )
  * @max_tiles: maximum number of tiles to cache
  *
  * This operation behaves rather like im_copy() between images
- * @in and @out, except that it keeps a cache of computed pixels. 
+ * @in and @out, except that it keeps a cache of computed pixels.
  * This cache is made of up to @max_tiles tiles (a value of -1 for
  * means any number of tiles), and each tile is of size @tile_width
- * by @tile_height pixels. Each cache tile is made with a single call to 
+ * by @tile_height pixels. Each cache tile is made with a single call to
  * im_prepare().
  *
- * This is a lower-level operation than im_cache() since it does no 
+ * This is a lower-level operation than im_cache() since it does no
  * subdivision. It is suitable for caching the output of operations like
  * im_exr2vips() on tiled images.
  *
@@ -402,9 +404,9 @@ im_tile_cache( IMAGE *in, IMAGE *out,
 	if( im_piocheck( in, out ) ||
 		im_cp_desc( out, in ) ||
 		im_demand_hint( out, IM_SMALLTILE, in, NULL ) ||
-		!(read = read_new( in, out, 
+		!(read = read_new( in, out,
 			tile_width, tile_height, max_tiles )) ||
-		im_generate( out, 
+		im_generate( out,
 			NULL, fill_region, NULL, read, NULL ) )
 		return( -1 );
 

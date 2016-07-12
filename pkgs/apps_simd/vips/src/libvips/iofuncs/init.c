@@ -29,7 +29,7 @@
  * 9/8/08
  * 	- lock global image list (thanks lee)
  * 19/3/09
- *	- add file_length 
+ *	- add file_length
  * 8/10/09
  * 	- add set_hint
  * 10/1/09
@@ -41,7 +41,7 @@
 /*
 
     This file is part of VIPS.
-    
+
     VIPS is free software; you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
@@ -91,7 +91,7 @@
  */
 IMAGE *
 im_init( const char *filename )
-{	
+{
 	IMAGE *im;
 
 	/* Pass in a nonsense name for argv0 ... this init world is only here
@@ -148,7 +148,8 @@ im_init( const char *filename )
 	im->stop = NULL;
 	im->client1 = NULL;
 	im->client2 = NULL;
-	im->sslock = g_mutex_new();
+//	im->sslock = g_mutex_new();
+	g_mutex_init(im->sslock);
 	im->regions = NULL;
 	im->dhint = IM_SMALLTILE;
 
@@ -216,10 +217,10 @@ im_init( const char *filename )
  *
  * See also: im_cp_desc().
  */
-void 
-im_initdesc( IMAGE *image, 
-	int xsize, int ysize, int bands, int bandbits, 
-	VipsBandFmt bandfmt, VipsCoding coding, VipsType type, 
+void
+im_initdesc( IMAGE *image,
+	int xsize, int ysize, int bands, int bandbits,
+	VipsBandFmt bandfmt, VipsCoding coding, VipsType type,
 	float xres, float yres,
 	int xo, int yo )
 {
