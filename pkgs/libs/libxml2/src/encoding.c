@@ -2853,7 +2853,7 @@ int
 xmlCharEncCloseFunc(xmlCharEncodingHandler *handler) {
     int ret = 0;
     int tofree = 0;
-    int i, handler_in_list = 0;
+    int i, handler_in_list __attribute__((unused)) = 0;
 
     if (handler == NULL) return(-1);
     if (handler->name == NULL) return(-1);

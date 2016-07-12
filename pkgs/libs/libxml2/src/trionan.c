@@ -190,7 +190,7 @@ TRIO_ARGS1((values),
 /*
  * trio_is_special_quantity
  */
-TRIO_PRIVATE int
+__attribute__((unused)) TRIO_PRIVATE int
 trio_is_special_quantity
 TRIO_ARGS2((number, has_mantissa),
 	   double number,
@@ -214,7 +214,7 @@ TRIO_ARGS2((number, has_mantissa),
 /*
  * trio_is_negative
  */
-TRIO_PRIVATE int
+__attribute__((unused)) TRIO_PRIVATE int
 trio_is_negative
 TRIO_ARGS1((number),
 	   double number)

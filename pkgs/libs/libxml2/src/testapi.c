@@ -13559,7 +13559,7 @@ test_xmlParseBalancedChunkMemory(void) {
         depth = gen_int(n_depth, 3);
         string = gen_const_xmlChar_ptr(n_string, 4);
         lst = gen_xmlNodePtr_ptr(n_lst, 5);
-        
+
 #ifdef LIBXML_SAX1_ENABLED
         if (sax == (xmlSAXHandlerPtr)&xmlDefaultSAXHandler) user_data = NULL;
 #endif
@@ -13639,7 +13639,7 @@ test_xmlParseBalancedChunkMemoryRecover(void) {
         string = gen_const_xmlChar_ptr(n_string, 4);
         lst = gen_xmlNodePtr_ptr(n_lst, 5);
         recover = gen_int(n_recover, 6);
-        
+
 #ifdef LIBXML_SAX1_ENABLED
         if (sax == (xmlSAXHandlerPtr)&xmlDefaultSAXHandler) user_data = NULL;
 #endif
@@ -15118,7 +15118,7 @@ test_xmlSAXUserParseFile(void) {
         sax = gen_xmlSAXHandlerPtr(n_sax, 0);
         user_data = gen_userdata(n_user_data, 1);
         filename = gen_filepath(n_filename, 2);
-        
+
 #ifdef LIBXML_SAX1_ENABLED
         if (sax == (xmlSAXHandlerPtr)&xmlDefaultSAXHandler) user_data = NULL;
 #endif
@@ -15177,7 +15177,7 @@ test_xmlSAXUserParseMemory(void) {
         user_data = gen_userdata(n_user_data, 1);
         buffer = gen_const_char_ptr(n_buffer, 2);
         size = gen_int(n_size, 3);
-        
+
 #ifdef LIBXML_SAX1_ENABLED
         if (sax == (xmlSAXHandlerPtr)&xmlDefaultSAXHandler) user_data = NULL;
 #endif
@@ -18037,10 +18037,10 @@ test_xmlSchematronNewParserCtxt(void) {
 #ifdef LIBXML_SCHEMATRON_ENABLED
 
 #define gen_nb_xmlSchematronPtr 1
-static xmlSchematronPtr gen_xmlSchematronPtr(int no ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+__attribute__((unused)) static xmlSchematronPtr gen_xmlSchematronPtr(int no ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
     return(NULL);
 }
-static void des_xmlSchematronPtr(int no ATTRIBUTE_UNUSED, xmlSchematronPtr val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+__attribute__((unused)) static void des_xmlSchematronPtr(int no ATTRIBUTE_UNUSED, xmlSchematronPtr val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
 }
 #endif
 
@@ -18057,10 +18057,10 @@ test_xmlSchematronNewValidCtxt(void) {
 #ifdef LIBXML_SCHEMATRON_ENABLED
 
 #define gen_nb_xmlSchematronParserCtxtPtr 1
-static xmlSchematronParserCtxtPtr gen_xmlSchematronParserCtxtPtr(int no ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+__attribute__((unused)) static xmlSchematronParserCtxtPtr gen_xmlSchematronParserCtxtPtr(int no ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
     return(NULL);
 }
-static void des_xmlSchematronParserCtxtPtr(int no ATTRIBUTE_UNUSED, xmlSchematronParserCtxtPtr val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+__attribute__((unused)) static void des_xmlSchematronParserCtxtPtr(int no ATTRIBUTE_UNUSED, xmlSchematronParserCtxtPtr val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
 }
 #endif
 
@@ -18555,10 +18555,10 @@ test_xmlBufShrink(void) {
 
 
 #define gen_nb_const_xmlBufPtr 1
-static xmlBufPtr gen_const_xmlBufPtr(int no ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+__attribute__((unused)) static xmlBufPtr gen_const_xmlBufPtr(int no ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
     return(NULL);
 }
-static void des_const_xmlBufPtr(int no ATTRIBUTE_UNUSED, const xmlBufPtr val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+__attribute__((unused)) static void des_const_xmlBufPtr(int no ATTRIBUTE_UNUSED, const xmlBufPtr val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
 }
 
 static int
@@ -34500,10 +34500,10 @@ test_xmlSchemaParse(void) {
 #ifdef LIBXML_SCHEMAS_ENABLED
 
 #define gen_nb_xmlSAXHandlerPtr_ptr 1
-static xmlSAXHandlerPtr * gen_xmlSAXHandlerPtr_ptr(int no ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+__attribute__((unused)) static xmlSAXHandlerPtr * gen_xmlSAXHandlerPtr_ptr(int no ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
     return(NULL);
 }
-static void des_xmlSAXHandlerPtr_ptr(int no ATTRIBUTE_UNUSED, xmlSAXHandlerPtr * val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
+__attribute__((unused)) static void des_xmlSAXHandlerPtr_ptr(int no ATTRIBUTE_UNUSED, xmlSAXHandlerPtr * val ATTRIBUTE_UNUSED, int nr ATTRIBUTE_UNUSED) {
 }
 #endif
 

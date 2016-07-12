@@ -394,7 +394,7 @@ static int TIM_SORT_COLLAPSE(SORT_TYPE *dst, TIM_SORT_RUN_T *stack, int stack_cu
 {
   while (1) {
     int64_t A, B, C, D;
-    int ABC, BCD, BD, CD;
+    int ABC, BCD, BD __attribute__((unused)), CD;
 
     /* if the stack only has one thing on it, we are done with the collapse */
     if (stack_curr <= 1) {
@@ -402,7 +402,7 @@ static int TIM_SORT_COLLAPSE(SORT_TYPE *dst, TIM_SORT_RUN_T *stack, int stack_cu
     }
 
     /* if this is the last merge, just do it */
-    if ((stack_curr == 2) && (stack[0].length + stack[1].length == size)) {
+    if ((stack_curr == 2) && (stack[0].length + stack[1].length == (int64_t)size)) {
       TIM_SORT_MERGE(dst, stack, stack_curr, store);
       stack[0].length += stack[1].length;
       stack_curr--;
