@@ -17,7 +17,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -35,16 +36,34 @@
 #include <stdio.h>
 
 #include <vips/vips.h>
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
+#include <vips/internal.h>
 
 /* One image in, one out.
  */
 static im_arg_desc one_in_one_out[] = {
 	IM_INPUT_IMAGE( "in" ),
 	IM_OUTPUT_IMAGE( "out" )
+};
+
+static im_arg_desc quadratic_args[] = {
+	IM_INPUT_IMAGE( "in" ),
+	IM_OUTPUT_IMAGE( "out" ),
+	IM_INPUT_IMAGE( "coeff" )
+};
+
+static int
+quadratic_vec( im_object *argv )
+{
+	return( im_quadratic( argv[0], argv[1], argv[2] ) );
+}
+
+static im_function quadratic_desc = {
+	"im_quadratic", 		/* Name */
+	"transform via quadratic",
+	IM_FN_PIO,			/* Flags */
+	quadratic_vec, 			/* Dispatch function */
+	IM_NUMBER( quadratic_args ), 	/* Size of arg list */
+	quadratic_args 			/* Arg list */
 };
 
 /* Two images in, one out.
@@ -1217,9 +1236,1007 @@ static im_function convf_desc = {
 	conv_dmask 			/* Arg list */
 };
 
+/* Args for im_circle.
+ */
+static im_arg_desc circle_args[] = {
+	IM_RW_IMAGE( "image" ),
+	IM_INPUT_INT( "cx" ),
+	IM_INPUT_INT( "cy" ),
+	IM_INPUT_INT( "radius" ),
+	IM_INPUT_INT( "intensity" )
+};
+
+/* Call im_circle via arg vector.
+ */
+static int
+circle_vec( im_object *argv )
+{
+	int cx = *((int *) argv[1]);
+	int cy = *((int *) argv[2]);
+	int radius = *((int *) argv[3]);
+	int intensity = *((int *) argv[4]);
+
+	return( im_circle( argv[0], cx, cy, radius, intensity ) );
+}
+
+/* Description of im_circle.
+ */ 
+static im_function circle_desc = {
+	"im_circle", 			/* Name */
+	"plot circle on image",
+	0,				/* Flags */
+	circle_vec, 			/* Dispatch function */
+	IM_NUMBER( circle_args ), 	/* Size of arg list */
+	circle_args 			/* Arg list */
+};
+
+/* Args for im_flood_blob_copy().
+ */
+static im_arg_desc flood_blob_copy_args[] = {
+	IM_INPUT_IMAGE( "in" ),
+	IM_OUTPUT_IMAGE( "out" ),
+	IM_INPUT_INT( "start_x" ),
+	IM_INPUT_INT( "start_y" ),
+	IM_INPUT_DOUBLEVEC( "ink" )
+};
+
+/* Call im_flood_blob_copy() via arg vector.
+ */
+static int
+flood_blob_copy_vec( im_object *argv )
+{
+	IMAGE *in = argv[0];
+	IMAGE *out = argv[1];
+	int start_x = *((int *) argv[2]);
+	int start_y = *((int *) argv[3]);
+	im_doublevec_object *dv = (im_doublevec_object *) argv[4];
+
+	PEL *ink;
+
+	if( !(ink = im__vector_to_ink( "im_flood_blob_copy",
+		in, dv->n, dv->vec )) )
+		return( -1 );
+
+	return( im_flood_blob_copy( in, out, start_x, start_y, ink ) );
+}
+
+/* Description of im_flood_blob_copy().
+ */ 
+static im_function flood_blob_copy_desc = {
+	"im_flood_blob_copy",	/* Name */
+	"flood with ink from start_x, start_y while pixel == start pixel",
+	0,			/* Flags */
+	flood_blob_copy_vec, 	/* Dispatch function */
+	IM_NUMBER( flood_blob_copy_args ),/* Size of arg list */
+	flood_blob_copy_args 	/* Arg list */
+};
+
+/* Args for im_flood_copy().
+ */
+static im_arg_desc flood_copy_args[] = {
+	IM_INPUT_IMAGE( "in" ),
+	IM_OUTPUT_IMAGE( "out" ),
+	IM_INPUT_INT( "start_x" ),
+	IM_INPUT_INT( "start_y" ),
+	IM_INPUT_DOUBLEVEC( "ink" )
+};
+
+/* Call im_flood_copy() via arg vector.
+ */
+static int
+flood_copy_vec( im_object *argv )
+{
+	IMAGE *in = argv[0];
+	IMAGE *out = argv[1];
+	int start_x = *((int *) argv[2]);
+	int start_y = *((int *) argv[3]);
+	im_doublevec_object *dv = (im_doublevec_object *) argv[4];
+
+	PEL *ink;
+
+	if( !(ink = im__vector_to_ink( "im_flood_copy",
+		in, dv->n, dv->vec )) )
+		return( -1 );
+
+	return( im_flood_copy( in, out, start_x, start_y, ink ) );
+}
+
+/* Description of im_flood_copy().
+ */ 
+static im_function flood_copy_desc = {
+	"im_flood_copy",	/* Name */
+	"flood with ink from start_x, start_y while pixel == start pixel",
+	0,			/* Flags */
+	flood_copy_vec, 	/* Dispatch function */
+	IM_NUMBER( flood_copy_args ),/* Size of arg list */
+	flood_copy_args 	/* Arg list */
+};
+
+/* Args for im_flood_other_copy().
+ */
+static im_arg_desc flood_other_copy_args[] = {
+	IM_INPUT_IMAGE( "test" ),
+	IM_INPUT_IMAGE( "mark" ),
+	IM_OUTPUT_IMAGE( "out" ),
+	IM_INPUT_INT( "start_x" ),
+	IM_INPUT_INT( "start_y" ),
+	IM_INPUT_INT( "serial" )
+};
+
+/* Call im_flood_other_copy() via arg vector.
+ */
+static int
+flood_other_copy_vec( im_object *argv )
+{
+	IMAGE *test = argv[0];
+	IMAGE *mark = argv[1];
+	IMAGE *out = argv[2];
+	int start_x = *((int *) argv[3]);
+	int start_y = *((int *) argv[4]);
+	int serial = *((int *) argv[5]);
+
+	return( im_flood_other_copy( test, mark, out, 
+		start_x, start_y, serial ) );
+}
+
+/* Description of im_flood_other_copy().
+ */ 
+static im_function flood_other_copy_desc = {
+	"im_flood_other_copy",	/* Name */
+	"flood mark with serial from start_x, start_y while pixel == start pixel",
+	0,			/* Flags */
+	flood_other_copy_vec, 	/* Dispatch function */
+	IM_NUMBER( flood_other_copy_args ),/* Size of arg list */
+	flood_other_copy_args 	/* Arg list */
+};
+
+/* Args for im_insertplace.
+ */
+static im_arg_desc insertplace_args[] = {
+	IM_RW_IMAGE( "main" ),
+	IM_INPUT_IMAGE( "sub" ),
+	IM_INPUT_INT( "x" ),
+	IM_INPUT_INT( "y" )
+};
+
+/* Call im_insertplace via arg vector.
+ */
+static int
+insertplace_vec( im_object *argv )
+{
+	int x = *((int *) argv[2]);
+	int y = *((int *) argv[3]);
+
+	return( im_insertplace( argv[0], argv[1], x, y ) );
+}
+
+/* Description of im_insertplace.
+ */ 
+static im_function insertplace_desc = {
+	"im_insertplace", 		/* Name */
+	"draw image sub inside image main at position (x,y)",
+	0,				/* Flags */
+	insertplace_vec, 		/* Dispatch function */
+	IM_NUMBER( insertplace_args ), 	/* Size of arg list */
+	insertplace_args 		/* Arg list */
+};
+
+/* Used to be called im_remainderconst_vec, stupidly.
+ */
+static int
+remainderconst_vec_vec( im_object *argv )
+{
+	im_doublevec_object *dv = (im_doublevec_object *) argv[2];
+
+	return( im_remainder_vec( argv[0], argv[1], dv->n, dv->vec ) );
+}
+
+static im_arg_desc remainderconst_vec_args[] = {
+	IM_INPUT_IMAGE( "in" ),
+	IM_OUTPUT_IMAGE( "out" ),
+	IM_INPUT_DOUBLEVEC( "x" )
+};
+
+static im_function remainderconst_vec_desc = {
+	"im_remainderconst_vec", 	/* Name */
+	N_( "remainder after integer division by a vector of constants" ),
+					/* Description */
+	IM_FN_PIO | IM_FN_PTOP,		/* Flags */
+	remainderconst_vec_vec, 	/* Dispatch function */
+	IM_NUMBER( remainderconst_vec_args ),/* Size of arg list */
+	remainderconst_vec_args 	/* Arg list */
+};
+
+/* Args to im_mask2vips.
+ */
+static im_arg_desc mask2vips_args[] = {
+	IM_INPUT_DMASK( "input" ),
+	IM_OUTPUT_IMAGE( "output" ),
+};
+
+/* Call im_mask2vips via arg vector.
+ */
+static int
+mask2vips_vec( im_object *argv )
+{
+	im_mask_object *mo = argv[0];
+
+	return( im_mask2vips( mo->mask, argv[1] ) );
+}
+
+/* Description of im_mask2vips.
+ */
+static im_function mask2vips_desc = {
+	"im_mask2vips", 		/* Name */
+	"convert DOUBLEMASK to VIPS image",
+	0,				/* Flags */
+	mask2vips_vec, 			/* Dispatch function */
+	IM_NUMBER( mask2vips_args ), 	/* Size of arg list */
+	mask2vips_args 			/* Arg list */
+};
+
+/* Args to im_vips2mask.
+ */
+static im_arg_desc vips2mask_args[] = {
+	IM_INPUT_IMAGE( "input" ),
+	IM_OUTPUT_DMASK( "output" ),
+};
+
+/* Call im_vips2mask via arg vector.
+ */
+static int
+vips2mask_vec( im_object *argv )
+{
+	im_mask_object *mo = argv[1];
+
+	if( !(mo->mask = im_vips2mask( argv[0], mo->name )) )
+		return( -1 );
+
+	return( 0 );
+}
+
+/* Description of im_vips2mask.
+ */
+static im_function vips2mask_desc = {
+	"im_vips2mask", 		/* Name */
+	"convert VIPS image to DOUBLEMASK",
+	0,				/* Flags */
+	vips2mask_vec, 			/* Dispatch function */
+	IM_NUMBER( vips2mask_args ), 	/* Size of arg list */
+	vips2mask_args 			/* Arg list */
+};
+
+/* One image plus one constant in, one image out.
+ */
+static im_arg_desc int_in_one_out[] = {
+	IM_INPUT_IMAGE( "in1" ),
+	IM_OUTPUT_IMAGE( "out" ),
+	IM_INPUT_INT( "c" )
+};
+
+/* One image plus one constant in, one image out.
+ */
+static im_arg_desc double_in_one_out[] = {
+	IM_INPUT_IMAGE( "in1" ),
+	IM_OUTPUT_IMAGE( "out" ),
+	IM_INPUT_DOUBLE( "c" )
+};
+
+/* One image plus doublevec in, one image out.
+ */
+static im_arg_desc vec_in_one_out[] = {
+	IM_INPUT_IMAGE( "in" ),
+	IM_OUTPUT_IMAGE( "out" ),
+	IM_INPUT_DOUBLEVEC( "vec" )
+};
+
+/* Call im_andimage via arg vector.
+ */
+static int
+andimage_vec( im_object *argv )
+{
+	return( im_andimage( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_andimage.
+ */ 
+static im_function andimage_desc = {
+	"im_andimage", 			/* Name */
+	"bitwise and of two images",	/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	andimage_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_andimageconst via arg vector.
+ */
+static int
+andimageconst_vec( im_object *argv )
+{
+	int c = *((int *) argv[2]);
+
+	return( im_andimageconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_andconst.
+ */ 
+static im_function andimageconst_desc = {
+	"im_andimageconst", 		/* Name */
+	"bitwise and of an image with a constant",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	andimageconst_vec, 		/* Dispatch function */
+	IM_NUMBER( int_in_one_out ), 	/* Size of arg list */
+	int_in_one_out 		/* Arg list */
+};
+
+/* Call im_andimage_vec via arg vector.
+ */
+static int
+andimage_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_andimage_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_andimageconst.
+ */ 
+static im_function andimage_vec_desc = {
+	"im_andimage_vec", 		/* Name */
+	"bitwise and of an image with a vector constant",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	andimage_vec_vec, 		/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out 			/* Arg list */
+};
+
+/* Call im_orimage via arg vector.
+ */
+static int
+orimage_vec( im_object *argv )
+{
+	return( im_orimage( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_orimage.
+ */ 
+static im_function orimage_desc = {
+	"im_orimage", 			/* Name */
+	"bitwise or of two images",	/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	orimage_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_orimageconst via arg vector.
+ */
+static int
+orimageconst_vec( im_object *argv )
+{
+	int c = *((int *) argv[2]);
+
+	return( im_orimageconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_orimageconst.
+ */ 
+static im_function orimageconst_desc = {
+	"im_orimageconst", 		/* Name */
+	"bitwise or of an image with a constant",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	orimageconst_vec, 		/* Dispatch function */
+	IM_NUMBER( int_in_one_out ), 	/* Size of arg list */
+	int_in_one_out 		/* Arg list */
+};
+
+/* Call im_orimage_vec via arg vector.
+ */
+static int
+orimage_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_orimage_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_orimage_vec.
+ */ 
+static im_function orimage_vec_desc = {
+	"im_orimage_vec", 		/* Name */
+	"bitwise or of an image with a vector constant",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	orimage_vec_vec, 		/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out 			/* Arg list */
+};
+
+/* Call im_eorimage via arg vector.
+ */
+static int
+eorimage_vec( im_object *argv )
+{
+	return( im_eorimage( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_eorimage.
+ */ 
+static im_function eorimage_desc = {
+	"im_eorimage", 			/* Name */
+	"bitwise eor of two images",	/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	eorimage_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_eorimageconst via arg vector.
+ */
+static int
+eorimageconst_vec( im_object *argv )
+{
+	int c = *((int *) argv[2]);
+
+	return( im_eorimageconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_eorimageconst.
+ */ 
+static im_function eorimageconst_desc = {
+	"im_eorimageconst", 		/* Name */
+	"bitwise eor of an image with a constant",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	eorimageconst_vec, 		/* Dispatch function */
+	IM_NUMBER( int_in_one_out ), 	/* Size of arg list */
+	int_in_one_out 		/* Arg list */
+};
+
+/* Call im_eorimage_vec via arg vector.
+ */
+static int
+eorimage_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_eorimage_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_eorimage_vec.
+ */ 
+static im_function eorimage_vec_desc = {
+	"im_eorimage_vec", 		/* Name */
+	"bitwise eor of an image with a vector constant",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	eorimage_vec_vec, 		/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out 			/* Arg list */
+};
+
+/* Call im_shiftleft via arg vector.
+ */
+static int
+shiftleft_vec( im_object *argv )
+{
+	int n = *((int *) argv[2]);
+
+	return( im_shiftleft( argv[0], argv[1], n ) );
+}
+
+/* Description of im_shiftleft.
+ */ 
+static im_function shiftleft_desc = {
+	"im_shiftleft", 		/* Name */
+	"shift image n bits to left",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	shiftleft_vec, 			/* Dispatch function */
+	IM_NUMBER( int_in_one_out ), 	/* Size of arg list */
+	int_in_one_out 		/* Arg list */
+};
+
+/* Call im_shiftleft_vec via arg vector.
+ */
+static int
+shiftleft_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_shiftleft_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_shiftleft_vec.
+ */ 
+static im_function shiftleft_vec_desc = {
+	"im_shiftleft_vec", 		/* Name */
+	"shift image array bits to left",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	shiftleft_vec_vec, 		/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out 			/* Arg list */
+};
+
+/* Call im_shiftright via arg vector.
+ */
+static int
+shiftright_vec( im_object *argv )
+{
+	int n = *((int *) argv[2]);
+
+	return( im_shiftright( argv[0], argv[1], n ) );
+}
+
+/* Description of im_shiftright.
+ */ 
+static im_function shiftright_desc = {
+	"im_shiftright", 		/* Name */
+	"shift integer image n bits to right",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	shiftright_vec, 		/* Dispatch function */
+	IM_NUMBER( int_in_one_out ), 	/* Size of arg list */
+	int_in_one_out 		/* Arg list */
+};
+
+/* Call im_shiftright_vec via arg vector.
+ */
+static int
+shiftright_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_shiftright_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_shiftright_vec.
+ */ 
+static im_function shiftright_vec_desc = {
+	"im_shiftright_vec", 		/* Name */
+	"shift image array bits to right",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	shiftright_vec_vec, 		/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out 			/* Arg list */
+};
+
+/* Call im_equal via arg vector.
+ */
+static int
+equal_vec( im_object *argv )
+{
+	return( im_equal( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_equal.
+ */ 
+static im_function equal_desc = {
+	"im_equal", 			/* Name */
+	"two images equal in value",	/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	equal_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_equalconst via arg vector.
+ */
+static int
+equalconst_vec( im_object *argv )
+{
+	double c = *((double *) argv[2]);
+
+	return( im_equalconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_equalconst.
+ */ 
+static im_function equalconst_desc = {
+	"im_equalconst", 		/* Name */
+	"image equals const",		/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	equalconst_vec, 		/* Dispatch function */
+	IM_NUMBER( double_in_one_out ), 	/* Size of arg list */
+	double_in_one_out 		/* Arg list */
+};
+
+/* Call im_equal_vec via arg vector.
+ */
+static int
+equal_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_equal_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_equal_vec.
+ */ 
+static im_function equal_vec_desc = {
+	"im_equal_vec", 		/* Name */
+	"image equals doublevec",		/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	equal_vec_vec, 			/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out 			/* Arg list */
+};
+
+/* Call im_notequal via arg vector.
+ */
+static int
+notequal_vec( im_object *argv )
+{
+	return( im_notequal( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_notequal.
+ */ 
+static im_function notequal_desc = {
+	"im_notequal", 			/* Name */
+	"two images not equal in value",/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	notequal_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_notequalconst via arg vector.
+ */
+static int
+notequalconst_vec( im_object *argv )
+{
+	double c = *((double *) argv[2]);
+
+	return( im_notequalconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_notequalconst.
+ */ 
+static im_function notequalconst_desc = {
+	"im_notequalconst", 		/* Name */
+	"image does not equal const",	/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	notequalconst_vec, 		/* Dispatch function */
+	IM_NUMBER( double_in_one_out ), 	/* Size of arg list */
+	double_in_one_out 		/* Arg list */
+};
+
+/* Call im_notequal_vec via arg vector.
+ */
+static int
+notequal_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_notequal_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_notequal_vec.
+ */ 
+static im_function notequal_vec_desc = {
+	"im_notequal_vec", 		/* Name */
+	"image does not equal doublevec",	/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	notequal_vec_vec, 		/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out 			/* Arg list */
+};
+
+/* Call im_less via arg vector.
+ */
+static int
+less_vec( im_object *argv )
+{
+	return( im_less( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_less.
+ */ 
+static im_function less_desc = {
+	"im_less", 			/* Name */
+	"in1 less than in2 in value",	/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	less_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_lessconst via arg vector.
+ */
+static int
+lessconst_vec( im_object *argv )
+{
+	double c = *((double *) argv[2]);
+
+	return( im_lessconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_lessconst.
+ */ 
+static im_function lessconst_desc = {
+	"im_lessconst", 		/* Name */
+	"in less than const",		/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	lessconst_vec, 			/* Dispatch function */
+	IM_NUMBER( double_in_one_out ), 	/* Size of arg list */
+	double_in_one_out		/* Arg list */
+};
+
+/* Call im_less_vec via arg vector.
+ */
+static int
+less_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_less_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_less_vec.
+ */ 
+static im_function less_vec_desc = {
+	"im_less_vec", 			/* Name */
+	"in less than doublevec",		/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	less_vec_vec, 			/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out			/* Arg list */
+};
+
+/* Call im_more via arg vector.
+ */
+static int
+more_vec( im_object *argv )
+{
+	return( im_more( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_more.
+ */ 
+static im_function more_desc = {
+	"im_more", 			/* Name */
+	"in1 more than in2 in value",	/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	more_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_moreconst via arg vector.
+ */
+static int
+moreconst_vec( im_object *argv )
+{
+	double c = *((double *) argv[2]);
+
+	return( im_moreconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_moreconst.
+ */ 
+static im_function moreconst_desc = {
+	"im_moreconst", 		/* Name */
+	"in more than const",		/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	moreconst_vec, 			/* Dispatch function */
+	IM_NUMBER( double_in_one_out ), 	/* Size of arg list */
+	double_in_one_out		/* Arg list */
+};
+
+/* Call im_more_vec via arg vector.
+ */
+static int
+more_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_more_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_more_vec.
+ */ 
+static im_function more_vec_desc = {
+	"im_more_vec", 			/* Name */
+	"in more than doublevec",		/* Description */
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	more_vec_vec, 			/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out			/* Arg list */
+};
+
+/* Call im_moreeq via arg vector.
+ */
+static int
+moreeq_vec( im_object *argv )
+{
+	return( im_moreeq( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_moreeq.
+ */ 
+static im_function moreeq_desc = {
+	"im_moreeq", 			/* Name */
+	"in1 more than or equal to in2 in value",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	moreeq_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_moreeqconst via arg vector.
+ */
+static int
+moreeqconst_vec( im_object *argv )
+{
+	double c = *((double *) argv[2]);
+
+	return( im_moreeqconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_moreeqconst.
+ */ 
+static im_function moreeqconst_desc = {
+	"im_moreeqconst", 		/* Name */
+	"in more than or equal to const",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	moreeqconst_vec, 		/* Dispatch function */
+	IM_NUMBER( double_in_one_out ), 	/* Size of arg list */
+	double_in_one_out		/* Arg list */
+};
+
+/* Call im_moreeq_vec via arg vector.
+ */
+static int
+moreeq_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_moreeq_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_moreeq_vec.
+ */ 
+static im_function moreeq_vec_desc = {
+	"im_moreeq_vec", 		/* Name */
+	"in more than or equal to doublevec",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	moreeq_vec_vec, 		/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out			/* Arg list */
+};
+
+/* Call im_lesseq via arg vector.
+ */
+static int
+lesseq_vec( im_object *argv )
+{
+	return( im_lesseq( argv[0], argv[1], argv[2] ) );
+}
+
+/* Description of im_lesseq.
+ */ 
+static im_function lesseq_desc = {
+	"im_lesseq", 			/* Name */
+	"in1 less than or equal to in2 in value",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	lesseq_vec, 			/* Dispatch function */
+	IM_NUMBER( two_in_one_out ), 	/* Size of arg list */
+	two_in_one_out 			/* Arg list */
+};
+
+/* Call im_lesseqconst via arg vector.
+ */
+static int
+lesseqconst_vec( im_object *argv )
+{
+	double c = *((double *) argv[2]);
+
+	return( im_lesseqconst( argv[0], argv[1], c ) );
+}
+
+/* Description of im_lesseqconst.
+ */ 
+static im_function lesseqconst_desc = {
+	"im_lesseqconst", 		/* Name */
+	"in less than or equal to const",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	lesseqconst_vec, 		/* Dispatch function */
+	IM_NUMBER( double_in_one_out ), 	/* Size of arg list */
+	double_in_one_out		/* Arg list */
+};
+
+/* Call im_lesseq_vec via arg vector.
+ */
+static int
+lesseq_vec_vec( im_object *argv )
+{
+	im_doublevec_object *rv = (im_doublevec_object *) argv[2];
+
+	return( im_lesseq_vec( argv[0], argv[1], rv->n, rv->vec ) );
+}
+
+/* Description of im_lesseq_vec.
+ */ 
+static im_function lesseq_vec_desc = {
+	"im_lesseq_vec", 		/* Name */
+	"in less than or equal to doublevec",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	lesseq_vec_vec, 		/* Dispatch function */
+	IM_NUMBER( vec_in_one_out ), 	/* Size of arg list */
+	vec_in_one_out			/* Arg list */
+};
+
+/* If-then-else args.
+ */
+static im_arg_desc ifthenelse_args[] = {
+	IM_INPUT_IMAGE( "cond" ),
+	IM_INPUT_IMAGE( "in1" ),
+	IM_INPUT_IMAGE( "in2" ),
+	IM_OUTPUT_IMAGE( "out" )
+};
+
+/* Call im_blend via arg vector.
+ */
+static int
+blend_vec( im_object *argv )
+{
+	return( im_blend( argv[0], argv[1], argv[2], argv[3] ) );
+}
+
+/* Description of im_blend.
+ */ 
+static im_function blend_desc = {
+	"im_blend", 			/* Name */
+	"use cond image to blend between images in1 and in2",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	blend_vec,			/* Dispatch function */
+	IM_NUMBER( ifthenelse_args ), 	/* Size of arg list */
+	ifthenelse_args 		/* Arg list */
+};
+
+/* Call im_ifthenelse via arg vector.
+ */
+static int
+ifthenelse_vec( im_object *argv )
+{
+	return( im_ifthenelse( argv[0], argv[1], argv[2], argv[3] ) );
+}
+
+/* Description of im_ifthenelse.
+ */ 
+static im_function ifthenelse_desc = {
+	"im_ifthenelse", 		/* Name */
+	"use cond image to choose pels from image in1 or in2",
+	IM_FN_PTOP | IM_FN_PIO,		/* Flags */
+	ifthenelse_vec,			/* Dispatch function */
+	IM_NUMBER( ifthenelse_args ), 	/* Size of arg list */
+	ifthenelse_args 		/* Arg list */
+};
+
+/* Call im_argb2rgba() via arg vector.
+ */
+static int
+argb2rgba_vec( im_object *argv )
+{
+	return( im_argb2rgba( argv[0], argv[1] ) );
+}
+
+/* Description of im_argb2rgba.
+ */ 
+static im_function argb2rgba_desc = {
+	"im_argb2rgba", 		/* Name */
+	"convert pre-multipled argb to png-style rgba",	/* Description */
+	IM_FN_PIO,			/* Flags */
+	argb2rgba_vec, 			/* Dispatch function */
+	IM_NUMBER( one_in_one_out ), 	/* Size of arg list */
+	one_in_one_out 			/* Arg list */
+};
+
+
 /* Package up all these functions.
  */
 static im_function *deprecated_list[] = {
+	&argb2rgba_desc,
+	&flood_copy_desc,
+	&flood_blob_copy_desc,
+	&flood_other_copy_desc,
 	&clip_desc,
 	&c2ps_desc,
 	&resize_linear_desc,
@@ -1262,7 +2279,46 @@ static im_function *deprecated_list[] = {
 	&dilate_raw_desc,
 	&erode_raw_desc,
 	&similarity_area_desc,
-	&similarity_desc
+	&similarity_desc,
+	&remainderconst_vec_desc,
+	&mask2vips_desc,
+	&vips2mask_desc,
+	&insertplace_desc,
+	&circle_desc,
+	&andimage_desc,
+	&andimageconst_desc,
+	&andimage_vec_desc,
+	&orimage_desc,
+	&orimageconst_desc,
+	&orimage_vec_desc,
+	&eorimage_desc,
+	&eorimageconst_desc,
+	&eorimage_vec_desc,
+	&shiftleft_vec_desc,
+	&shiftleft_desc,
+	&shiftright_vec_desc,
+	&shiftright_desc,
+	&blend_desc,
+	&equal_desc,
+	&equal_vec_desc,
+	&equalconst_desc,
+	&ifthenelse_desc,
+	&less_desc,
+	&less_vec_desc,
+	&lessconst_desc,
+	&lesseq_desc,
+	&lesseq_vec_desc,
+	&lesseqconst_desc,
+	&more_desc,
+	&more_vec_desc,
+	&moreconst_desc,
+	&moreeq_desc,
+	&moreeq_vec_desc,
+	&moreeqconst_desc,
+	&notequal_desc,
+	&notequal_vec_desc,
+	&notequalconst_desc,
+	&quadratic_desc
 };
 
 /* Package of functions.

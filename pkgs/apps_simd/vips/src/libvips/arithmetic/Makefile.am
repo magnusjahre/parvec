@@ -1,31 +1,49 @@
 noinst_LTLIBRARIES = libarithmetic.la
 
 libarithmetic_la_SOURCES = \
-	arith_dispatch.c \
-	im_abs.c \
-	im_add.c \
-	im_avg.c \
-	im_bandmean.c \
-	im_cross_phase.c \
-	im_deviate.c \
-	im_divide.c \
-	im_recomb.c \
-	im_invert.c \
-	im_linreg.c \
-	im_lintra.c \
-	im_maxpos_avg.c \
-	im_maxpos.c \
-	im_maxpos_vec.c \
-	im_measure.c \
-	im_minpos.c \
-	im_multiply.c \
-	im_point_bilinear.c \
-	im_remainder.c \
-	im_sign.c \
-	im_stats.c \
-	im_subtract.c \
+	sum.c \
+	hough.c \
+	hough.h \
+	hough_line.c \
+	hough_circle.c \
+	abs.c \
+	complex.c \
+	deviate.c \
+	divide.c \
+	measure.c \
+	getpoint.c \
+	multiply.c \
+	remainder.c \
+	sign.c \
+	statistic.c \
+	statistic.h \
+	stats.c \
+	avg.c \
+	min.c \
+	max.c \
+	hist_find.c \
+	hist_find_ndim.c \
+	hist_find_indexed.c \
+	project.c \
+	profile.c \
+	subtract.c \
 	math.c \
-	power.c \
+	arithmetic.c \
+	parithmetic.h \
+	binary.c \
+	binary.h \
+	unary.c \
+	unary.h \
+	nary.c \
+	nary.h \
+	unaryconst.c \
+	unaryconst.h \
+	relational.c \
+	boolean.c \
+	add.c \
+	linear.c \
+	invert.c \
+	math2.c \
 	round.c 
 
-INCLUDES = -I${top_srcdir}/libvips/include @VIPS_CFLAGS@ @VIPS_INCLUDES@ 
+AM_CPPFLAGS = -I${top_srcdir}/libvips/include @VIPS_CFLAGS@ @VIPS_INCLUDES@ 

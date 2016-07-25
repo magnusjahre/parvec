@@ -483,8 +483,8 @@ AC_DEFUN([AM_CHECK_PYTHON_HEADERS],
 [AC_REQUIRE([AM_PATH_PYTHON])
 AC_MSG_CHECKING(for headers required to compile python extensions)
 dnl deduce PYTHON_INCLUDES
-py_prefix=`$PYTHON -c "import sys; print sys.prefix"`
-py_exec_prefix=`$PYTHON -c "import sys; print sys.exec_prefix"`
+py_prefix=`$PYTHON -c "import sys; print(sys.prefix)"`
+py_exec_prefix=`$PYTHON -c "import sys; print(sys.exec_prefix)"`
 PYTHON_INCLUDES="-I${py_prefix}/include/python${PYTHON_VERSION}"
 if test "$py_prefix" != "$py_exec_prefix"; then
   PYTHON_INCLUDES="$PYTHON_INCLUDES -I${py_exec_prefix}/include/python${PYTHON_VERSION}"
@@ -500,4 +500,187 @@ $1],dnl
 $2])
 CPPFLAGS="$save_CPPFLAGS"
 ])
+
+dnl @synopsis AC_FUNC_MKDIR
+dnl
+dnl Check whether mkdir() is mkdir or _mkdir, and whether it takes one
+dnl or two arguments.
+dnl
+dnl This macro can define HAVE_MKDIR, HAVE__MKDIR, and
+dnl MKDIR_TAKES_ONE_ARG, which are expected to be used as follows:
+dnl
+dnl   #if HAVE_MKDIR
+dnl   #  if MKDIR_TAKES_ONE_ARG
+dnl        /* MinGW32 */
+dnl   #    define mkdir(a, b) mkdir(a)
+dnl   #  endif
+dnl   #else
+dnl   #  if HAVE__MKDIR
+dnl        /* plain Windows 32 */
+dnl   #    define mkdir(a, b) _mkdir(a)
+dnl   #  else
+dnl   #    error "Don't know how to create a directory on this system."
+dnl   #  endif
+dnl   #endif
+dnl
+dnl @category C
+dnl @author Alexandre Duret-Lutz <adl@gnu.org>
+dnl @version 2003-12-28
+dnl @license GPLWithACException
+
+AC_DEFUN([AC_FUNC_MKDIR],
+[AC_CHECK_FUNCS([mkdir _mkdir])
+AC_CACHE_CHECK([whether mkdir takes one argument],
+               [ac_cv_mkdir_takes_one_arg],
+[AC_TRY_COMPILE([
+#include <sys/stat.h>
+#if HAVE_UNISTD_H
+#  include <unistd.h>
+#endif
+], [mkdir (".");],
+[ac_cv_mkdir_takes_one_arg=yes], [ac_cv_mkdir_takes_one_arg=no])])
+if test x"$ac_cv_mkdir_takes_one_arg" = xyes; then
+  AC_DEFINE([MKDIR_TAKES_ONE_ARG], 1,
+            [Define if mkdir takes only one argument.])
+fi
+])
+
+dnl Note:
+dnl =====
+dnl I have not implemented the following suggestion because I don't have
+dnl access to such a broken environment to test the macro.  So I'm just
+dnl appending the comments here in case you have, and want to fix
+dnl AC_FUNC_MKDIR that way.
+dnl
+dnl |Thomas E. Dickey (dickey@herndon4.his.com) said:
+dnl |  it doesn't cover the problem areas (compilers that mistreat mkdir
+dnl |  may prototype it in dir.h and dirent.h, for instance).
+dnl |
+dnl |Alexandre:
+dnl |  Would it be sufficient to check for these headers and #include
+dnl |  them in the AC_TRY_COMPILE block?  (and is AC_HEADER_DIRENT
+dnl |  suitable for this?)
+dnl |
+dnl |Thomas:
+dnl |  I think that might be a good starting point (with the set of recommended
+dnl |  ifdef's and includes for AC_HEADER_DIRENT, of course).
+
+
+dnl From FIND_MOTIF and ACX_PTHREAD, without much understanding
+dnl
+dnl FIND_GIFLIB[ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]]
+dnl ---------------------------------------------------
+dnl
+dnl Find GIFLIB libraries and headers
+dnl
+dnl Put compile stuff in GIFLIB_INCLUDES
+dnl Put link stuff in GIFLIB_LIBS
+dnl Define HAVE_GIFLIB if found.
+dnl
+AC_DEFUN([FIND_GIFLIB], [
+AC_REQUIRE([AC_PATH_XTRA])
+
+GIFLIB_INCLUDES=""
+GIFLIB_LIBS=""
+
+AC_ARG_WITH(giflib, 
+  AS_HELP_STRING([--without-giflib], [build without giflib (default: test)]))
+# Treat --without-giflib like --without-giflib-includes --without-giflib-libraries.
+if test "$with_giflib" = "no"; then
+  GIFLIB_INCLUDES=no
+  GIFLIB_LIBS=no
+fi
+
+AC_ARG_WITH(giflib-includes,
+  AS_HELP_STRING([--with-giflib-includes=DIR], [giflib includes are in DIR]),
+  GIFLIB_INCLUDES="-I$withval")
+AC_ARG_WITH(giflib-libraries,
+  AS_HELP_STRING([--with-giflib-libraries=DIR], [giflib libraries are in DIR]),
+  GIFLIB_LIBS="-L$withval -lgif")
+
+AC_MSG_CHECKING(for giflib)
+
+# Look for gif_lib.h 
+if test "$GIFLIB_INCLUDES" = ""; then
+  # Check the standard search path
+  AC_TRY_COMPILE([#include <gif_lib.h>],[int a;],[
+    GIFLIB_INCLUDES=""
+  ], [
+    # gif_lib.h is not in the standard search path, try
+    # $prefix
+    giflib_save_INCLUDES="$INCLUDES"
+
+    INCLUDES="-I${prefix}/include $INCLUDES"
+
+    AC_TRY_COMPILE([#include <gif_lib.h>],[int a;],[
+      GIFLIB_INCLUDES="-I${prefix}/include"
+    ], [
+      GIFLIB_INCLUDES="no"
+    ])
+
+    INCLUDES=$giflib_save_INCLUDES
+  ])
+fi
+
+# Now for the libraries
+if test "$GIFLIB_LIBS" = ""; then
+  giflib_save_LIBS="$LIBS"
+  giflib_save_INCLUDES="$INCLUDES"
+
+  LIBS="-lgif $LIBS"
+  INCLUDES="$GIFLIB_INCLUDES $INCLUDES"
+
+  # Try the standard search path first
+  AC_TRY_LINK([#include <gif_lib.h>],[DGifSlurp(0)], [
+    GIFLIB_LIBS="-lgif"
+  ], [
+    # giflib is not in the standard search path, try $prefix
+
+    LIBS="-L${prefix}/lib $LIBS"
+
+    AC_TRY_LINK([#include <gif_lib.h>],[DGifSlurp(0)], [
+      GIFLIB_LIBS="-L${prefix}/lib -lgif"
+    ], [
+      GIFLIB_LIBS=no
+    ])
+  ])
+
+  LIBS="$giflib_save_LIBS"
+  INCLUDES="$giflib_save_INCLUDES"
+fi
+
+AC_SUBST(GIFLIB_LIBS)
+AC_SUBST(GIFLIB_INCLUDES)
+
+# Print a helpful message
+giflib_libraries_result="$GIFLIB_LIBS"
+giflib_includes_result="$GIFLIB_INCLUDES"
+
+if test x"$giflib_libraries_result" = x""; then
+  giflib_libraries_result="in default path"
+fi
+if test x"$giflib_includes_result" = x""; then
+  giflib_includes_result="in default path"
+fi
+
+if test "$giflib_libraries_result" = "no"; then
+  giflib_libraries_result="(none)"
+fi
+if test "$giflib_includes_result" = "no"; then
+  giflib_includes_result="(none)"
+fi
+
+AC_MSG_RESULT([libraries $giflib_libraries_result, headers $giflib_includes_result])
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test "$GIFLIB_INCLUDES" != "no" && test "$GIFLIB_LIBS" != "no"; then
+  AC_DEFINE(HAVE_GIFLIB,1,[Define if you have giflib libraries and header files.])
+  $1
+else
+  GIFLIB_INCLUDES=""
+  GIFLIB_LIBS=""
+  $2
+fi
+
+])dnl
 

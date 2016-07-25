@@ -21,7 +21,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -62,12 +63,6 @@ typedef struct {
 			 *(channel select)	*/
 } IMAGE_BOX;
 
-/* Compatibility typedefs.
- */
-typedef VipsDemandStyle im_demand_type;
-typedef VipsProgress im_time_t;
-typedef VipsImage IMAGE;
-
 int im_extract( IMAGE *, IMAGE *, IMAGE_BOX * );
 DOUBLEMASK *im_measure( IMAGE *im, IMAGE_BOX *box, int h, int v, 
 	int *sel, int nsel, const char *name );
@@ -82,30 +77,30 @@ int im_c2ps( IMAGE *in, IMAGE *out );
 
 int im_clip( IMAGE *in, IMAGE *out );
 
-#define MASK_IDEAL_HIGHPASS VIPS_MASK_IDEAL_HIGHPASS
-#define MASK_IDEAL_LOWPASS VIPS_MASK_IDEAL_LOWPASS 
-#define MASK_BUTTERWORTH_HIGHPASS VIPS_MASK_BUTTERWORTH_HIGHPASS 
-#define MASK_BUTTERWORTH_LOWPASS VIPS_MASK_BUTTERWORTH_LOWPASS 
-#define MASK_GAUSS_HIGHPASS VIPS_MASK_GAUSS_HIGHPASS 
-#define MASK_GAUSS_LOWPASS VIPS_MASK_GAUSS_LOWPASS 
+#define MASK_IDEAL_HIGHPASS IM_MASK_IDEAL_HIGHPASS
+#define MASK_IDEAL_LOWPASS IM_MASK_IDEAL_LOWPASS 
+#define MASK_BUTTERWORTH_HIGHPASS IM_MASK_BUTTERWORTH_HIGHPASS 
+#define MASK_BUTTERWORTH_LOWPASS IM_MASK_BUTTERWORTH_LOWPASS 
+#define MASK_GAUSS_HIGHPASS IM_MASK_GAUSS_HIGHPASS 
+#define MASK_GAUSS_LOWPASS IM_MASK_GAUSS_LOWPASS 
 
-#define MASK_IDEAL_RINGPASS VIPS_MASK_IDEAL_RINGPASS
-#define MASK_IDEAL_RINGREJECT VIPS_MASK_IDEAL_RINGREJECT 
-#define MASK_BUTTERWORTH_RINGPASS VIPS_MASK_BUTTERWORTH_RINGPASS 
-#define MASK_BUTTERWORTH_RINGREJECT VIPS_MASK_BUTTERWORTH_RINGREJECT 
-#define MASK_GAUSS_RINGPASS VIPS_MASK_GAUSS_RINGPASS 
-#define MASK_GAUSS_RINGREJECT VIPS_MASK_GAUSS_RINGREJECT 
+#define MASK_IDEAL_RINGPASS IM_MASK_IDEAL_RINGPASS
+#define MASK_IDEAL_RINGREJECT IM_MASK_IDEAL_RINGREJECT 
+#define MASK_BUTTERWORTH_RINGPASS IM_MASK_BUTTERWORTH_RINGPASS 
+#define MASK_BUTTERWORTH_RINGREJECT IM_MASK_BUTTERWORTH_RINGREJECT 
+#define MASK_GAUSS_RINGPASS IM_MASK_GAUSS_RINGPASS 
+#define MASK_GAUSS_RINGREJECT IM_MASK_GAUSS_RINGREJECT 
 
-#define MASK_IDEAL_BANDPASS VIPS_MASK_IDEAL_BANDPASS
-#define MASK_IDEAL_BANDREJECT VIPS_MASK_IDEAL_BANDREJECT 
-#define MASK_BUTTERWORTH_BANDPASS VIPS_MASK_BUTTERWORTH_BANDPASS 
-#define MASK_BUTTERWORTH_BANDREJECT VIPS_MASK_BUTTERWORTH_BANDREJECT 
-#define MASK_GAUSS_BANDPASS VIPS_MASK_GAUSS_BANDPASS 
-#define MASK_GAUSS_BANDREJECT VIPS_MASK_GAUSS_BANDREJECT 
+#define MASK_IDEAL_BANDPASS IM_MASK_IDEAL_BANDPASS
+#define MASK_IDEAL_BANDREJECT IM_MASK_IDEAL_BANDREJECT 
+#define MASK_BUTTERWORTH_BANDPASS IM_MASK_BUTTERWORTH_BANDPASS 
+#define MASK_BUTTERWORTH_BANDREJECT IM_MASK_BUTTERWORTH_BANDREJECT 
+#define MASK_GAUSS_BANDPASS IM_MASK_GAUSS_BANDPASS 
+#define MASK_GAUSS_BANDREJECT IM_MASK_GAUSS_BANDREJECT 
 
-#define MASK_FRACTAL_FLT VIPS_MASK_FRACTAL_FLT
+#define MASK_FRACTAL_FLT IM_MASK_FRACTAL_FLT
 
-#define MaskType VipsMaskType
+#define MaskType ImMaskType
 
 /* Copy and swap types.
  */
@@ -136,6 +131,19 @@ void im_diagnostics( const char *fmt, ... )
 void im_warning( const char *fmt, ... )
 	__attribute__((format(printf, 1, 2)));
 
+int im_iterate( VipsImage *im,
+	VipsStartFn start, im_generate_fn generate, VipsStopFn stop,
+	void *a, void *b
+);
+
+/* Async rendering.
+ */
+int im_render_priority( VipsImage *in, VipsImage *out, VipsImage *mask,
+	int width, int height, int max,
+	int priority,
+	void (*notify)( VipsImage *, VipsRect *, void * ), void *client );
+int im_cache( VipsImage *in, VipsImage *out, int width, int height, int max );
+
 /* Deprecated operations.
  */
 int im_cmulnorm( IMAGE *in1, IMAGE *in2, IMAGE *out );
@@ -146,10 +154,30 @@ int im_render_fade( IMAGE *in, IMAGE *out, IMAGE *mask,
 	int width, int height, int max,
 	int fps, int steps,
 	int priority,
-	void (*notify)( IMAGE *, Rect *, void * ), void *client );
+	void (*notify)( IMAGE *, VipsRect *, void * ), void *client );
 int im_render( IMAGE *in, IMAGE *out, IMAGE *mask,
 	int width, int height, int max,
-	void (*notify)( IMAGE *, Rect *, void * ), void *client );
+	void (*notify)( IMAGE *, VipsRect *, void * ), void *client );
+
+int im_cooc_matrix( IMAGE *im, IMAGE *m,
+	int xp, int yp, int xs, int ys, int dx, int dy, int flag );
+int im_cooc_asm( IMAGE *m, double *asmoment );
+int im_cooc_contrast( IMAGE *m, double *contrast );
+int im_cooc_correlation( IMAGE *m, double *correlation );
+int im_cooc_entropy( IMAGE *m, double *entropy );
+
+int im_glds_matrix( IMAGE *im, IMAGE *m,
+	int xpos, int ypos, int xsize, int ysize, int dx, int dy );
+int im_glds_asm( IMAGE *m, double *asmoment );
+int im_glds_contrast( IMAGE *m, double *contrast );
+int im_glds_entropy( IMAGE *m, double *entropy );
+int im_glds_mean( IMAGE *m, double *mean );
+
+int im_dif_std(IMAGE *im, int xpos, int ypos, int xsize, int ysize, int dx, int dy, double *pmean, double *pstd);
+int im_simcontr( IMAGE *out, int xsize, int ysize );
+int im_spatres( IMAGE *in,  IMAGE *out, int step );
+
+int im_stretch3( IMAGE *in, IMAGE *out, double dx, double dy );
 
 /* Renamed operations.
  */
@@ -206,9 +234,6 @@ int im_bernd( const char *tiffname, int x, int y, int w, int h );
 
 int im_resize_linear( IMAGE *, IMAGE *, int, int );
 
-int im_line( IMAGE *, int, int, int, int, int );
-int im_segment( IMAGE *test, IMAGE *mask, int *segments );
-
 int im_convf( IMAGE *in, IMAGE *out, DOUBLEMASK *mask );
 int im_convsepf( IMAGE *in, IMAGE *out, DOUBLEMASK *mask );
 int im_conv_raw( IMAGE *in, IMAGE *out, INTMASK *mask );
@@ -228,6 +253,36 @@ int im_lhisteq_raw( IMAGE *in, IMAGE *out, int xwin, int ywin );
 int im_erode_raw( IMAGE *in, IMAGE *out, INTMASK *m );
 int im_dilate_raw( IMAGE *in, IMAGE *out, INTMASK *m );
 int im_rank_raw( IMAGE *in, IMAGE *out, int xsize, int ysize, int order );
+
+/* inplace
+ */
+int im_circle( IMAGE *im, int cx, int cy, int radius, int intensity );
+int im_line( IMAGE *, int, int, int, int, int );
+int im_segment( IMAGE *test, IMAGE *mask, int *segments );
+int im_paintrect( IMAGE *im, VipsRect *r, PEL *ink );
+int im_insertplace( IMAGE *main, IMAGE *sub, int x, int y );
+
+int im_flood_copy( IMAGE *in, IMAGE *out, int x, int y, PEL *ink );
+int im_flood_blob_copy( IMAGE *in, IMAGE *out, int x, int y, PEL *ink );
+int im_flood_other_copy( IMAGE *test, IMAGE *mark, IMAGE *out, 
+	int x, int y, int serial );
+
+int im_flood( IMAGE *im, int x, int y, PEL *ink, VipsRect *dout );
+int im_flood_blob( IMAGE *im, int x, int y, PEL *ink, VipsRect *dout );
+int im_flood_other( IMAGE *test, IMAGE *mark, 
+	int x, int y, int serial, VipsRect *dout );
+
+int im_fastline( IMAGE *im, int x1, int y1, int x2, int y2, PEL *pel );
+int im_fastlineuser( IMAGE *im, 
+	int x1, int y1, int x2, int y2, 
+	VipsPlotFn fn, void *client1, void *client2, void *client3 );
+
+int im_plotmask( IMAGE *im, int ix, int iy, PEL *ink, PEL *mask, VipsRect *r );
+int im_readpoint( IMAGE *im, int x, int y, PEL *pel );
+int im_plotpoint( IMAGE *im, int x, int y, PEL *pel );
+
+int im_smudge( IMAGE *image, int ix, int iy, VipsRect *r );
+int im_smear( IMAGE *im, int ix, int iy, VipsRect *r );
 
 #ifdef __cplusplus
 }

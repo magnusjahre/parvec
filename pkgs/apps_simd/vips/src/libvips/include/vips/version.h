@@ -1,15 +1,19 @@
 /* Macros for the header version.
  */
 
-#ifndef IM_VERSION_H
-#define IM_VERSION_H
+#ifndef VIPS_VERSION_H
+#define VIPS_VERSION_H
 
-#define IM_VERSION		"7.22.1"
-#define IM_VERSION_STRING	"7.22.1-Thu Jun 24 20:46:16 BST 2010"
-#define IM_MAJOR_VERSION	(7)
-#define IM_MINOR_VERSION	(22)
-#define IM_MICRO_VERSION	(1)
-#define IM_INTERFACE_AGE	(@IM_INTERFACE_AGE@)
-#define IM_BINARY_AGE		(@IM_BINARY_AGE@)
+#define VIPS_VERSION		"8.3.1"
+#define VIPS_VERSION_STRING	"8.3.1-Sun May  8 12:46:20 BST 2016"
+#define VIPS_MAJOR_VERSION	(8)
+#define VIPS_MINOR_VERSION	(3)
+#define VIPS_MICRO_VERSION	(1)
 
-#endif /*IM_VERSION_H*/
+/* Not really anything to do with versions, but this is a handy place to put
+ * it.
+ */
+#define VIPS_EXEEXT ""
+#define VIPS_ENABLE_DEPRECATED 1
+
+#endif /*VIPS_VERSION_H*/

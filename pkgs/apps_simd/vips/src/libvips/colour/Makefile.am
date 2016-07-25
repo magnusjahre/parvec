@@ -2,32 +2,35 @@ noinst_LTLIBRARIES = libcolour.la
 
 libcolour_la_SOURCES = \
 	colour.c \
-	disp.c \
-	colour_dispatch.c \
-	derived.c \
-	im_icc_transform.c \
-	im_LCh2Lab.c \
-	im_LCh2UCS.c \
-	im_Lab2LCh.c \
-	im_Lab2LabQ.c \
-	im_Lab2LabS.c \
-	im_Lab2XYZ.c \
-	im_LabQ2Lab.c \
-	im_LabQ2LabS.c \
-	im_LabQ2disp.c \
-	im_LabS2LabQ.c \
-	im_LabS2Lab.c \
-	im_lab_morph.c \
-	im_UCS2LCh.c \
-	im_XYZ2Lab.c \
-	im_XYZ2Yxy.c \
-	im_float2rad.c \
-	im_Yxy2XYZ.c \
-	im_XYZ2disp.c \
-	im_dE00_fromLab.c \
-	im_dECMC_fromLab.c \
-	im_dE_fromLab.c \
-	im_disp2XYZ.c \
-	im_rad2float.c
+	pcolour.h \
+	colourspace.c \
+	dE76.c \
+	dE00.c \
+	dECMC.c \
+	icc_transform.c \
+	Lab2XYZ.c \
+	Lab2LCh.c \
+	LCh2Lab.c \
+	LCh2UCS.c \
+	UCS2LCh.c \
+	XYZ2Lab.c \
+	XYZ2Yxy.c \
+	Yxy2XYZ.c \
+	float2rad.c \
+	rad2float.c \
+	Lab2LabQ.c \
+	LabQ2Lab.c \
+	LabS2Lab.c \
+	Lab2LabS.c \
+	LabS2LabQ.c \
+	LabQ2LabS.c \
+	LabQ2sRGB.c \
+	sRGB2scRGB.c \
+	sRGB2HSV.c \
+	HSV2sRGB.c \
+	scRGB2XYZ.c \
+	scRGB2BW.c \
+	XYZ2scRGB.c \
+	scRGB2sRGB.c 
 
-INCLUDES = -I${top_srcdir}/libvips/include @VIPS_CFLAGS@ @VIPS_INCLUDES@ 
+AM_CPPFLAGS = -I${top_srcdir}/libvips/include @VIPS_CFLAGS@ @VIPS_INCLUDES@ 

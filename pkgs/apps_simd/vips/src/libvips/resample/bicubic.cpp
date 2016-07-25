@@ -1,4 +1,9 @@
 /* bicubic (catmull-rom) interpolator
+ *
+ * 12/8/10
+ * 	- revise window_size / window_offset stuff again
+ * 7/2/16
+ * 	- double intermediate for 32-bit int types
  */
 
 /*
@@ -17,7 +22,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -100,9 +106,10 @@ G_DEFINE_TYPE( VipsInterpolateBicubic, vips_interpolate_bicubic,
 
 /* Fixed-point version, for 8 and 16-bit types.
  */
-template <typename T, int min_value, int max_value>
+
+template <typename T, int max_value>
 static void inline
-bicubic_int_tab( PEL *pout, const PEL *pin,
+bicubic_unsigned_int_tab( void *pout, const VipsPel *pin,
 	const int bands, const int lskip,
 	const int *cx, const int *cy )
 {
@@ -148,17 +155,14 @@ bicubic_int_tab( PEL *pout, const PEL *pin,
 		const T qua_thr = in[l3_plus_b2];
 		const T qua_fou = in[l3_plus_b3];
 
-		int bicubic = bicubic_int<T>(
+		int bicubic = bicubic_unsigned_int<T>(
 			uno_one, uno_two, uno_thr, uno_fou,
 			dos_one, dos_two, dos_thr, dos_fou,
 			tre_one, tre_two, tre_thr, tre_fou,
 			qua_one, qua_two, qua_thr, qua_fou,
 			cx, cy );
 
-		if( bicubic < min_value )
-			bicubic = min_value;
-		else if( bicubic > max_value )
-			bicubic = max_value;
+		bicubic = VIPS_CLIP( 0, bicubic, max_value ); 
 
 		out[z] = bicubic;
 
@@ -166,11 +170,74 @@ bicubic_int_tab( PEL *pout, const PEL *pin,
 	}
 }
 
-/* Floating-point version, for int/float types.
+template <typename T, int min_value, int max_value>
+static void inline
+bicubic_signed_int_tab( void *pout, const VipsPel *pin,
+	const int bands, const int lskip,
+	const int *cx, const int *cy )
+{
+	T* restrict out = (T *) pout;
+	const T* restrict in = (T *) pin;
+
+	const int b1 = bands;
+	const int b2 = b1 + b1;
+	const int b3 = b1 + b2;
+
+	const int l1 = lskip / sizeof( T );
+	const int l2 = l1 + l1;
+	const int l3 = l1 + l2;
+
+        const int l1_plus_b1 = l1 + b1;
+        const int l1_plus_b2 = l1 + b2;
+        const int l1_plus_b3 = l1 + b3;
+        const int l2_plus_b1 = l2 + b1;
+        const int l2_plus_b2 = l2 + b2;
+        const int l2_plus_b3 = l2 + b3;
+        const int l3_plus_b1 = l3 + b1;
+        const int l3_plus_b2 = l3 + b2;
+        const int l3_plus_b3 = l3 + b3;
+
+	for( int z = 0; z < bands; z++ ) {
+		const T uno_one = in[0];
+		const T uno_two = in[b1];
+		const T uno_thr = in[b2];
+		const T uno_fou = in[b3];
+
+		const T dos_one = in[l1];
+		const T dos_two = in[l1_plus_b1];
+		const T dos_thr = in[l1_plus_b2];
+		const T dos_fou = in[l1_plus_b3];
+
+		const T tre_one = in[l2];
+		const T tre_two = in[l2_plus_b1];
+		const T tre_thr = in[l2_plus_b2];
+		const T tre_fou = in[l2_plus_b3];
+
+		const T qua_one = in[l3];
+		const T qua_two = in[l3_plus_b1];
+		const T qua_thr = in[l3_plus_b2];
+		const T qua_fou = in[l3_plus_b3];
+
+		int bicubic = bicubic_signed_int<T>(
+			uno_one, uno_two, uno_thr, uno_fou,
+			dos_one, dos_two, dos_thr, dos_fou,
+			tre_one, tre_two, tre_thr, tre_fou,
+			qua_one, qua_two, qua_thr, qua_fou,
+			cx, cy );
+
+		bicubic = VIPS_CLIP( min_value, bicubic, max_value ); 
+
+		out[z] = bicubic;
+
+		in += 1;
+	}
+}
+
+/* Floating-point version.
  */
 template <typename T>
 static void inline
-bicubic_float_tab( PEL *pout, const PEL *pin,
+bicubic_float_tab( void *pout, const VipsPel *pin,
 	const int bands, const int lskip,
 	const double *cx, const double *cy )
 {
@@ -229,11 +296,140 @@ bicubic_float_tab( PEL *pout, const PEL *pin,
 	}
 }
 
+/* uint32 version needs a double intermediate.
+ */
+
+template <typename T, int max_value>
+static void inline
+bicubic_unsigned_int32_tab( void *pout, const VipsPel *pin,
+	const int bands, const int lskip,
+	const double *cx, const double *cy )
+{
+	T* restrict out = (T *) pout;
+	const T* restrict in = (T *) pin;
+
+	const int b1 = bands;
+	const int b2 = b1 + b1;
+	const int b3 = b1 + b2;
+
+	const int l1 = lskip / sizeof( T );
+	const int l2 = l1 + l1;
+	const int l3 = l1 + l2;
+
+        const int l1_plus_b1 = l1 + b1;
+        const int l1_plus_b2 = l1 + b2;
+        const int l1_plus_b3 = l1 + b3;
+        const int l2_plus_b1 = l2 + b1;
+        const int l2_plus_b2 = l2 + b2;
+        const int l2_plus_b3 = l2 + b3;
+        const int l3_plus_b1 = l3 + b1;
+        const int l3_plus_b2 = l3 + b2;
+        const int l3_plus_b3 = l3 + b3;
+
+	for( int z = 0; z < bands; z++ ) {
+		const T uno_one = in[0];
+		const T uno_two = in[b1];
+		const T uno_thr = in[b2];
+		const T uno_fou = in[b3];
+
+		const T dos_one = in[l1];
+		const T dos_two = in[l1_plus_b1];
+		const T dos_thr = in[l1_plus_b2];
+		const T dos_fou = in[l1_plus_b3];
+
+		const T tre_one = in[l2];
+		const T tre_two = in[l2_plus_b1];
+		const T tre_thr = in[l2_plus_b2];
+		const T tre_fou = in[l2_plus_b3];
+
+		const T qua_one = in[l3];
+		const T qua_two = in[l3_plus_b1];
+		const T qua_thr = in[l3_plus_b2];
+		const T qua_fou = in[l3_plus_b3];
+
+		double bicubic = bicubic_float<double>(
+			uno_one, uno_two, uno_thr, uno_fou,
+			dos_one, dos_two, dos_thr, dos_fou,
+			tre_one, tre_two, tre_thr, tre_fou,
+			qua_one, qua_two, qua_thr, qua_fou,
+			cx, cy );
+
+		bicubic = VIPS_CLIP( 0, bicubic, max_value ); 
+
+		out[z] = bicubic;
+
+		in += 1;
+	}
+}
+
+template <typename T, int min_value, int max_value>
+static void inline
+bicubic_signed_int32_tab( void *pout, const VipsPel *pin,
+	const int bands, const int lskip,
+	const double *cx, const double *cy )
+{
+	T* restrict out = (T *) pout;
+	const T* restrict in = (T *) pin;
+
+	const int b1 = bands;
+	const int b2 = b1 + b1;
+	const int b3 = b1 + b2;
+
+	const int l1 = lskip / sizeof( T );
+	const int l2 = l1 + l1;
+	const int l3 = l1 + l2;
+
+        const int l1_plus_b1 = l1 + b1;
+        const int l1_plus_b2 = l1 + b2;
+        const int l1_plus_b3 = l1 + b3;
+        const int l2_plus_b1 = l2 + b1;
+        const int l2_plus_b2 = l2 + b2;
+        const int l2_plus_b3 = l2 + b3;
+        const int l3_plus_b1 = l3 + b1;
+        const int l3_plus_b2 = l3 + b2;
+        const int l3_plus_b3 = l3 + b3;
+
+	for( int z = 0; z < bands; z++ ) {
+		const T uno_one = in[0];
+		const T uno_two = in[b1];
+		const T uno_thr = in[b2];
+		const T uno_fou = in[b3];
+
+		const T dos_one = in[l1];
+		const T dos_two = in[l1_plus_b1];
+		const T dos_thr = in[l1_plus_b2];
+		const T dos_fou = in[l1_plus_b3];
+
+		const T tre_one = in[l2];
+		const T tre_two = in[l2_plus_b1];
+		const T tre_thr = in[l2_plus_b2];
+		const T tre_fou = in[l2_plus_b3];
+
+		const T qua_one = in[l3];
+		const T qua_two = in[l3_plus_b1];
+		const T qua_thr = in[l3_plus_b2];
+		const T qua_fou = in[l3_plus_b3];
+
+		double bicubic = bicubic_float<double>(
+			uno_one, uno_two, uno_thr, uno_fou,
+			dos_one, dos_two, dos_thr, dos_fou,
+			tre_one, tre_two, tre_thr, tre_fou,
+			qua_one, qua_two, qua_thr, qua_fou,
+			cx, cy );
+
+		bicubic = VIPS_CLIP( min_value, bicubic, max_value ); 
+
+		out[z] = bicubic;
+
+		in += 1;
+	}
+}
+
 /* Ultra-high-quality version for double images.
  */
 template <typename T>
 static void inline
-bicubic_notab( PEL *pout, const PEL *pin,
+bicubic_notab( void *pout, const VipsPel *pin,
 	const int bands, const int lskip,
 	double x, double y )
 {
@@ -261,8 +457,8 @@ bicubic_notab( PEL *pout, const PEL *pin,
 	double cx[4];
 	double cy[4];
 
-	calculate_coefficients_catmull( x, cx );
-	calculate_coefficients_catmull( y, cy );
+	calculate_coefficients_catmull( cx, x );
+	calculate_coefficients_catmull( cy, y );
 
 	for( int z = 0; z < bands; z++ ) {
 		const T uno_one = in[0];
@@ -300,7 +496,7 @@ bicubic_notab( PEL *pout, const PEL *pin,
 
 static void
 vips_interpolate_bicubic_interpolate( VipsInterpolate *interpolate,
-	PEL *out, REGION *in, double x, double y )
+	void *out, VipsRegion *in, double x, double y )
 {
 	/* Find the mask index. We round-to-nearest, so we need to generate 
 	 * indexes in 0 to VIPS_TRANSFORM_SCALE, 2^n + 1 values. We multiply 
@@ -321,6 +517,10 @@ vips_interpolate_bicubic_interpolate( VipsInterpolate *interpolate,
 	const int ix = (int) x;
 	const int iy = (int) y;
 
+	/* Back and up one to get the top-left of the 4x4.
+	 */
+	const VipsPel *p = VIPS_REGION_ADDR( in, ix - 1, iy - 1 ); 
+
 	/* Look up the tables we need.
 	 */
 	const int *cxi = vips_bicubic_matrixi[tx];
@@ -328,14 +528,21 @@ vips_interpolate_bicubic_interpolate( VipsInterpolate *interpolate,
 	const double *cxf = vips_bicubic_matrixf[tx];
 	const double *cyf = vips_bicubic_matrixf[ty];
 
-	/* Back and up one to get the top-left of the 4x4.
-	 */
-	const PEL *p = (PEL *) IM_REGION_ADDR( in, ix - 1, iy - 1 );
-
 	/* Pel size and line size.
 	 */
 	const int bands = in->im->Bands;
-	const int lskip = IM_REGION_LSKIP( in );
+	const int lskip = VIPS_REGION_LSKIP( in );
+
+	g_assert( ix - 1 >= in->valid.left );
+	g_assert( iy - 1 >= in->valid.top );
+	g_assert( ix + 2 < VIPS_RECT_RIGHT( &in->valid ) );
+	g_assert( iy + 2 < VIPS_RECT_BOTTOM( &in->valid ) );
+
+	/* Confirm that absolute_x and absolute_y are >= 1, because of
+	 * window_offset.
+	 */
+	g_assert( x >= 1.0 );
+	g_assert( y >= 1.0 );
 
 #ifdef DEBUG
 	printf( "vips_interpolate_bicubic_interpolate: %g %g\n", x, y );
@@ -345,10 +552,11 @@ vips_interpolate_bicubic_interpolate( VipsInterpolate *interpolate,
 #endif /*DEBUG*/
 
 	switch( in->im->BandFmt ) {
-	case IM_BANDFMT_UCHAR:
-		bicubic_int_tab<unsigned char, 0, UCHAR_MAX>(
+	case VIPS_FORMAT_UCHAR:
+		bicubic_unsigned_int_tab<unsigned char, UCHAR_MAX>(
 			out, p, bands, lskip,
 			cxi, cyi );
+
 	/*
 
 	   Handy for benchmarking
@@ -356,57 +564,61 @@ vips_interpolate_bicubic_interpolate( VipsInterpolate *interpolate,
 		bicubic_float_tab<unsigned char>(
 			out, p, bands, lskip,
 			cxf, cyf );
+
 		bicubic_notab<unsigned char>(
 			out, p, bands, lskip,
 			x - ix, y - iy );
 
 	 */
+
 		break;
 
-	case IM_BANDFMT_CHAR:
-		bicubic_int_tab<signed char, SCHAR_MIN, SCHAR_MAX>(
+	case VIPS_FORMAT_CHAR:
+		bicubic_signed_int_tab<signed char, SCHAR_MIN, SCHAR_MAX>(
 			out, p, bands, lskip,
 			cxi, cyi );
 		break;
 
-	case IM_BANDFMT_USHORT:
-		bicubic_int_tab<unsigned short, 0, USHRT_MAX>(
+	case VIPS_FORMAT_USHORT:
+		bicubic_unsigned_int_tab<unsigned short, USHRT_MAX>(
 			out, p, bands, lskip,
 			cxi, cyi );
 		break;
 
-	case IM_BANDFMT_SHORT:
-		bicubic_int_tab<signed short, SHRT_MIN, SHRT_MAX>(
+	case VIPS_FORMAT_SHORT:
+		bicubic_signed_int_tab<signed short, SHRT_MIN, SHRT_MAX>(
 			out, p, bands, lskip,
 			cxi, cyi );
 		break;
 
-	case IM_BANDFMT_UINT:
-		bicubic_float_tab<unsigned int>( out, p, bands, lskip,
+	case VIPS_FORMAT_UINT:
+		bicubic_unsigned_int32_tab<unsigned int, INT_MAX>( 
+			out, p, bands, lskip,
 			cxf, cyf );
 		break;
 
-	case IM_BANDFMT_INT:
-		bicubic_float_tab<signed int>( out, p, bands, lskip,
+	case VIPS_FORMAT_INT:
+		bicubic_signed_int32_tab<signed int, INT_MIN, INT_MAX>( 
+			out, p, bands, lskip,
 			cxf, cyf );
 		break;
 
-	case IM_BANDFMT_FLOAT:
+	case VIPS_FORMAT_FLOAT:
 		bicubic_float_tab<float>( out, p, bands, lskip,
 			cxf, cyf );
 		break;
 
-	case IM_BANDFMT_DOUBLE:
+	case VIPS_FORMAT_DOUBLE:
 		bicubic_notab<double>( out, p, bands, lskip,
 			x - ix, y - iy );
 		break;
 
-	case IM_BANDFMT_COMPLEX:
+	case VIPS_FORMAT_COMPLEX:
 		bicubic_float_tab<float>( out, p, bands * 2, lskip,
 			cxf, cyf );
 		break;
 
-	case IM_BANDFMT_DPCOMPLEX:
+	case VIPS_FORMAT_DPCOMPLEX:
 		bicubic_notab<double>( out, p, bands * 2, lskip,
 			x - ix, y - iy );
 		break;
@@ -423,23 +635,17 @@ vips_interpolate_bicubic_class_init( VipsInterpolateBicubicClass *iclass )
 	VipsInterpolateClass *interpolate_class =
 		VIPS_INTERPOLATE_CLASS( iclass );
 
-	object_class->nickname    = "bicubic";
-	object_class->description = _( "Bicubic interpolation (Catmull-Rom)" );
+	object_class->nickname = "bicubic";
+	object_class->description = _( "bicubic interpolation (Catmull-Rom)" );
 
-	interpolate_class->interpolate   = vips_interpolate_bicubic_interpolate;
-	interpolate_class->window_size   = 4;
-	interpolate_class->window_offset = 2;
-        /*
-         * Note from nicolas: If things were programmed sanely, I
-         * think window_offset should be 1, not 2.
-         */
+	interpolate_class->interpolate = vips_interpolate_bicubic_interpolate;
+	interpolate_class->window_size = 4;
 
 	/* Build the tables of pre-computed coefficients.
 	 */
 	for( int x = 0; x < VIPS_TRANSFORM_SCALE + 1; x++ ) {
-		calculate_coefficients_catmull(
-			(float) x / VIPS_TRANSFORM_SCALE,
-			vips_bicubic_matrixf[x] );
+		calculate_coefficients_catmull( vips_bicubic_matrixf[x], 
+			(float) x / VIPS_TRANSFORM_SCALE ); 
 
 		for( int i = 0; i < 4; i++ )
 			vips_bicubic_matrixi[x][i] =

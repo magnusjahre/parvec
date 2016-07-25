@@ -1,7 +1,13 @@
-/* Write an image to a memory buffer.
+/* SinkMemory an image to a memory buffer, keeping top-to-bottom ordering.
+ *
+ * For sequential operations we need to keep requests reasonably ordered: we
+ * can't let some tiles get very delayed. So we need to stall starting new
+ * threads if the last thread gets too far behind.
  * 
- * 16/4/10
- * 	- from vips_sink()
+ * 17/2/12
+ * 	- from sinkdisc.c
+ * 23/2/12
+ * 	- we could deadlock if generate failed
  */
 
 /*
@@ -20,7 +26,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -43,84 +50,168 @@
 #include <stdlib.h>
 
 #include <vips/vips.h>
-#include <vips/thread.h>
 #include <vips/internal.h>
+#include <vips/thread.h>
+#include <vips/threadpool.h>
 #include <vips/debug.h>
 
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
+#include "sink.h"
+
+/* A part of the image we are writing. 
+ */
+typedef struct _SinkMemoryArea {
+	struct _SinkMemory *memory;
+
+	VipsRect rect;		/* Part of image this area covers */
+        VipsSemaphore nwrite; 	/* Number of threads writing to this area */
+} SinkMemoryArea;
 
 /* Per-call state.
  */
-typedef struct _Sink {
-	VipsImage *im; 
+typedef struct _SinkMemory {
+	SinkBase sink_base;
 
-	/* A big region for the image memory. All the threads write to this.
+	/* We are current writing tiles to area, we'll delay starting a new
+	 * area if old_area (the previous position) hasn't completed. 
 	 */
-	REGION *all;
+	SinkMemoryArea *area;
+	SinkMemoryArea *old_area;
 
-	/* The position we're at in the image.
+	/* A region covering the whole of the output image ... we write to
+	 * this from many workers with vips_region_prepare_to().
 	 */
-	int x;
-	int y;
+	VipsRegion *region;
+} SinkMemory;
 
-	/* The tilesize we've picked.
-	 */
-	int tile_width;
-	int tile_height;
-	int nlines;
-} Sink;
+/* Our per-thread state ... we need to also track the area that pos is
+ * supposed to write to.
+ */
+typedef struct _SinkMemoryThreadState {
+	VipsThreadState parent_object;
+
+        SinkMemoryArea *area;
+} SinkMemoryThreadState;
+
+typedef struct _SinkMemoryThreadStateClass {
+	VipsThreadStateClass parent_class;
+
+} SinkMemoryThreadStateClass;
+
+G_DEFINE_TYPE( SinkMemoryThreadState, 
+	sink_memory_thread_state, VIPS_TYPE_THREAD_STATE );
 
 static void
-sink_free( Sink *sink )
+sink_memory_thread_state_class_init( SinkMemoryThreadStateClass *class )
 {
-	IM_FREEF( im_region_free, sink->all );
+	VipsObjectClass *object_class = VIPS_OBJECT_CLASS( class );
+
+	object_class->nickname = "sinkmemorythreadstate";
+	object_class->description = _( "per-thread state for sinkmemory" );
 }
 
-static int
-sink_init( Sink *sink, VipsImage *im ) 
+static void
+sink_memory_thread_state_init( SinkMemoryThreadState *state )
 {
-	Rect all;
+}
 
-	sink->im = im; 
-	sink->x = 0;
-	sink->y = 0;
+static VipsThreadState *
+sink_memory_thread_state_new( VipsImage *image, void *a )
+{
+	return( VIPS_THREAD_STATE( vips_object_new( 
+		sink_memory_thread_state_get_type(), 
+		vips_thread_state_set, image, a ) ) );
+}
+
+static void
+sink_memory_area_free( SinkMemoryArea *area )
+{
+	vips_semaphore_destroy( &area->nwrite );
+	vips_free( area );
+}
+
+static SinkMemoryArea *
+sink_memory_area_new( SinkMemory *memory )
+{
+	SinkMemoryArea *area;
+
+	if( !(area = VIPS_NEW( NULL, SinkMemoryArea )) )
+		return( NULL );
+	area->memory = memory;
+	vips_semaphore_init( &area->nwrite, 0, "nwrite" );
+
+	return( area );
+}
+
+/* Move an area to a position.
+ */
+static void 
+sink_memory_area_position( SinkMemoryArea *area, int top, int height )
+{
+	SinkMemory *memory = area->memory;
+
+	VipsRect all, rect;
 
 	all.left = 0;
 	all.top = 0;
-	all.width = im->Xsize;
-	all.height = im->Ysize;
+	all.width = memory->sink_base.im->Xsize;
+	all.height = memory->sink_base.im->Ysize;
 
-	if( !(sink->all = im_region_create( im )) ||
-		im_region_image( sink->all, &all ) ) {
-		sink_free( sink );
-		return( -1 );
-	}
+	rect.left = 0;
+	rect.top = top;
+	rect.width = memory->sink_base.im->Xsize;
+	rect.height = height;
 
-	vips_get_tile_size( im, 
-		&sink->tile_width, &sink->tile_height, &sink->nlines );
-
-	return( 0 );
+	vips_rect_intersectrect( &all, &rect, &area->rect );
 }
 
-static int 
-sink_allocate( VipsThreadState *state, void *a, gboolean *stop )
+/* Our VipsThreadpoolAllocate function ... move the thread to the next tile
+ * that needs doing. If we fill the current area, we block until the previous
+ * area is finished, then swap areas. 
+ * If all tiles are done, we return FALSE to end
+ * iteration.
+ */
+static gboolean
+sink_memory_area_allocate_fn( VipsThreadState *state, void *a, gboolean *stop )
 {
-	Sink *sink = (Sink *) a;
+	SinkMemoryThreadState *wstate = (SinkMemoryThreadState *) state;
+	SinkMemory *memory = (SinkMemory *) a;
+	SinkBase *sink_base = (SinkBase *) memory;
 
-	Rect image, tile;
+	VipsRect image;
+	VipsRect tile;
 
-	/* Is the state x/y OK? New line or maybe all done.
+	VIPS_DEBUG_MSG( "sink_memory_area_allocate_fn: %p\n", g_thread_self() );
+
+	/* Is the state x/y OK? New line or maybe new buffer or maybe even 
+	 * all done.
 	 */
-	if( sink->x >= sink->im->Xsize ) {
-		sink->x = 0;
-		sink->y += sink->tile_height;
+	if( sink_base->x >= memory->area->rect.width ) {
+		sink_base->x = 0;
+		sink_base->y += sink_base->tile_height;
 
-		if( sink->y >= sink->im->Ysize ) {
-			*stop = TRUE;
+		if( sink_base->y >= VIPS_RECT_BOTTOM( &memory->area->rect ) ) {
+			/* Block until the previous area is done.
+			 */
+			if( memory->area->rect.top > 0 ) 
+				vips_semaphore_downn( 
+					&memory->old_area->nwrite, 0 );
 
-			return( 0 );
+			/* End of image?
+			 */
+			if( sink_base->y >= sink_base->im->Ysize ) {
+				*stop = TRUE;
+				return( 0 );
+			}
+
+			/* Swap buffers.
+			 */
+			VIPS_SWAP( SinkMemoryArea *, 
+				memory->area, memory->old_area );
+
+			/* Position buf at the new y.
+			 */
+			sink_memory_area_position( memory->area, 
+				sink_base->y, sink_base->nlines );
 		}
 	}
 
@@ -128,47 +219,92 @@ sink_allocate( VipsThreadState *state, void *a, gboolean *stop )
 	 */
 	image.left = 0;
 	image.top = 0;
-	image.width = sink->im->Xsize;
-	image.height = sink->im->Ysize;
-	tile.left = sink->x;
-	tile.top = sink->y;
-	tile.width = sink->tile_width;
-	tile.height = sink->tile_height;
-	im_rect_intersectrect( &image, &tile, &state->pos );
+	image.width = sink_base->im->Xsize;
+	image.height = sink_base->im->Ysize;
+	tile.left = sink_base->x;
+	tile.top = sink_base->y;
+	tile.width = sink_base->tile_width;
+	tile.height = sink_base->tile_height;
+	vips_rect_intersectrect( &image, &tile, &state->pos );
+
+	/* The thread needs to know which area it's writing to.
+	 */
+	wstate->area = memory->area;
+
+	VIPS_DEBUG_MSG( "  %p allocated %d x %d:\n", 
+		g_thread_self(), state->pos.left, state->pos.top );
+
+	/* Add to the number of writers on the area.
+	 */
+	vips_semaphore_upn( &memory->area->nwrite, -1 );
 
 	/* Move state on.
 	 */
-	sink->x += sink->tile_width;
+	sink_base->x += sink_base->tile_width;
 
-	return( 0 );
-}
-
-static int 
-sink_work( VipsThreadState *state, void *a )
-{
-	Sink *sink = (Sink *) a;
-
-	if( im_prepare_to( state->reg, sink->all, 
-		&state->pos, state->pos.left, state->pos.top ) )
-		return( -1 );
-
-	return( 0 );
-}
-
-static int 
-sink_progress( void *a )
-{
-	Sink *sink = (Sink *) a;
-
-	VIPS_DEBUG_MSG( "sink_progress: %d x %d\n",
-		sink->tile_width, sink->tile_height );
-
-	/* Trigger any eval callbacks on our source image and
-	 * check for errors.
+	/* Add the number of pixels we've just allocated to progress.
 	 */
-	if( im__handle_eval( sink->im, 
-		sink->tile_width, sink->tile_height ) )
+	sink_base->processed += state->pos.width * state->pos.height;
+
+	return( 0 );
+}
+
+/* Our VipsThreadpoolWork function ... generate a tile!
+ */
+static int
+sink_memory_area_work_fn( VipsThreadState *state, void *a )
+{
+	SinkMemory *memory = (SinkMemory *) a;
+	SinkMemoryThreadState *wstate = (SinkMemoryThreadState *) state;
+	SinkMemoryArea *area = wstate->area;
+
+	int result;
+
+	VIPS_DEBUG_MSG( "sink_memory_area_work_fn: %p %d x %d\n", 
+		g_thread_self(), state->pos.left, state->pos.top );
+
+	result = vips_region_prepare_to( state->reg, memory->region, 
+		&state->pos, state->pos.left, state->pos.top );
+
+	VIPS_DEBUG_MSG( "sink_memory_area_work_fn: %p result = %d\n", 
+		g_thread_self(), result );
+
+	/* Tell the allocator we're done.
+	 */
+	vips_semaphore_upn( &area->nwrite, 1 );
+
+	return( result );
+}
+
+static void
+sink_memory_free( SinkMemory *memory )
+{
+	VIPS_FREEF( sink_memory_area_free, memory->area );
+	VIPS_FREEF( sink_memory_area_free, memory->old_area );
+	VIPS_UNREF( memory->region );
+}
+
+static int
+sink_memory_init( SinkMemory *memory, VipsImage *image )
+{
+	VipsRect all;
+
+	vips_sink_base_init( &memory->sink_base, image );
+	memory->area = NULL;
+	memory->old_area = NULL;
+
+	all.left = 0;
+	all.top = 0;
+	all.width = image->Xsize;
+	all.height = image->Ysize;
+
+	if( !(memory->region = vips_region_new( image )) ||
+		vips_region_image( memory->region, &all ) ||
+		!(memory->area = sink_memory_area_new( memory )) ||
+		!(memory->old_area = sink_memory_area_new( memory )) ) {
+		sink_memory_free( memory );
 		return( -1 );
+	}
 
 	return( 0 );
 }
@@ -177,44 +313,39 @@ sink_progress( void *a )
  * vips_sink_memory:
  * @im: generate this image to memory
  *
- * Loops over an image, generating it to a memory buffer attached to the
- * image. 
+ * Loops over @im, generating it to a memory buffer attached to @im. It is
+ * used by vips to implement writing to a memory buffer.
  *
- * See also: vips_sink(), vips_get_tile_size().
+ * See also: vips_sink(), vips_get_tile_size(), vips_image_new_memory().
  *
  * Returns: 0 on success, or -1 on error.
  */
 int
-vips_sink_memory( VipsImage *im ) 
+vips_sink_memory( VipsImage *image )
 {
-	Sink sink;
+	SinkMemory memory;
 	int result;
 
-	g_assert( !im_image_sanity( im ) );
-
-	/* We don't use this, but make sure it's set in case any old binaries
-	 * are expecting it.
-	 */
-	im->Bbits = im_bits_of_fmt( im->BandFmt );
- 
-	if( sink_init( &sink, im ) )
+	if( sink_memory_init( &memory, image ) )
 		return( -1 );
 
-	if( im__start_eval( im ) ) {
-		sink_free( &sink );
-		return( -1 );
-	}
+	vips_image_preeval( image );
 
-	result = vips_threadpool_run( im, 
-		vips_thread_state_new,
-		sink_allocate, 
-		sink_work, 
-		sink_progress, 
-		&sink );
+	result = 0;
+	sink_memory_area_position( memory.area, 0, memory.sink_base.nlines );
+	if( vips_threadpool_run( image, 
+		sink_memory_thread_state_new, 
+		sink_memory_area_allocate_fn, 
+		sink_memory_area_work_fn, 
+		vips_sink_base_progress, 
+		&memory ) )  
+		result = -1;
 
-	im__end_eval( im );
+	vips_image_posteval( image );
 
-	sink_free( &sink );
+	sink_memory_free( &memory );
+
+	VIPS_DEBUG_MSG( "vips_sink_memory: done\n" );
 
 	return( result );
 }

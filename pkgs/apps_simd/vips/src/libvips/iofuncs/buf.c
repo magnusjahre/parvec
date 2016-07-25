@@ -5,19 +5,20 @@
 
     Copyright (C) 1991-2003 The National Gallery
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
+    This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -40,14 +41,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <assert.h>
 
 #include <vips/vips.h>
 #include <vips/buf.h>
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
 
 /**
  * SECTION: buf
@@ -67,24 +63,19 @@
  * VipsBuf buf = VIPS_BUF_STATIC (txt);
  * int i;
  *
- * vips_buf_appends (&buf, "Numbers are: ");
- * for (i = 0; i < array_length; i++) {
- *   if (i > 0)
- *     vips_buf_appends (&buf, ", ");
- *   vips_buf_appendg (&buf, array[i]);
+ * vips_buf_appends (&amp;buf, "Numbers are: ");
+ * for (i = 0; i &lt; array_length; i++) {
+ *   if (i &gt; 0)
+ *     vips_buf_appends (&amp;buf, ", ");
+ *   vips_buf_appendg (&amp;buf, array[i]);
  * }
- * printf ("%s", vips_buf_all (&buf));
+ * printf ("%s", vips_buf_all (&amp;buf));
  * ]|
  */
-
-/* Largest string we can append in one operation.
- */
-#define MAX_STRSIZE (16000)
 
 /** 
  * VIPS_BUF_STATIC:
  * @TEXT: the storage area to use
- * @MAX: the size of the storage area
  *
  * Initialize a heap buffer. For example:
  *
@@ -137,7 +128,7 @@ void
 vips_buf_destroy( VipsBuf *buf )
 {
 	if( buf->dynamic ) {
-		IM_FREE( buf->base );
+		VIPS_FREE( buf->base );
 	}
 
 	vips_buf_init( buf );
@@ -180,7 +171,7 @@ vips_buf_set_static( VipsBuf *buf, char *base, int mx )
  * char txt[256];
  * VipsBuf buf;
  * 
- * vips_buf_init_static (&buf, txt, 256);
+ * vips_buf_init_static (&amp;buf, txt, 256);
  * ]|
  * 
  * Static buffers don't need to be freed when they go out of scope, but their
@@ -213,7 +204,7 @@ vips_buf_set_dynamic( VipsBuf *buf, int mx )
 	else {
 		vips_buf_destroy( buf );
 
-		if( !(buf->base = IM_ARRAY( NULL, mx, char )) )
+		if( !(buf->base = VIPS_ARRAY( NULL, mx, char )) )
 			/* No error return, so just block writes.
 			 */
 			buf->full = TRUE;
@@ -236,7 +227,7 @@ vips_buf_set_dynamic( VipsBuf *buf, int mx )
  * |[
  * VipsBuf buf;
  * 
- * vips_buf_init_synamic (&buf, 256);
+ * vips_buf_init_synamic (&amp;buf, 256);
  * ]|
  *
  * Dynamic buffers must be freed with vips_buf_destroy(), but their size can
@@ -276,7 +267,7 @@ vips_buf_appendns( VipsBuf *buf, const char *str, int sz )
 	 */
 	len = strlen( str );
 	if( sz >= 0 )
-		n = IM_MIN( sz, len );
+		n = VIPS_MIN( sz, len );
 	else
 		n = len;
 
@@ -286,7 +277,7 @@ vips_buf_appendns( VipsBuf *buf, const char *str, int sz )
 
 	/* Amount we actually copy.
 	 */
-	cpy = IM_MIN( n, avail );
+	cpy = VIPS_MIN( n, avail );
 
 	strncpy( buf->base + buf->i, str, cpy );
 	buf->i += cpy;
@@ -325,7 +316,6 @@ vips_buf_appends( VipsBuf *buf, const char *str )
  * 
  * Returns: %FALSE on overflow, %TRUE otherwise.
  */
-
 gboolean
 vips_buf_appendc( VipsBuf *buf, char ch )
 {
@@ -340,14 +330,13 @@ vips_buf_appendc( VipsBuf *buf, char ch )
 /**
  * vips_buf_change:
  * @buf: the buffer
- * @old: the string to search for
- * @new: the string to substitute
+ * @o: the string to search for
+ * @n: the string to substitute
  *
- * Swap the rightmost occurence of @old for @new.
+ * Swap the rightmost occurence of @o for @n.
  * 
  * Returns: %FALSE on overflow, %TRUE otherwise.
  */
-
 gboolean
 vips_buf_change( VipsBuf *buf, const char *old, const char *new )
 {
@@ -365,7 +354,7 @@ vips_buf_change( VipsBuf *buf, const char *old, const char *new )
 	/* Find pos of old.
 	 */
 	for( i = buf->i - olen; i > 0; i-- )
-		if( im_isprefix( old, buf->base + i ) )
+		if( vips_isprefix( old, buf->base + i ) )
 			break;
 	g_assert( i >= 0 );
 
@@ -405,29 +394,6 @@ vips_buf_removec( VipsBuf *buf, char ch )
 }
 
 /**
- * vips_buf_appendf:
- * @buf: the buffer
- * @fmt: <function>printf()</function>-style format string
- * @Varargs: arguments to format string
- *
- * Format the string and append to @buf.
- * 
- * Returns: %FALSE on overflow, %TRUE otherwise.
- */
-gboolean
-vips_buf_appendf( VipsBuf *buf, const char *fmt, ... )
-{
-	char str[MAX_STRSIZE];
-	va_list ap;
-
-        va_start( ap, fmt );
-        (void) im_vsnprintf( str, MAX_STRSIZE, fmt, ap );
-        va_end( ap );
-
-	return( vips_buf_appends( buf, str ) );
-}
-
-/**
  * vips_buf_vappendf:
  * @buf: the buffer
  * @fmt: <function>printf()</function>-style format string
@@ -440,11 +406,48 @@ vips_buf_appendf( VipsBuf *buf, const char *fmt, ... )
 gboolean
 vips_buf_vappendf( VipsBuf *buf, const char *fmt, va_list ap )
 {
-	char str[MAX_STRSIZE];
+	int avail;
+	char *p;
 
-        (void) im_vsnprintf( str, MAX_STRSIZE, fmt, ap );
+	if( buf->full )
+		return( FALSE );
 
-	return( vips_buf_appends( buf, str ) );
+	avail = buf->mx - buf->i - 4;
+	p = buf->base + buf->i;
+	(void) vips_vsnprintf( p, avail, fmt, ap ); 
+	buf->i += strlen( p );
+
+	if( buf->i >= buf->mx - 4 ) {
+		buf->full = TRUE;
+		strcpy( buf->base + buf->mx - 4, "..." );
+		buf->i = buf->mx - 1;
+		return( FALSE );
+	}
+
+	return( TRUE );
+}
+
+/**
+ * vips_buf_appendf:
+ * @buf: the buffer
+ * @fmt: <function>printf()</function>-style format string
+ * @...: arguments to format string
+ *
+ * Format the string and append to @buf.
+ * 
+ * Returns: %FALSE on overflow, %TRUE otherwise.
+ */
+gboolean
+vips_buf_appendf( VipsBuf *buf, const char *fmt, ... )
+{
+	va_list ap;
+	gboolean result;
+
+        va_start( ap, fmt );
+        result = vips_buf_vappendf( buf, fmt, ap );
+        va_end( ap );
+
+	return( result );
 }
 
 /**
@@ -505,6 +508,57 @@ vips_buf_appendgv( VipsBuf *buf, GValue *value )
 	g_free( str_value );
 
 	return( result );
+}
+
+/**
+ * vips_buf_append_size:
+ * @buf: the buffer
+ * @n: the number of bytes
+ *
+ * Turn a number of bytes into a sensible string ... eg "12", "12KB", "12MB",
+ * "12GB" etc.
+ * 
+ * Returns: %FALSE on overflow, %TRUE otherwise.
+ */
+gboolean
+vips_buf_append_size( VipsBuf *buf, size_t n )
+{
+	const static char *names[] = { 
+		/* File length unit.
+		 */
+		N_( "bytes" ), 
+
+		/* Kilobyte unit.
+		 */
+		N_( "KB" ), 
+
+		/* Megabyte unit.
+		 */
+		N_( "MB" ), 
+
+		/* Gigabyte unit.
+		 */
+		N_( "GB" ), 
+
+		/* Terabyte unit.
+		 */
+		N_( "TB" ) 
+	};
+
+	double sz = n;
+	int i;
+
+	/* -1, since we want to stop at TB, not run off the end.
+	 */
+	for( i = 0; sz > 1024 && i < VIPS_NUMBER( names ) - 1; sz /= 1024, i++ )
+		;
+
+	if( i == 0 )
+		/* No decimal places for bytes.
+		 */
+		return( vips_buf_appendf( buf, "%g %s", sz, _( names[i] ) ) );
+	else 
+		return( vips_buf_appendf( buf, "%.2f %s", sz, _( names[i] ) ) );
 }
 
 /**

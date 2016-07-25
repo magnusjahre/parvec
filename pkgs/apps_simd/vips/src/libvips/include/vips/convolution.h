@@ -20,7 +20,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -37,30 +38,28 @@
 extern "C" {
 #endif /*__cplusplus*/
 
-int im_conv( IMAGE *in, IMAGE *out, INTMASK *mask );
-int im_conv_f( IMAGE *in, IMAGE *out, DOUBLEMASK *mask );
-int im_convsep( IMAGE *in, IMAGE *out, INTMASK *mask );
-int im_convsep_f( IMAGE *in, IMAGE *out, DOUBLEMASK *mask );
+typedef enum {
+	VIPS_COMBINE_MAX,
+	VIPS_COMBINE_SUM,
+	VIPS_COMBINE_LAST
+} VipsCombine;
 
-int im_compass( IMAGE *in, IMAGE *out, INTMASK *mask );
-int im_gradient( IMAGE *in, IMAGE *out, INTMASK *mask );
-int im_lindetect( IMAGE *in, IMAGE *out, INTMASK *mask );
+int vips_conv( VipsImage *in, VipsImage **out, VipsImage *mask, ... )
+	__attribute__((sentinel));
+int vips_compass( VipsImage *in, VipsImage **out, VipsImage *mask, ... )
+	__attribute__((sentinel));
+int vips_convsep( VipsImage *in, VipsImage **out, VipsImage *mask, ... )
+	__attribute__((sentinel));
 
-int im_sharpen( IMAGE *in, IMAGE *out, 
-	int mask_size, 
-	double x1, double y2, double y3, 
-	double m1, double m2 );
+int vips_sharpen( VipsImage *in, VipsImage **out, ... ) 
+	__attribute__((sentinel));
+int vips_gaussblur( VipsImage *in, VipsImage **out, double sigma, ... )
+	__attribute__((sentinel));
 
-int im_grad_x( IMAGE *in, IMAGE *out );
-int im_grad_y( IMAGE *in, IMAGE *out );
-
-int im_fastcor( IMAGE *in, IMAGE *ref, IMAGE *out );
-int im_spcor( IMAGE *in, IMAGE *ref, IMAGE *out );
-int im_gradcor( IMAGE *in, IMAGE *ref, IMAGE *out );
-int im_contrast_surface( IMAGE *in, IMAGE *out, 
-	int half_win_size, int spacing );
-
-int im_addgnoise( IMAGE *in, IMAGE *out, double sigma );
+int vips_spcor( VipsImage *in, VipsImage *ref, VipsImage **out, ... )
+	__attribute__((sentinel));
+int vips_fastcor( VipsImage *in, VipsImage *ref, VipsImage **out, ... )
+	__attribute__((sentinel));
 
 #ifdef __cplusplus
 }

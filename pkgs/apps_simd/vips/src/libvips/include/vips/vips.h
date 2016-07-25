@@ -64,7 +64,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -74,8 +75,8 @@
 
  */
 
-#ifndef IM_VIPS_H
-#define IM_VIPS_H
+#ifndef VIPS_VIPS_H
+#define VIPS_VIPS_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -94,8 +95,21 @@ extern "C" {
 #  endif
 #endif /*SWIG*/
 
+/* Or if this isn't gcc.
+ */
+#ifndef __GNUC__
+#  ifndef __attribute__
+#    define __attribute__(x)  /*NOTHING*/
+#  endif
+#endif /*__GNUC__*/
+
+#include <vips/basic.h>
+
 #include <vips/buf.h>
+#include <vips/util.h>
 #include <vips/object.h>
+#include <vips/type.h>
+#include <vips/gate.h>
 
 #include <vips/version.h>
 #include <vips/rect.h>
@@ -105,45 +119,81 @@ extern "C" {
 #include <vips/mask.h>
 #include <vips/image.h>
 #include <vips/memory.h>
-#include <vips/almostdeprecated.h>
-#include <vips/callback.h>
 #include <vips/error.h>
-#include <vips/util.h>
 #include <vips/format.h>
-#include <vips/dispatch.h>
 #include <vips/region.h>
 #include <vips/generate.h>
-#include <vips/check.h>
 #include <vips/interpolate.h>
 #include <vips/semaphore.h>
 #include <vips/threadpool.h>
-
-#include <vips/meta.h>
 #include <vips/header.h>
+#include <vips/operation.h>
+#include <vips/foreign.h>
+
+#include <vips/enumtypes.h>
 
 #include <vips/arithmetic.h>
-#include <vips/boolean.h>
-#include <vips/relational.h>
 #include <vips/conversion.h>
 #include <vips/convolution.h>
 #include <vips/morphology.h>
 #include <vips/mosaicing.h>
-#include <vips/histograms_lut.h>
-#include <vips/freq_filt.h>
+#include <vips/histogram.h>
+#include <vips/freqfilt.h>
 #include <vips/resample.h>
 #include <vips/colour.h>
-#include <vips/disp.h>
-#include <vips/inplace.h>
-#include <vips/other.h>
+#include <vips/draw.h>
+#include <vips/create.h>
 #include <vips/video.h>
 #include <vips/cimg_funcs.h>
 
-#ifdef IM_ENABLE_DEPRECATED
+/* This stuff is very, very old and should not be used by anyone now.
+ */
+#ifdef VIPS_ENABLE_ANCIENT
 #include <vips/deprecated.h>
-#endif /*IM_ENABLE_DEPRECATED*/
+#endif /*VIPS_ENABLE_ANCIENT*/
+
+/* Still in use, but can be turned off.
+ */
+#ifdef VIPS_ENABLE_DEPRECATED
+#include <vips/vips7compat.h>
+#include <vips/dispatch.h>
+#include <vips/almostdeprecated.h>
+#endif /*VIPS_ENABLE_DEPRECATED*/
+
+/* We can't use _ here since this will be compiled by our clients and they may
+ * not have _().
+ */
+#define VIPS_INIT( ARGV0 ) \
+	(sizeof( VipsObject ) != vips__get_sizeof_vipsobject() ? ( \
+		vips_info( "vips_init", "ABI mismatch" ), \
+		vips_info( "vips_init", \
+			"library has sizeof(VipsObject) == %zd", \
+			vips__get_sizeof_vipsobject() ), \
+		vips_info( "vips_init", \
+			"application has sizeof(VipsObject) == %zd", \
+			sizeof( VipsObject ) ), \
+		vips_error( "vips_init", "ABI mismatch" ), \
+		-1 ) : \
+		vips_init( ARGV0 ))
+
+int vips_init( const char *argv0 );
+
+const char *vips_get_argv0( void );
+void vips_shutdown( void );
+void vips_thread_shutdown( void );
+
+void vips_add_option_entries( GOptionGroup *option_group );
+
+extern void vips_leak_set( gboolean leak ); 
+
+const char *vips_version_string( void );
+int vips_version( int flag );
+
+const char *vips_guess_prefix( const char *argv0, const char *env_name );
+const char *vips_guess_libdir( const char *argv0, const char *env_name );
 
 #ifdef __cplusplus
 }
 #endif /*__cplusplus*/
 
-#endif /*IM_VIPS_H*/
+#endif /*VIPS_VIPS_H*/

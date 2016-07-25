@@ -1,50 +1,71 @@
 noinst_LTLIBRARIES = libiofuncs.la
 
 libiofuncs_la_SOURCES = \
+	vipsmarshal.h \
+	vipsmarshal.c \
+	type.c \
+	gate.c \
+	enumtypes.c \
 	object.c \
-	meta.c \
 	base64.h \
 	base64.c \
-	callback.c \
-	debug.c \
-	dispatch_types.c \
 	error.c \
-	im_binfile.c \
-	im_close.c \
-	im_cp_desc.c \
-	im_demand_hint.c \
-	im_generate.c \
-	im_histlin.c \
-	im_image.c \
-	init.c \
-	im_mapfile.c \
-	im_open.c \
-	im_open_vips.c \
-	im_partial.c \
-	im_prepare.c \
-	im_setbuf.c \
-	im_setupout.c \
-	im_unmapfile.c \
-	im_guess_prefix.c \
-	sinkmemory.c \
-	sinkscreen.c \
-	sinkdisc.c \
+	image.c \
+	vips.c \
+	generate.c \
+	mapfile.c \
+	cache.c \
+	sink.h \
 	sink.c \
-	im_wrapmany.c \
-	im_writeline.c \
+	sinkmemory.c \
+	sinkdisc.c \
+	sinkscreen.c \
 	memory.c \
-	check.c \
-	package.c \
 	header.c \
+	operation.c \
 	region.c \
 	rect.c \
 	semaphore.c \
 	threadpool.c \
 	util.c \
-	im_init_world.c \
+	init.c \
 	buf.c \
 	window.c \
-	buffer.c \
-	time.c 
+	vector.c \
+	system.c \
+	buffer.c
 
-INCLUDES = -I${top_srcdir}/libvips/include @VIPS_CFLAGS@ @VIPS_INCLUDES@ 
+vipsmarshal.h:
+	glib-genmarshal --prefix=vips --header vipsmarshal.list > vipsmarshal.h
+vipsmarshal.c:
+	echo "#include \"vipsmarshal.h\"" > vipsmarshal.c
+	glib-genmarshal --prefix=vips --body vipsmarshal.list >> vipsmarshal.c
+
+EXTRA_DIST = \
+	enumtemplate \
+	vipsmarshal.h \
+	vipsmarshal.c \
+	vipsmarshal.list
+
+AM_CPPFLAGS = -I${top_srcdir}/libvips/include @VIPS_CFLAGS@ @VIPS_INCLUDES@
+
+# the headers we scan for enums etc.
+# keep in sync with ../include/vips/Makefile.am
+# we need absolute filenames here since this list appears in the header dir as
+# well
+vips_scan_headers = \
+	${top_srcdir}/libvips/include/vips/resample.h \
+	${top_srcdir}/libvips/include/vips/memory.h \
+	${top_srcdir}/libvips/include/vips/create.h \
+	${top_srcdir}/libvips/include/vips/foreign.h \
+	${top_srcdir}/libvips/include/vips/conversion.h \
+	${top_srcdir}/libvips/include/vips/arithmetic.h \
+	${top_srcdir}/libvips/include/vips/util.h \
+	${top_srcdir}/libvips/include/vips/image.h \
+	${top_srcdir}/libvips/include/vips/colour.h \
+	${top_srcdir}/libvips/include/vips/operation.h \
+	${top_srcdir}/libvips/include/vips/convolution.h \
+	${top_srcdir}/libvips/include/vips/morphology.h \
+	${top_srcdir}/libvips/include/vips/draw.h \
+	${top_srcdir}/libvips/include/vips/basic.h \
+	${top_srcdir}/libvips/include/vips/object.h

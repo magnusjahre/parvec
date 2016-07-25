@@ -3,6 +3,8 @@
  * N. Robidoux, C. Racette and J. Cupitt, 23-28/03/2010
  *
  * N. Robidoux, 16-19/05/2010
+ *
+ * N. Robidoux, 22/11/2011
  */
 
 /*
@@ -20,9 +22,9 @@
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this program; if not, write to the Free
-    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-    02111-1307 USA
+    License along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301 USA
 
  */
 
@@ -35,13 +37,16 @@
 /*
  * 2010 (c) Nicolas Robidoux, Chantal Racette, John Cupitt.
  *
- * Nicolas Robidoux thanks Adam Turcotte, Geert Jordaens, Ralf Meyer,
+ * N. Robidoux thanks Adam Turcotte, Geert Jordaens, Ralf Meyer,
  * Øyvind Kolås, Minglun Gong, Eric Daoust and Sven Neumann for useful
  * comments and code.
  *
- * Chantal Racette's image resampling research and programming funded
- * in part by a NSERC Discovery Grant awarded to Julien Dompierre
- * (20-61098).
+ * C. Racette's image resampling research and programming funded in
+ * part by an NSERC (National Science and Engineering Research Council
+ * of Canada) Alexander Graham Bell Canada Graduate Scholarship, by an
+ * NSERC Discovery Grant awarded to Julien Dompierre (grant number
+ * 20-61098) and by N. Robidoux's Laurentian University professional
+ * allowance.
  */
 
 /*
@@ -53,21 +58,21 @@
  *
  *   A "sharp" version, which shows a little more staircasing and a
  *   little less haloing, which is a little cheaper (it uses 6 less
- *   comparisons and 12 less "? :"), and which appears to lead to less
- *   "zebra striping" when two diagonal interfaces are close to each
- *   other.
+ *   comparisons and 12 less "? :").
  *
  * The only difference between the two is that the "soft" versions
  * uses local minima and maxima computed over 3x3 square blocks, and
  * the "sharp" version uses local minima and maxima computed over 3x3
  * crosses.
  *
- * If you want to use the "soft" (more expensive) version, comment out
- * the following three pre-processor code lines:
+ * If you want to use the "sharp" version, comment out the following
+ * three pre-processor code lines:
  */
+/*
 #ifndef __LBB_CHEAP_H__
 #define __LBB_CHEAP_H__
 #endif
+*/
 
 /*
  * LBB (Locally Bounded Bicubic) is a high quality nonlinear variant
@@ -83,14 +88,14 @@
  * final clamping is needed to stay "in range" (e.g., 0-255 for
  * standard 8-bit images).
  *
- * LBB was developed by Nicolas Robidoux and Chantal Racette of the
- * Department of Mathematics and Computer Science of Laurentian
- * University in the course of C. Racette's Masters thesis in
- * Computational Sciences. Preliminary work directly leading to the
- * LBB method and code was performed by C. Racette and N. Robidoux in
- * the course of her honours thesis, and by N. Robidoux, A. Turcotte
- * and E. Daoust during Google Summer of Code 2009 (through two awards
- * made to GIMP to improve GEGL).
+ * LBB was developed by N. Robidoux and C. Racette at the Department
+ * of Mathematics and Computer Science of Laurentian University in the
+ * course of C. Racette's Masters thesis in Computational
+ * Sciences. Preliminary work directly leading to the LBB method and
+ * code was performed by C. Racette and N. Robidoux in the course of
+ * her honours thesis, and by N. Robidoux, A. Turcotte and E. Daoust
+ * during Google Summer of Code 2009 (through two awards made to GIMP
+ * to improve GEGL).
  *
  * LBB is a novel method with the following properties:
  *
@@ -186,6 +191,9 @@ typedef struct _VipsInterpolateLbbClass {
 
 } VipsInterpolateLbbClass;
 
+/*
+ * Absolute value and sign macros:
+ */
 #define LBB_ABS(x)  ( ((x)>=0.) ? (x) : -(x) )
 #define LBB_SIGN(x) ( ((x)>=0.) ? 1.0 : -1.0 )
 /*
@@ -258,6 +266,9 @@ lbbicubic( const double c00,
    * sub-crosses of the 4x4 input stencil, performed with only 22
    * comparisons and 28 "? :". If you can figure out how to do this
    * more efficiently, let us know.
+   *
+   * This is the cheaper (but arguably less desirable in terms of
+   * quality) version of the computation.
    */
   const double m1    = (dos_two <= dos_thr) ? dos_two : dos_thr  ;
   const double M1    = (dos_two <= dos_thr) ? dos_thr : dos_two  ;
@@ -570,8 +581,8 @@ lbbicubic( const double c00,
  */
 #define LBB_CONVERSION( conversion )                     \
   template <typename T> static void inline               \
-  lbb_ ## conversion(       PEL*   restrict pout,        \
-                      const PEL*   restrict pin,         \
+  lbb_ ## conversion(       void*      restrict pout,    \
+                      const VipsPel*   restrict pin,     \
                       const int             bands,       \
                       const int             lskip,       \
                       const double          relative_x,  \
@@ -752,33 +763,25 @@ G_DEFINE_TYPE( VipsInterpolateLbb, vips_interpolate_lbb,
 
 static void
 vips_interpolate_lbb_interpolate( VipsInterpolate* restrict interpolate,
-                                  PEL*             restrict out,
-                                  REGION*          restrict in,
+                                  void*            restrict out,
+                                  VipsRegion*      restrict in,
                                   double                    absolute_x,
                                   double                    absolute_y )
 {
-  /*
-   * Floor's surrogate FAST_PSEUDO_FLOOR is used to make sure that the
-   * transition through 0 is smooth. If it is known that absolute_x
-   * and absolute_y will never be less than 0, plain cast---that is,
-   * const int ix = absolute_x---should be used instead.  Actually,
-   * any function which agrees with floor for non-integer values, and
-   * picks one of the two possibilities for integer values, can be
-   * used. FAST_PSEUDO_FLOOR fits the bill.
+  /* absolute_x and absolute_y are always >= 1.0 (see double-check assert
+   * below), so we don't need floor(). 
    *
-   * Then, x is the x-coordinate of the sampling point relative to the
-   * position of the top left corner of the convex hull of the 2x2
-   * block of closest pixels. Similarly for y. Range of values: [0,1).
+   * It's 1 not 0 since have a window_offset of 1.
    */
-  const int ix = FAST_PSEUDO_FLOOR( absolute_x );
-  const int iy = FAST_PSEUDO_FLOOR( absolute_y );
+  const int ix = (int) absolute_x;
+  const int iy = (int) absolute_y;
 
   /*
    * Move the pointer to (the first band of) the top/left pixel of the
    * 2x2 group of pixel centers which contains the sampling location
    * in its convex hull:
    */
-  const PEL* restrict p = (PEL *) IM_REGION_ADDR( in, ix, iy );
+  const VipsPel* restrict p = VIPS_REGION_ADDR( in, ix, iy );
 
   const double relative_x = absolute_x - ix;
   const double relative_y = absolute_y - iy;
@@ -786,50 +789,62 @@ vips_interpolate_lbb_interpolate( VipsInterpolate* restrict interpolate,
   /*
    * VIPS versions of Nicolas's pixel addressing values.
    */
-  const int actual_bands = in->im->Bands;
-  const int lskip = IM_REGION_LSKIP( in ) / IM_IMAGE_SIZEOF_ELEMENT( in->im );
+  const int lskip = VIPS_REGION_LSKIP( in ) / 
+	  VIPS_IMAGE_SIZEOF_ELEMENT( in->im );
   /*
    * Double the bands for complex images to account for the real and
    * imaginary parts being computed independently:
    */
+  const int actual_bands = in->im->Bands;
   const int bands =
-    vips_bandfmt_iscomplex( in->im->BandFmt ) ? 2 * actual_bands : actual_bands;
+    vips_band_format_iscomplex( in->im->BandFmt ) ? 
+      2 * actual_bands : actual_bands;
+
+  g_assert( ix - 1 >= in->valid.left );
+  g_assert( iy - 1 >= in->valid.top );
+  g_assert( ix + 2 < VIPS_RECT_RIGHT( &in->valid ) );
+  g_assert( iy + 2 < VIPS_RECT_BOTTOM( &in->valid ) );
+
+  /* Confirm that absolute_x and absolute_y are >= 1, see above. 
+   */
+  g_assert( absolute_x >= 1.0 );
+  g_assert( absolute_y >= 1.0 );
 
   switch( in->im->BandFmt ) {
-  case IM_BANDFMT_UCHAR:
+  case VIPS_FORMAT_UCHAR:
     CALL( unsigned char, nosign );
     break;
 
-  case IM_BANDFMT_CHAR:
+  case VIPS_FORMAT_CHAR:
     CALL( signed char, withsign );
     break;
 
-  case IM_BANDFMT_USHORT:
+  case VIPS_FORMAT_USHORT:
     CALL( unsigned short, nosign );
     break;
 
-  case IM_BANDFMT_SHORT:
+  case VIPS_FORMAT_SHORT:
     CALL( signed short, withsign );
     break;
 
-  case IM_BANDFMT_UINT:
+  case VIPS_FORMAT_UINT:
     CALL( unsigned int, nosign );
     break;
 
-  case IM_BANDFMT_INT:
+  case VIPS_FORMAT_INT:
     CALL( signed int, withsign );
     break;
 
   /*
    * Complex images are handled by doubling of bands.
    */
-  case IM_BANDFMT_FLOAT:
-  case IM_BANDFMT_COMPLEX:
+  case VIPS_FORMAT_FLOAT:
+  case VIPS_FORMAT_COMPLEX:
     CALL( float, fptypes );
     break;
 
-  case IM_BANDFMT_DOUBLE:
-  case IM_BANDFMT_DPCOMPLEX:
+  case VIPS_FORMAT_DOUBLE:
+  case VIPS_FORMAT_DPCOMPLEX:
     CALL( double, fptypes );
     break;
 
@@ -847,15 +862,10 @@ vips_interpolate_lbb_class_init( VipsInterpolateLbbClass *klass )
     VIPS_INTERPOLATE_CLASS( klass );
 
   object_class->nickname    = "lbb";
-  object_class->description = _( "Reduced halo bicubic" );
+  object_class->description = _( "reduced halo bicubic" );
 
   interpolate_class->interpolate   = vips_interpolate_lbb_interpolate;
   interpolate_class->window_size   = 4;
-  interpolate_class->window_offset = 2;
-  /*
-   * Note from nicolas: If things were sane, window_offset should be
-   * 1, not 2.
-   */
 }
 
 static void

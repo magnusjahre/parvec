@@ -20,7 +20,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -37,10 +38,11 @@
 extern "C" {
 #endif /*__cplusplus*/
 
-int im_greyc_mask( IMAGE *in, IMAGE *out, IMAGE *mask, 
-	int iterations, float amplitude, float sharpness, float anisotropy, 
-	float alpha, float sigma, float dl, float da, float gauss_prec, 
-	int interpolation, int fast_approx );
+#include <vips/vips.h>
+
+int vips_gmic( VipsImage **in, VipsImage **out, int n, 
+	int padding, double x_scale, double y_scale, const char *command, ... )
+	__attribute__((sentinel));
 
 #ifdef __cplusplus
 }

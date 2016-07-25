@@ -17,7 +17,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -34,20 +35,24 @@
 extern "C" {
 #endif /*__cplusplus*/
 
+#include <vips/vips.h>
+
 /* A string in the process of being written to ... multiple calls to 
- * vips_buf_append add to it, on overflow append "..." and block further writes.
+ * vips_buf_append add to it. On overflow append "..." and block further 
+ * writes.
  */
-typedef struct {
+
+typedef struct _VipsBuf {
 	/* All fields are private.
 	 */
-	/* <private> */
+	/*< private >*/
 	char *base;		/* String base */
 	int mx;			/* Maximum length */
 	int i;			/* Current write point */
 	gboolean full;		/* String has filled, block writes */
 	int lasti;		/* For read-recent */
 	gboolean dynamic;	/* We own the string with malloc() */
-} VipsBuf;
+} VipsBuf; 
 
 #define VIPS_BUF_STATIC( TEXT ) \
 	{ &TEXT[0], sizeof( TEXT ), 0, FALSE, 0, FALSE }
@@ -69,8 +74,9 @@ gboolean vips_buf_vappendf( VipsBuf *buf, const char *fmt, va_list ap );
 gboolean vips_buf_appendc( VipsBuf *buf, char ch );
 gboolean vips_buf_appendsc( VipsBuf *buf, gboolean quote, const char *str );
 gboolean vips_buf_appendgv( VipsBuf *buf, GValue *value );
+gboolean vips_buf_append_size( VipsBuf *buf, size_t n );
 gboolean vips_buf_removec( VipsBuf *buf, char ch );
-gboolean vips_buf_change( VipsBuf *buf, const char *old, const char * );
+gboolean vips_buf_change( VipsBuf *buf, const char *o, const char *n );
 gboolean vips_buf_is_empty( VipsBuf *buf );
 gboolean vips_buf_is_full( VipsBuf *buf );
 const char *vips_buf_all( VipsBuf *buf );

@@ -23,7 +23,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -33,8 +34,8 @@
 
  */
 
-#ifndef IM_THREADPOOL_H
-#define IM_THREADPOOL_H
+#ifndef VIPS_THREADPOOL_H
+#define VIPS_THREADPOOL_H
 
 #ifdef __cplusplus
 extern "C" {
@@ -64,6 +65,7 @@ extern "C" {
 typedef struct _VipsThreadState {
 	VipsObject parent_object;
 
+	/*< public >*/
 	/* Image we run on.
 	 */
 	VipsImage *im;
@@ -71,12 +73,16 @@ typedef struct _VipsThreadState {
 	/* This region is created and destroyed by the threadpool for the
 	 * use of the worker. 
 	 */
-	REGION *reg;		
+	VipsRegion *reg;		
 
 	/* Neither used nor set, do what you like with them.
 	 */
-	Rect pos;
+	VipsRect pos;
 	int x, y;
+
+	/* Set in work to get the allocate to signal stop.
+	 */
+	gboolean stop;
 
 	/* The client data passed to the enclosing vips_threadpool_run().
 	 */
@@ -86,6 +92,7 @@ typedef struct _VipsThreadState {
 
 typedef struct _VipsThreadStateClass {
 	VipsObjectClass parent_class;
+	/*< public >*/
 
 } VipsThreadStateClass;
 
@@ -96,63 +103,39 @@ VipsThreadState *vips_thread_state_new( VipsImage *im, void *a );
 
 /* Constructor for per-thread state.
  */
-typedef VipsThreadState *(*VipsThreadStart)( VipsImage *im, void *a );
+typedef VipsThreadState *(*VipsThreadStartFn)( VipsImage *im, void *a );
 
 /* A work allocate function. This is run single-threaded by a worker to
  * set up a new work unit. 
  * Return non-zero for errors. Set *stop for "no more work to do"
  */
-typedef int (*VipsThreadpoolAllocate)( VipsThreadState *state,
+typedef int (*VipsThreadpoolAllocateFn)( VipsThreadState *state,
 	void *a, gboolean *stop );
 
 /* A work function. This does a unit of work (eg. processing a tile or
  * whatever). Return non-zero for errors. 
  */
-typedef int (*VipsThreadpoolWork)( VipsThreadState *state, void *a );
+typedef int (*VipsThreadpoolWorkFn)( VipsThreadState *state, void *a );
 
 /* A progress function. This is run by the main thread once for every
  * allocation. Return an error to kill computation early.
  */
-typedef int (*VipsThreadpoolProgress)( void *a );
+typedef int (*VipsThreadpoolProgressFn)( void *a );
 
 int vips_threadpool_run( VipsImage *im, 
-	VipsThreadStart start, 
-	VipsThreadpoolAllocate allocate, 
-	VipsThreadpoolWork work,
-	VipsThreadpoolProgress progress,
+	VipsThreadStartFn start, 
+	VipsThreadpoolAllocateFn allocate, 
+	VipsThreadpoolWorkFn work,
+	VipsThreadpoolProgressFn progress,
 	void *a );
 void vips_get_tile_size( VipsImage *im, 
-	int *tile_width, int *tile_height, int *nlines );
+	int *tile_width, int *tile_height, int *n_lines );
 
-typedef int (*VipsRegionWrite)( REGION *region, Rect *area, void *a );
-int vips_sink_disc( VipsImage *im, VipsRegionWrite write_fn, void *a );
-
-typedef void *(*VipsStart)( VipsImage *out, void *a, void *b );
-typedef int (*VipsGenerate)( REGION *out, void *seq, void *a, void *b );
-typedef int (*VipsStop)( void *seq, void *a, void *b );
-int vips_sink( VipsImage *im, 
-	VipsStart start, VipsGenerate generate, VipsStop stop,
-	void *a, void *b );
-int vips_sink_tile( VipsImage *im, 
-	int tile_width, int tile_height,
-	VipsStart start, VipsGenerate generate, VipsStop stop,
-	void *a, void *b );
-
-typedef void (*VipsSinkNotify)( VipsImage *im, Rect *rect, void *a );
-int vips_sink_screen( VipsImage *in, VipsImage *out, VipsImage *mask,
-	int tile_width, int tile_height, int max_tiles,
-	int priority,
-	VipsSinkNotify notify, void *a );
-
-int vips_sink_memory( VipsImage *im );
-
-void im__print_renders( void );
-
-void im_concurrency_set( int concurrency );
-int im_concurrency_get( void );
+void vips_concurrency_set( int concurrency );
+int vips_concurrency_get( void );
 
 #ifdef __cplusplus
 }
 #endif /*__cplusplus*/
 
-#endif /*IM_THREADPOOL_H*/
+#endif /*VIPS_THREADPOOL_H*/

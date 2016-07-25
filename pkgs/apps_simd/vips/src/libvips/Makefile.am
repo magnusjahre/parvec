@@ -1,76 +1,117 @@
-# only build in the cimg dir if C++ is enabled
-if ENABLE_CXX
-C_COMPILE_DIR = cimg
-C_DIST_DIR =
-C_LIB = cimg/libcimg.la
+OPTIONAL_COMPILE_DIR = 
+OPTIONAL_DIST_DIR =
+OPTIONAL_LIB = 
+
+if ENABLE_DEPRECATED
+OPTIONAL_COMPILE_DIR += deprecated
+OPTIONAL_LIB += deprecated/libdeprecated.la
 else
-C_COMPILE_DIR =
-C_DIST_DIR = cimg
-C_LIB = 
+OPTIONAL_DIST_DIR += deprecated
 endif
 
 SUBDIRS = \
 	include \
-	acquire \
+	foreign \
 	arithmetic \
 	resample \
-	boolean \
 	colour \
 	conversion \
-	deprecated \
 	convolution \
-	$(C_COMPILE_DIR) \
-	format \
-	freq_filt \
-	histograms_lut \
-	inplace \
+	$(OPTIONAL_COMPILE_DIR) \
+	freqfilt \
+	histogram \
+	draw \
 	iofuncs \
-	mask \
 	morphology \
 	mosaicing \
-	other \
-	relational \
+	create \
 	video \
 	.
 
 lib_LTLIBRARIES = libvips.la
 
-libvips_la_SOURCES = dummy.c 
-if ENABLE_CXX
-libvips_la_SOURCES += dummy2.cc
-endif
+# empty means default to C linking
+libvips_la_SOURCES = 
+
+# make sure we link the top-level with c++
+nodist_EXTRA_libvips_la_SOURCES = resample/dummy2.cc
 
 # DLLs need dependant libs there too ... put @VIPS_LIBS@ at the end
 libvips_la_LIBADD = \
-	acquire/libacquire.la \
 	resample/libresample.la \
 	arithmetic/libarithmetic.la \
-	boolean/libboolean.la \
 	colour/libcolour.la \
 	conversion/libconversion.la \
 	convolution/libconvolution.la \
-	deprecated/libdeprecated.la \
-	$(C_LIB) \
-	format/libformat.la \
-	freq_filt/libfreq_filt.la \
-	histograms_lut/libhistograms_lut.la \
-	inplace/libinplace.la \
+	$(OPTIONAL_LIB) \
+	foreign/libforeign.la \
+	freqfilt/libfreqfilt.la \
+	histogram/libhistogram.la \
+	draw/libdraw.la \
 	iofuncs/libiofuncs.la \
-	mask/libmask.la \
 	morphology/libmorphology.la \
 	mosaicing/libmosaicing.la \
-	other/libother.la \
-	relational/librelational.la \
+	create/libcreate.la \
 	video/libvideo.la \
 	@VIPS_LIBS@
-
-if ENABLE_CXX
-libvips_la_LIBADD += @VIPS_CXX_LIBS@
-endif
 
 libvips_la_LDFLAGS = \
 	-no-undefined \
 	-version-info @LIBRARY_CURRENT@:@LIBRARY_REVISION@:@LIBRARY_AGE@ 
 
 EXTRA_DIST = \
-	$(C_DIST_DIR)
+	$(OPTIONAL_DIST_DIR)
+
+CLEANFILES = 
+
+-include $(INTROSPECTION_MAKEFILE)
+INTROSPECTION_GIRS =
+INTROSPECTION_SCANNER_ARGS = --add-include-path=$(srcdir)
+INTROSPECTION_COMPILER_ARGS = --includedir=$(srcdir)
+
+if HAVE_INTROSPECTION
+
+AM_CPPFLAGS = \
+	      -I${top_srcdir}/libvips/include \
+	      @VIPS_CFLAGS@ \
+	      @VIPS_INCLUDES@ \
+	      @INTROSPECTION_CFLAGS@ 
+AM_LDFLAGS = \
+	     @INTROSPECTION_LIBS@ \
+	     @LDFLAGS@ 
+LDADD = @INTROSPECTION_LIBS@ @VIPS_CFLAGS@ libvips.la @VIPS_LIBS@ 
+
+noinst_PROGRAMS = \
+	introspect
+introspect_SOURCES = \
+	introspect.c
+
+# we can't get the _SOURCES lists from the subdirs directly, we get passed it
+# by configure instead
+introspection_sources = @vips_introspection_sources@
+
+# we make the vips8 API
+Vips-8.0.gir: introspect
+Vips_8_0_gir_INCLUDES = GObject-2.0
+Vips_8_0_gir_CFLAGS = $(INCLUDES) -I${top_srcdir}/libvips/include
+Vips_8_0_gir_LIBS = libvips.la
+Vips_8_0_gir_FILES = $(introspection_sources)
+INTROSPECTION_GIRS += Vips-8.0.gir
+
+# don't use --warn-all --verbose 
+# we have an unusual markup with optional args and we don't want to see all
+# those warnings
+Vips_8_0_gir_SCANNERFLAGS = \
+			    --program=./introspect \
+			    --identifier-prefix=Vips \
+			    --identifier-prefix=vips \
+			    --symbol-prefix=vips 
+
+girdir = $(datadir)/gir-1.0
+gir_DATA = $(INTROSPECTION_GIRS)
+
+typelibdir = $(libdir)/girepository-1.0
+typelib_DATA = $(INTROSPECTION_GIRS:.gir=.typelib)
+
+CLEANFILES += $(gir_DATA) $(typelib_DATA)
+endif

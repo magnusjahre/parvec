@@ -65,7 +65,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -86,11 +87,7 @@
 
 #include <vips/vips.h>
 
-#include "mosaic.h"
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
+#include "pmosaicing.h"
 
 /* A position and contrast.
  */
@@ -111,11 +108,11 @@ all_black( IMAGE *im, int xpos, int ypos, int winsize )
 	const int ls = im->Xsize;
 
 	int x, y;
-	PEL *line;
+	VipsPel *line;
 
 	/* Loop over image.
 	 */
-	line = (PEL *) im->data + top*ls + left;
+	line = im->data + top*ls + left;
 	for( y = 0; y < winsize; y++ ) {
 		for( x = 0; x < winsize; x++ ) 
 			if( line[x] ) 
@@ -142,10 +139,10 @@ calculate_contrast( IMAGE *im, int xpos, int ypos, int winsize )
 	const int ls = im->Xsize;
 
 	int x, y;
-	PEL *line, *p;
+	VipsPel *line, *p;
 	int total;
 
-	line = (PEL *) im->data + top*ls + left;
+	line = im->data + top*ls + left;
 	for( total = 0, y = 0; y < winsize-1; y++ ) {
 		p = line;
 

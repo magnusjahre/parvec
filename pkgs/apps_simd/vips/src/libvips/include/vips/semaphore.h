@@ -23,7 +23,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -33,12 +34,15 @@
 
  */
 
-#ifndef IM_SEMAPHORE_H
-#define IM_SEMAPHORE_H
+#ifndef VIPS_SEMAPHORE_H
+#define VIPS_SEMAPHORE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif /*__cplusplus*/
+
+#include <vips/vips.h>
+#include <vips/thread.h>
 
 /* Implement our own semaphores.
  */
@@ -48,17 +52,17 @@ typedef struct {
 
 	GMutex *mutex;
 	GCond *cond;
-} im_semaphore_t;
+} VipsSemaphore;
 
-int im_semaphore_up( im_semaphore_t *s );
-int im_semaphore_down( im_semaphore_t *s );
-int im_semaphore_upn( im_semaphore_t *s, int n );
-int im_semaphore_downn( im_semaphore_t *s, int n );
-void im_semaphore_destroy( im_semaphore_t *s );
-void im_semaphore_init( im_semaphore_t *s, int v, char *name );
+int vips_semaphore_up( VipsSemaphore *s );
+int vips_semaphore_down( VipsSemaphore *s );
+int vips_semaphore_upn( VipsSemaphore *s, int n );
+int vips_semaphore_downn( VipsSemaphore *s, int n );
+void vips_semaphore_destroy( VipsSemaphore *s );
+void vips_semaphore_init( VipsSemaphore *s, int v, char *name );
 
 #ifdef __cplusplus
 }
 #endif /*__cplusplus*/
 
-#endif /*IM_SEMAPHORE_H*/
+#endif /*VIPS_SEMAPHORE_H*/

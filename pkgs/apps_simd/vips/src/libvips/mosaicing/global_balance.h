@@ -20,7 +20,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -83,13 +84,13 @@ struct _JoinNode {
 	 * cumtrn.area is position and size of us, thistrn.area is pos and
 	 * size of arg2.
 	 */
-	Transformation cumtrn;
+	VipsTransformation cumtrn;
 
 	/* X-tras for LR/TB. thistrn is what we do to arg2.
 	 */
 	JoinNode *arg1;		/* Left or up thing to join */
 	JoinNode *arg2;		/* Right or down thing to join */
-	Transformation thistrn;	/* Transformation for arg2 */
+	VipsTransformation thistrn;	/* Transformation for arg2 */
 
 	/* Special for leaves: all the join_nodes we overlap with, the
 	 * IMAGE for that file, and the index.
@@ -121,6 +122,6 @@ struct _SymbolTable {
 IMAGE *im__global_open_image( SymbolTable *st, char *name );
 SymbolTable *im__build_symtab( IMAGE *out, int sz );
 int im__parse_desc( SymbolTable *st, IMAGE *in );
-void *im__map_table( SymbolTable *st, void *(*fn)(), void *a, void *b );
+void *im__map_table( SymbolTable *st, VSListMap2Fn fn, void *a, void *b );
 int im__build_mosaic( SymbolTable *st, 
 	IMAGE *out, transform_fn tfn, void * );

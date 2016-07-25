@@ -1,4 +1,4 @@
-/* Definitions for partial image regions.
+/* Generate pixels.
  *
  * J.Cupitt, 8/4/93
  */
@@ -19,7 +19,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -29,74 +30,51 @@
 
  */
 
-#ifndef IM_GENERATE_H
-#define IM_GENERATE_H
+#ifndef VIPS_GENERATE_H
+#define VIPS_GENERATE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif /*__cplusplus*/
 
-/* IMAGE functions which use regions. 
- */
-int im_prepare( REGION *reg, Rect *r );
-int im_prepare_to( REGION *reg, REGION *dest, Rect *r, int x, int y );
+typedef int (*VipsRegionWrite)( VipsRegion *region, VipsRect *area, void *a );
+int vips_sink_disc( VipsImage *im, VipsRegionWrite write_fn, void *a );
 
-typedef void *(*im_start_fn)( IMAGE *out, void *a, void *b );
-typedef int (*im_generate_fn)( REGION *out, void *seq, void *a, void *b );
-typedef int (*im_stop_fn)( void *seq, void *a, void *b );
-
-void *im_start_one( IMAGE *out, void *in, void *dummy );
-int im_stop_one( void *seq, void *dummy1, void *dummy2 );
-void *im_start_many( IMAGE *out, void *in, void *dummy );
-int im_stop_many( void *seq, void *dummy1, void *dummy2 );
-IMAGE **im_allocate_input_array( IMAGE *out, ... )
-	__attribute__((sentinel));
-
-int im_generate( IMAGE *im,
-	im_start_fn start, im_generate_fn generate, im_stop_fn stop,
-	void *a, void *b
-);
-int im_iterate( IMAGE *im,
-	im_start_fn start, im_generate_fn generate, im_stop_fn stop,
-	void *a, void *b
-);
-
-int im_demand_hint_array( IMAGE *im, im_demand_type hint, IMAGE **in );
-int im_demand_hint( IMAGE *im, im_demand_type hint, ... )
-	__attribute__((sentinel));
-
-/* Buffer processing.
- */
-typedef void (*im_wrapone_fn)( void *in, void *out, int width,
+int vips_sink( VipsImage *im, 
+	VipsStartFn start_fn, VipsGenerateFn generate_fn, VipsStopFn stop_fn,
 	void *a, void *b );
-int im_wrapone( IMAGE *in, IMAGE *out,
-	im_wrapone_fn fn, void *a, void *b );
-
-typedef void (*im_wraptwo_fn)( void *in1, void *in2, void *out, 
-        int width, void *a, void *b );
-int im_wraptwo( IMAGE *in1, IMAGE *in2, IMAGE *out,
-	im_wraptwo_fn fn, void *a, void *b );
-
-typedef void (*im_wrapmany_fn)( void **in, void *out, int width,
+int vips_sink_tile( VipsImage *im, 
+	int tile_width, int tile_height,
+	VipsStartFn start_fn, VipsGenerateFn generate_fn, VipsStopFn stop_fn,
 	void *a, void *b );
-int im_wrapmany( IMAGE **in, IMAGE *out,
-	im_wrapmany_fn fn, void *a, void *b );
 
-/* Async rendering.
- */
-int im_render_priority( IMAGE *in, IMAGE *out, IMAGE *mask,
-	int width, int height, int max,
+typedef void (*VipsSinkNotify)( VipsImage *im, VipsRect *rect, void *a );
+int vips_sink_screen( VipsImage *in, VipsImage *out, VipsImage *mask,
+	int tile_width, int tile_height, int max_tiles,
 	int priority,
-	void (*notify)( IMAGE *, Rect *, void * ), void *client );
-int im_cache( IMAGE *in, IMAGE *out, int width, int height, int max );
+	VipsSinkNotify notify_fn, void *a );
 
-/* WIO.
- */
-int im_setupout( IMAGE *im );
-int im_writeline( int ypos, IMAGE *im, PEL *linebuffer );
+int vips_sink_memory( VipsImage *im );
+
+void *vips_start_one( VipsImage *out, void *a, void *b );
+int vips_stop_one( void *seq, void *a, void *b );
+void *vips_start_many( VipsImage *out, void *a, void *b );
+int vips_stop_many( void *seq, void *a, void *b );
+VipsImage **vips_allocate_input_array( VipsImage *out, ... )
+	__attribute__((sentinel));
+
+int vips_image_generate( VipsImage *image,
+	VipsStartFn start_fn, VipsGenerateFn generate_fn, VipsStopFn stop_fn,
+	void *a, void *b
+);
+
+int vips_image_pipeline_array( VipsImage *image, 
+	VipsDemandStyle hint, VipsImage **in );
+int vips_image_pipelinev( VipsImage *image, VipsDemandStyle hint, ... )
+	__attribute__((sentinel));
 
 #ifdef __cplusplus
 }
 #endif /*__cplusplus*/
 
-#endif /*IM_GENERATE_H*/
+#endif /*VIPS_GENERATE_H*/

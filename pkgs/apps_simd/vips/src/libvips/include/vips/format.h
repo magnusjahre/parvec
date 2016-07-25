@@ -18,7 +18,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -54,7 +55,8 @@ extern "C" {
  */
 typedef enum {
 	VIPS_FORMAT_NONE = 0,		/* No flags set */
-	VIPS_FORMAT_PARTIAL = 1		/* Lazy read OK (eg. tiled tiff) */
+	VIPS_FORMAT_PARTIAL = 1,	/* Lazy read OK (eg. tiled tiff) */
+	VIPS_FORMAT_BIGENDIAN = 2	/* Most-significant byte first */
 } VipsFormatFlags;
 
 /* Don't instantiate these things, just use the class stuff.
@@ -62,27 +64,29 @@ typedef enum {
 
 typedef struct _VipsFormat {
 	VipsObject parent_object;
+	/*< public >*/
 
 } VipsFormat;
 
 typedef struct _VipsFormatClass {
 	VipsObjectClass parent_class;
 
+	/*< public >*/
 	/* Is a file in this format.
 	 */
 	gboolean (*is_a)( const char * );
 
-	/* Read just the header into the IMAGE.
+	/* Read just the header into the VipsImage.
 	 */
-	int (*header)( const char *, IMAGE * );
+	int (*header)( const char *, VipsImage * );
 
 	/* Load the whole image.
 	 */
-	int (*load)( const char *, IMAGE * );
+	int (*load)( const char *, VipsImage * );
 
-	/* Write the IMAGE to the file in this format.
+	/* Write the VipsImage to the file in this format.
 	 */
-	int (*save)( IMAGE *, const char * );
+	int (*save)( VipsImage *, const char * );
 
 	/* Get the flags for this file in this format.
 	 */
@@ -105,7 +109,7 @@ GType vips_format_get_type( void );
 /* Map over and find formats. This uses type introspection to loop over
  * subclasses of VipsFormat.
  */
-void *vips_format_map( VSListMap2Fn fn, void *a, void *b );
+void *vips_format_map( VipsSListMap2Fn fn, void *a, void *b );
 VipsFormatClass *vips_format_for_file( const char *filename );
 VipsFormatClass *vips_format_for_name( const char *filename );
 
@@ -114,44 +118,59 @@ VipsFormatFlags vips_format_get_flags( VipsFormatClass *format,
 
 /* Read/write an image convenience functions.
  */
-int vips_format_read( const char *filename, IMAGE *out );
-int vips_format_write( IMAGE *in, const char *filename );
+int vips_format_read( const char *filename, VipsImage *out );
+int vips_format_write( VipsImage *in, const char *filename );
 
 /* Low-level read/write operations.
  */
-int im_jpeg2vips( const char *filename, IMAGE *out );
-int im_vips2jpeg( IMAGE *in, const char *filename );
-int im_vips2mimejpeg( IMAGE *in, int qfac );
-int im_vips2bufjpeg( IMAGE *in, IMAGE *out, int qfac, char **obuf, int *olen );
+int im_jpeg2vips( const char *filename, VipsImage *out );
+int im_bufjpeg2vips( void *buf, size_t len, 
+	VipsImage *out, gboolean header_only );
+int im_vips2jpeg( VipsImage *in, const char *filename );
+int im_vips2mimejpeg( VipsImage *in, int qfac );
+int im_vips2bufjpeg( VipsImage *in, VipsImage *out, 
+	int qfac, char **obuf, int *olen );
 
-int im_tiff2vips( const char *filename, IMAGE *out );
-int im_vips2tiff( IMAGE *in, const char *filename );
-int im_tile_cache( IMAGE *in, IMAGE *out, 
+int im_tiff2vips( const char *filename, VipsImage *out );
+int im_vips2tiff( VipsImage *in, const char *filename );
+int im_tile_cache( VipsImage *in, VipsImage *out, 
 	int tile_width, int tile_height, int max_tiles );
 
-int im_magick2vips( const char *filename, IMAGE *out );
+int im_magick2vips( const char *filename, VipsImage *out );
+int im_bufmagick2vips( void *buf, size_t len, 
+	VipsImage *out, gboolean header_only );
 
-int im_exr2vips( const char *filename, IMAGE *out );
+int im_exr2vips( const char *filename, VipsImage *out );
 
-int im_ppm2vips( const char *filename, IMAGE *out );
-int im_vips2ppm( IMAGE *in, const char *filename );
+int im_ppm2vips( const char *filename, VipsImage *out );
+int im_vips2ppm( VipsImage *in, const char *filename );
 
-int im_analyze2vips( const char *filename, IMAGE *out );
+int im_analyze2vips( const char *filename, VipsImage *out );
 
-int im_csv2vips( const char *filename, IMAGE *out );
-int im_vips2csv( IMAGE *in, const char *filename );
+int im_csv2vips( const char *filename, VipsImage *out );
+int im_vips2csv( VipsImage *in, const char *filename );
 
-int im_png2vips( const char *filename, IMAGE *out );
-int im_vips2png( IMAGE *in, const char *filename );
+int im_png2vips( const char *filename, VipsImage *out );
+int im_vips2png( VipsImage *in, const char *filename );
+int im_vips2bufpng( VipsImage *in, VipsImage *out,
+	int compression, int interlace, char **obuf, size_t *olen  );
 
-int im_raw2vips( const char *filename, IMAGE *out,
+int im_webp2vips( const char *filename, VipsImage *out );
+int im_vips2webp( VipsImage *in, const char *filename );
+
+int im_raw2vips( const char *filename, VipsImage *out,
 	int width, int height, int bpp, int offset );
-int im_vips2raw( IMAGE *in, int fd );
+int im_vips2raw( VipsImage *in, int fd );
 
-int im_mat2vips( const char *filename, IMAGE *out );
+int im_mat2vips( const char *filename, VipsImage *out );
 
-int im_rad2vips( const char *filename, IMAGE *out );
-int im_vips2rad( IMAGE *in, const char *filename );
+int im_rad2vips( const char *filename, VipsImage *out );
+int im_vips2rad( VipsImage *in, const char *filename );
+
+int im_fits2vips( const char *filename, VipsImage *out );
+int im_vips2fits( VipsImage *in, const char *filename );
+
+int im_vips2dz( VipsImage *in, const char *filename );
 
 #ifdef __cplusplus
 }

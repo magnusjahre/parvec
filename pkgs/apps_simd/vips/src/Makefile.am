@@ -1,57 +1,57 @@
 
-# turn off libvipsCC if C++ is disabled
-if ENABLE_CXX
-C_COMPILE_DIR = libvipsCC
-C_DIST_DIR =
-C_PKGCONFIG = vipsCC-7.${IM_MINOR_VERSION}.pc
-
-# turn on Python if we can (requires C++)
+# turn on Python if we can 
 if HAVE_PYTHON
 P_COMPILE_DIR = swig
 P_DIST_DIR =
-endif
-
 else
-C_COMPILE_DIR =
-C_DIST_DIR = libvipsCC 
-C_PKGCONFIG =
 P_COMPILE_DIR =
 P_DIST_DIR = swig
 endif
 
+# turn on vips8 Python if we can 
+if ENABLE_PYVIPS8
+P8_COMPILE_DIR = python
+P8_DIST_DIR =
+else
+P8_COMPILE_DIR = 
+P8_DIST_DIR = python
+endif
+
 SUBDIRS = \
 	libvips \
+	libvipsCC \
+	cplusplus \
 	tools \
-	man \
 	po \
-	$(C_COMPILE_DIR) \
-	$(P_COMPILE_DIR) 
+	man \
+	doc \
+	test \
+	$(P_COMPILE_DIR) \
+	$(P8_COMPILE_DIR) 
 
 EXTRA_DIST = \
 	m4 \
 	benchmark \
 	bootstrap.sh \
-	vips-7.${IM_MINOR_VERSION}.pc.in \
-	vipsCC-7.${IM_MINOR_VERSION}.pc.in \
+	vips.pc.in \
+	vipsCC.pc.in \
+	vips-cpp.pc.in \
+	libvips.supp \
 	acinclude.m4 \
 	depcomp \
-	$(C_DIST_DIR) \
-	$(P_DIST_DIR)
+	README.md \
+	$(P_DIST_DIR) \
+	$(P8_DIST_DIR) 
 
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = vips-7.${IM_MINOR_VERSION}.pc $(C_PKGCONFIG)
-
-install-exec-hook:
-	-rm -rf ${DESTDIR}$(datadir)/doc/vips
-	$(mkinstalldirs) ${DESTDIR}$(datadir)/doc/vips
+pkgconfig_DATA = vips.pc vipsCC.pc vips-cpp.pc
 
 dist-hook:
 # make sure we don't get any .svn dirs from EXTRA_DIST
+# also "fred" gets left around occasionally
 	-find $(distdir) -name .svn -exec rm -rf {} \;
+	-find $(distdir) -name fred -exec rm {} \;
 
-uninstall-hook:
-# make sure we have write permission for 'rm'
-	-chmod -R u+w ${DESTDIR}$(datadir)/doc/vips
-	-rm -rf ${DESTDIR}$(datadir)/doc/vips
+ACLOCAL_AMFLAGS = -I m4
 
-DISTCHECK_CONFIGURE_FLAGS=
+DISTCHECK_CONFIGURE_FLAGS=--enable-gtk-doc --enable-introspection

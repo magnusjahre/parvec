@@ -1,10 +1,7 @@
-/* config.h.in.  Generated from configure.in by autoheader.  */
+/* config.h.in.  Generated from configure.ac by autoheader.  */
 
 /* define to open non-text files in binary mode */
 #undef BINARY_OPEN
-
-/* build C++ components */
-#undef ENABLE_CXX
 
 /* always defined to indicate that i18n is enabled */
 #undef ENABLE_NLS
@@ -15,11 +12,26 @@
 /* Domain for glib logging messages. */
 #undef G_LOG_DOMAIN
 
+/* define to build analyze support. */
+#undef HAVE_ANALYZE
+
+/* have atan2() in libm. */
+#undef HAVE_ATAN2
+
+/* Define to 1 if you have the `atexit' function. */
+#undef HAVE_ATEXIT
+
 /* Define to 1 if you have the `bind_textdomain_codeset' function. */
 #undef HAVE_BIND_TEXTDOMAIN_CODESET
 
 /* have cbrt() in libm. */
 #undef HAVE_CBRT
+
+/* define if you have cfitsio installed. */
+#undef HAVE_CFITSIO
+
+/* define if your glib has g_cond_init(). */
+#undef HAVE_COND_INIT
 
 /* Define to 1 if you have the `dcgettext' function. */
 #undef HAVE_DCGETTEXT
@@ -47,7 +59,7 @@
 #undef HAVE_FCNTL_H
 
 /* define if you have fftw3 installed. */
-#undef HAVE_FFTW3
+#undef HAVE_FFTW
 
 /* Define to 1 if you have the `getcwd' function. */
 #undef HAVE_GETCWD
@@ -67,6 +79,12 @@
 /* Define to 1 if you have the `getwd' function. */
 #undef HAVE_GETWD
 
+/* Define if you have giflib libraries and header files. */
+#undef HAVE_GIFLIB
+
+/* define if you have libgsf-1 installed. */
+#undef HAVE_GSF
+
 /* have hypot() in libm. */
 #undef HAVE_HYPOT
 
@@ -79,14 +97,23 @@
 /* Define if you have jpeg libraries and header files. */
 #undef HAVE_JPEG
 
+/* Define to 1 if you have the `jpeg_c_bool_param_supported' function. */
+#undef HAVE_JPEG_C_BOOL_PARAM_SUPPORTED
+
+/* define if your libjpeg has extension parameters. */
+#undef HAVE_JPEG_EXT_PARAMS
+
 /* define if you have lcms installed. */
 #undef HAVE_LCMS
+
+/* define if you have lcms2 installed. */
+#undef HAVE_LCMS2
 
 /* Define if your <locale.h> file defines LC_MESSAGES. */
 #undef HAVE_LC_MESSAGES
 
-/* define if you have liboil-0.3 installed. */
-#undef HAVE_LIBOIL
+/* define if you have libwebp installed. */
+#undef HAVE_LIBWEBP
 
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
@@ -121,14 +148,35 @@
 /* Define to 1 if you have a working `mmap' system call. */
 #undef HAVE_MMAP
 
+/* define if your glib has g_get_monotonic_time(). */
+#undef HAVE_MONOTONIC_TIME
+
 /* Define to 1 if you have the `munmap' function. */
 #undef HAVE_MUNMAP
+
+/* define if your glib has g_mutex_init(). */
+#undef HAVE_MUTEX_INIT
 
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
 
+/* define if your magick has ImageInfo.number_scenes. */
+#undef HAVE_NUMBER_SCENES
+
 /* define if you have OpenEXR >=1.2.2 installed. */
 #undef HAVE_OPENEXR
+
+/* define if you have OpenSlide >= 3.3.0 installed. */
+#undef HAVE_OPENSLIDE
+
+/* define if you have OpenSlide >= 3.4.0 installed. */
+#undef HAVE_OPENSLIDE_3_4
+
+/* define if you have orc-0.4.11 or later installed. */
+#undef HAVE_ORC
+
+/* Define to 1 if you have the `orc_program_get_error' function. */
+#undef HAVE_ORC_PROGRAM_GET_ERROR
 
 /* define if you have pangoft2 installed. */
 #undef HAVE_PANGOFT2
@@ -136,8 +184,20 @@
 /* define if you have libpng installed. */
 #undef HAVE_PNG
 
+/* define if you have poppler-glib >= 0.30.0 and cairo >= 1.2 installed. */
+#undef HAVE_POPPLER
+
+/* define to build ppm support. */
+#undef HAVE_PPM
+
+/* define if your glib has G_PRIVATE_INIT(). */
+#undef HAVE_PRIVATE_INIT
+
 /* Define to 1 if you have the `putenv' function. */
 #undef HAVE_PUTENV
+
+/* define to build radiance support. */
+#undef HAVE_RADIANCE
 
 /* Define to 1 if you have the `rand' function. */
 #undef HAVE_RAND
@@ -153,6 +213,9 @@
 
 /* Define to 1 if you have the `ResetImagePropertyIterator' function. */
 #undef HAVE_RESETIMAGEPROPERTYITERATOR
+
+/* define if you have librsvg-2.0 >= 2.40.0 and cairo >= 1.2 installed. */
+#undef HAVE_RSVG
 
 /* Define to 1 if you have the `SetImageOption' function. */
 #undef HAVE_SETIMAGEOPTION
@@ -222,17 +285,17 @@
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
 
-/* threaded evaluation */
-#undef HAVE_THREADS
+/* define if your glib has g_thread_new(). */
+#undef HAVE_THREAD_NEW
 
-/* Define if you have tiff libraries and header files. */
+/* define if you have libtiff installed. */
 #undef HAVE_TIFF
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* have video4linux 1 */
-#undef HAVE_VIDEODEV
+/* define if your glib has g_value_get_schar(). */
+#undef HAVE_VALUE_GET_SCHAR
 
 /* Define to 1 if you have the `vprintf' function. */
 #undef HAVE_VPRINTF
@@ -246,18 +309,11 @@
 /* Define if you have libz libraries and header files. */
 #undef HAVE_ZIP
 
-/* extension for executable files */
-#undef IM_EXEEXT
-
-/* configure-time library directory */
-#undef IM_LIBDIR
-
-/* configure-time install prefix */
-#undef IM_PREFIX
-
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
+
+/* define if your glib needs g_type_init(). */
+#undef NEED_TYPE_INIT
 
 /* native win32 */
 #undef OS_WIN32
@@ -295,14 +351,25 @@
 /* default directory for ICC profiles */
 #undef VIPS_ICC_DIR
 
+/* configure-time library directory */
+#undef VIPS_LIBDIR
+
 /* native Mac OS X */
 #undef VIPS_OS_DARWIN
+
+/* configure-time install prefix */
+#undef VIPS_PREFIX
 
 /* Define if using the dmalloc debugging malloc package */
 #undef WITH_DMALLOC
 
 /* Define to 1 if the X Window System is missing or not being used. */
 #undef X_DISPLAY_MISSING
+
+/* Enable large inode numbers on Mac OS X 10.5.  */
+#ifndef _DARWIN_USE_64_BIT_INODE
+# define _DARWIN_USE_64_BIT_INODE 1
+#endif
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS

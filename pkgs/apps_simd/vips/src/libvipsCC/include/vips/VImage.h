@@ -16,7 +16,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -58,6 +59,12 @@ extern "C" {
 }
 
 VIPS_NAMESPACE_START
+
+/* vips_init() and vips_shutdown as namespaced C++ functions.
+ */
+bool init( const char *argv0 = "nothing" );
+void thread_shutdown( void ); 
+void shutdown( void ); 
 
 /* A VIPS callback, our name for im_callback_fn.
  */
@@ -191,7 +198,7 @@ public:
 	 */
 
 	// Plain constructors
-	VImage( const char *name, const char *mode = "r" ) throw( VError );
+	VImage( const char *name, const char *mode = "rd" ) throw( VError );
 	VImage( void *data, int width, int height, 
 		int bands, TBandFmt format ) throw( VError );
 	VImage( _VipsImage *image );
@@ -202,8 +209,9 @@ public:
 	// 		"file.jpg", "temp.v" );
 	// Runs im_jpeg2vips to the temp file, then opens that and returns
 	// it. Useful for opening very large files without using a lot of RAM.
-	// Now superceeded by the format API, though that's not yet wrapped in
+	// Now superseded by the format API, though that's not yet wrapped in
 	// C++
+	// Also replaced by the new default "rd" mode
 	static VImage convert2disc( const char* convert, 
 		const char* in, const char* disc ) throw( VError );
 
@@ -248,6 +256,9 @@ public:
 	// Derived fields
 	const char *filename();
 	const char *Hist();
+
+	// need the hough circle stuff for the rode python GUI
+	VImage hough_circle( int scale, int min_radius, int max_radius ) throw( VError );
 
 	// metadata
 #ifndef SWIG
@@ -441,6 +452,8 @@ VIPS_NAMESPACE_END
 // Other VIPS protos we need 
 extern "C" {
 extern int im_init_world( const char *argv0 ); 
+extern int im_init_world( const char *argv0 ); 
+extern void vips_thread_shutdown( void ); 
 extern void im__print_all(); 
 extern void im_col_Lab2XYZ( 
 	float, float, float,

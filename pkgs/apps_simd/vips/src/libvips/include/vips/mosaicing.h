@@ -20,7 +20,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -37,60 +38,30 @@
 extern "C" {
 #endif /*__cplusplus*/
 
-int im_lrmerge( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int dx, int dy, int mwidth );
-int im_tbmerge( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int dx, int dy, int mwidth );
+int vips_merge( VipsImage *ref, VipsImage *sec, VipsImage **out, 
+	VipsDirection direction, int dx, int dy, ... )
+	__attribute__((sentinel));
+int vips_mosaic( VipsImage *ref, VipsImage *sec, VipsImage **out, 
+	VipsDirection direction, int xref, int yref, int xsec, int ysec, ... )
+	__attribute__((sentinel));
 
-int im_lrmerge1( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int xr1, int yr1, int xs1, int ys1,
-	int xr2, int yr2, int xs2, int ys2,
-	int mwidth );
-int im_tbmerge1( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int xr1, int yr1, int xs1, int ys1,
-	int xr2, int yr2, int xs2, int ys2,
-	int mwidth );
+int vips_mosaic1( VipsImage *ref, VipsImage *sec, VipsImage **out, 
+	VipsDirection direction, 
+	int xr1, int yr1, int xs1, int ys1, 
+	int xr2, int yr2, int xs2, int ys2, ... )
+	__attribute__((sentinel));
 
-int im_lrmosaic( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int bandno,
-	int xref, int yref, int xsec, int ysec,
-	int halfcorrelation, int halfarea,
-	int balancetype,
-	int mwidth );
-int im_tbmosaic( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int bandno,
-	int xref, int yref, int xsec, int ysec,
-	int halfcorrelation, int halfarea,
-	int balancetype,
-	int mwidth );
+int vips_match( VipsImage *ref, VipsImage *sec, VipsImage **out, 
+	int xr1, int yr1, int xs1, int ys1, 
+	int xr2, int yr2, int xs2, int ys2, ... )
+	__attribute__((sentinel));
 
-int im_lrmosaic1( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int bandno,
-	int xr1, int yr1, int xs1, int ys1,
-	int xr2, int yr2, int xs2, int ys2,
-	int halfcorrelation, int halfarea,
-	int balancetype,
-	int mwidth );
-int im_tbmosaic1( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int bandno,
-	int xr1, int yr1, int xs1, int ys1,
-	int xr2, int yr2, int xs2, int ys2,
-	int halfcorrelation, int halfarea,
-	int balancetype,
-	int mwidth );
+int vips_globalbalance( VipsImage *in, VipsImage **out, ... )
+	__attribute__((sentinel));
+int vips_remosaic( VipsImage *in, VipsImage **out, 
+	const char *old_str, const char *new_str, ... )
+	__attribute__((sentinel));
 
-int im_global_balance( IMAGE *in, IMAGE *out, double gamma );
-int im_global_balancef( IMAGE *in, IMAGE *out, double gamma );
-
-int im_correl( IMAGE *ref, IMAGE *sec,
-	int xref, int yref, int xsec, int ysec,
-	int hwindowsize, int hsearchsize,
-	double *correlation, int *x, int *y );
-int im_remosaic( IMAGE *in, IMAGE *out,
-	const char *old_str, const char *new_str );
-
-int im_align_bands( IMAGE *in, IMAGE *out );
-int im_maxpos_subpel( IMAGE *in, double *x, double *y );
 
 #ifdef __cplusplus
 }

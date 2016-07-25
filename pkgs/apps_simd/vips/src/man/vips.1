@@ -2,53 +2,87 @@
 .SH NAME
 vips \- run vips operations from the command line
 .SH SYNOPSIS
-.B vips [flags] [command] [command-args]
+.B vips [options] [command] [command-options] [command-args]
 .SH DESCRIPTION
 .B vips(1)
-is the VIPS universal main program. You can use it to run any VIPS function
-from the command line, to query the VIPS function database, and to
+is the VIPS universal main program. You can use it to run any VIPS operation
+from the command line, to query the VIPS class hierarchy, and to
 maintain parts of the VIPS library.
 
-To run a VIPS function, the first argument should be the name of the function
-and following arguments should be the function parameters. For example:
+To run a VIPS operation, the first argument should be the name of the
+operation
+and following arguments should be the operation arguments. For example:
 
-  example% vips im_invert lena.v lena2.v
-
-If you make a symbolic link to the vips executable named after an operation,
-then you can use that link to call an operation directly. For example:
-
-  example% ln -s vips im_invert
-  example% im_invert lena.v lena2.v
+  $ vips invert lena.v lena2.v
 
 .SH OPTIONS
 .TP
-.B -l PACKAGE, --list=PACKAGE
-List operations defined in PACKAGE. PACKAGE can also be "classes", "packages"
-or "all".
+.B -l BASE-NAME, --list=BASE-NAME       
+List operations below BASE-NAME. This prints a one-line summary of every
+operation in vips below the class BASE-NAME, where BASE-NAME may be a full
+vips class name, or a nickname. 
 
-.TP
-.B -u OPERATION, --usage=OPERATION     
-Show usage message for OPERATION.
+If BASE-NAME is not supplied, this will list all classes below VipsOperation.
 
 .TP
 .B -p PLUGIN, --plugin=PLUGIN       
-Load PLUGIN. Note that plugins in $VIPSHOME/lib are loaded automatically.
+Load PLUGIN. Note that plugins in $VIPSHOME/lib/vips-plugins-MAJOR.MINOR are 
+loaded automatically.
 
 .TP
-.B -k, --links               
-Print link lines for all operations.
+.B -v, --version
+Show VIPS version.
+
+.SH COMMANDS
 
 .TP
-.B -h PACKAGE, --cpph=PACKAGE        
-Print C++ header for PACKAGE. PACKAGE can also be a function name, or "all".
+.B operation-name operation-arguments
+Execute a named operation, for example add. 
 
-.TP
-.B -c PACKAGE, --cppc=PACKAGE        
-Print C++ binding for PACKAGE. PACKAGE can also be a function name, or "all".
+.SH EXAMPLES
+
+Run a vips8 operation. Operation options must follow the operation name.
+
+  $ vips insert lena.v lena2.v out.v 0 0 --background "128 0 0"
+
+Get a "usage" message for an operation.
+
+  $ vips insert 
+  insert image @sub into @main at @x, @y
+  usage:
+     insert main sub out x y
+  where:
+     main         - Main input image, input VipsImage
+     sub          - Sub-image to insert into main image, input VipsImage
+     out          - Output image, output VipsImage
+     x            - Left edge of sub in main, input gint
+			  default: 0
+			  min: -100000000, max: 100000000
+     y            - Top edge of sub in main, input gint
+			  default: 0
+			  min: -100000000, max: 100000000
+  optional arguments:
+     expand       - Expand output to hold all of both inputs, input gboolean
+			  default: false
+     background   - Colour for new pixels, input VipsArrayDouble
+  operation flags: sequential 
+
+List all draw operations.
+
+  $ vips -l draw
+    VipsDraw (draw), draw operations
+      VipsDrawink (drawink), draw with ink operations
+        VipsDrawRect (draw_rect), paint a rectangle on an image
+        VipsDrawMask (draw_mask), draw a mask on an image
+        VipsDrawLine (draw_line), draw a line on an image
+        VipsDrawCircle (draw_circle), draw a circle on an image
+        VipsDrawFlood (draw_flood), flood-fill an area
+      VipsDrawImage (draw_image), paint an image into another image
+      VipsDrawSmudge (draw_smudge), blur a rectangle on an image
 
 .SH RETURN VALUE
 returns 0 on success and non-zero on error.
 .SH SEE ALSO
-header(1)
+vipsheader(1)
 .SH COPYRIGHT
 The National Gallery and Birkbeck College, 1989-1996.

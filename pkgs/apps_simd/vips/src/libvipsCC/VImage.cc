@@ -16,7 +16,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -51,6 +52,23 @@
 
 VIPS_NAMESPACE_START
 
+/* Useful to have these as C++ functions.
+ */
+bool init( const char *argv0 )
+{
+	return( vips__init( argv0 ) == 0 ); 
+}
+
+void shutdown()
+{
+	vips_shutdown(); 
+}
+
+void thread_shutdown()
+{
+	vips_thread_shutdown(); 
+}
+
 void VImage::refblock::debug_print()
 {
 	std::list<refblock *>::iterator i;
@@ -63,7 +81,7 @@ void VImage::refblock::debug_print()
 	printf( "  close_on_delete = %d\n", close_on_delete );
 	printf( "  nrefs (refs to us) = %d\n", nrefs );
 	printf( "  orefs (refs we make) = refblocks " );
-	for( i = orefs.begin(); i != orefs.end(); i++ )
+	for( i = orefs.begin(); i != orefs.end(); ++i )
 		printf( "%p ", *i );
 	printf( "\n" );
 }
@@ -75,7 +93,7 @@ void VImage::print_all()
 	std::list<VImage::refblock *>::iterator i;
 
 	printf( "*** VImage::refblock::print_all() start\n" );
-	for( i = all_refblock.begin(); i != all_refblock.end(); i++ )
+	for( i = all_refblock.begin(); i != all_refblock.end(); ++i )
 		(*i)->debug_print();
 	printf( "*** VImage::refblock::print_all() end\n" );
 #endif /*DEBUG*/
@@ -125,7 +143,7 @@ VImage::refblock::~refblock() throw( VError )
 	}
 
 	// remove any refs we have ... may trigger other destructs in turn
-	for( i = orefs.begin(); i != orefs.end(); i++ )
+	for( i = orefs.begin(); i != orefs.end(); ++i )
 		(*i)->removeref();
 
 #ifdef DEBUG
@@ -143,7 +161,7 @@ void VImage::refblock::removeref() throw( VError )
 		delete this;
 }
 
-// Init with name ... mode defaults to "r"
+// Init with name ... mode defaults to "rd"
 VImage::VImage( const char *name, const char *mode ) throw( VError )
 {
 	_ref = new refblock;
@@ -198,12 +216,9 @@ VImage::VImage() throw( VError )
 
 	_ref = new refblock;
 
-	/* This is not 100% safe if VIPS threading is not implemented on this
-	 * platform ... but it doesn't really matter.
+	/* This is not safe with threading ... but it doesn't really matter.
 	 */
-	g_mutex_lock( im__global_lock );
 	im_snprintf( filename, 256, "intermediate image #%d", id++ );
-	g_mutex_unlock( im__global_lock );
 
 	if( !(_ref->im = im_open( filename, "p" )) )
 		verror();
@@ -316,6 +331,29 @@ int VImage::Yoffset() { return( _ref->im->Yoffset ); }
 const char *VImage::filename() { return( _ref->im->filename ); }
 const char *VImage::Hist() { return( im_history_get( _ref->im ) ); }
 
+VImage VImage::hough_circle( int scale, int min_radius, int max_radius ) 
+	throw( VError )
+{
+	VImage in = *this;
+	VipsImage *x;
+	VImage out;
+
+	if( vips_hough_circle( in.image(), &x,
+		"scale", scale,
+		"min_radius", min_radius,
+		"max_radius", max_radius,
+		NULL ) )
+		verror();
+
+	if( vips_image_write( x, out.image() ) ) {
+		g_object_unref( x );
+		verror();
+	}
+	g_object_unref( x );
+
+	return( out );
+}
+
 // metadata
 
 // base functionality
@@ -367,7 +405,7 @@ double VImage::meta_get_double( const char *field )
 const char *VImage::meta_get_string( const char *field ) 
 	throw( VError )
 {
-	char *result;
+	const char *result;
 
 	if( im_meta_get_string( _ref->im, field, &result ) )
 		verror();
@@ -484,6 +522,8 @@ Vargv::~Vargv()
 					io->vec = NULL;
 				}
 			}
+			else if( strcmp( ty->type, IM_TYPE_INTERPOLATE ) == 0 )
+				g_object_unref( base[i] );
 		}
 	}
 

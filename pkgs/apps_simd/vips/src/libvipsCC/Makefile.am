@@ -1,7 +1,7 @@
 SUBDIRS = \
 	include 
 
-INCLUDES = \
+AM_CPPFLAGS = \
 	-I$(top_srcdir)/libvips/include \
 	-I$(top_srcdir)/libvipsCC/include \
 	@VIPS_CFLAGS@ 
@@ -24,15 +24,16 @@ libvipsCC_la_LIBADD = \
 # swap the 'awk' line for this:
 # awk '{if($$1!="deprecated") print $$1}'` ; \
 # to not generate the wrappers for deprecated functions
-.PHONEY:
 vipsc++.cc:
-	packages=`vips --list packages | \
+	packages=`vips list packages | \
 	  awk '{print $$1}'` ; \
 	  echo > vipsc++.cc ; \
 	  for name in $$packages; do \
 	    echo "// bodies for package $$name" >> vipsc++.cc ; \
-	    vips --cppc $$name >> vipsc++.cc ; \
+	    vips cppc $$name >> vipsc++.cc ; \
 	    echo >> vipsc++.cc ; \
 	  done 
 
-EXTRA_DIST = vipsc++.cc
+EXTRA_DIST = \
+	README.txt \
+	vipsc++.cc

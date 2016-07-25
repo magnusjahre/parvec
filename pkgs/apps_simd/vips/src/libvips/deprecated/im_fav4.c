@@ -18,7 +18,8 @@ Copyright (C) 1992, Kirk Martinez, History of Art Dept, Birkbeck College
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -37,10 +38,6 @@ Copyright (C) 1992, Kirk Martinez, History of Art Dept, Birkbeck College
 #include <string.h>
 
 #include <vips/vips.h>
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
 
 #define ARGS "fav4: frame average 4 frames\nARGS: im1 im2 im3 im4 outfile"
 #define NFRAMES 4

@@ -15,10 +15,9 @@
  * 
  * You should have received a copy of the GNU Library General Public
  * License along with this library; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+ * 02110-1301  USA
  * 
- * $Id: base64.c,v 1.1.1.1 2012/03/29 17:22:30 uid42307 Exp $
- *
  * \section{Base-64 Routines}
  *
  * \intro These routines use the 64-character subset of International
@@ -62,6 +61,12 @@ Modified on:
 12/5/09
 	- fix signed/unsigned warning
 
+25/3/11
+	- move to vips_ namespace
+
+31/5/15
+	- oops siged/unsignned mess-up meant we were not padding correctly
+
  */
 
 /*
@@ -81,10 +86,6 @@ Modified on:
 #include <vips/vips.h>
 
 #include "base64.h"
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
 
 static unsigned char b64_list[] =
 "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -114,7 +115,7 @@ static unsigned char b64_index[256] = {
  * end up with in[2] in the bottom few bits.
  */
 static int
-read24( const unsigned char *in, size_t remaining )
+read24( const unsigned char *in, int remaining )
 {
 	int bits;
 	int i;
@@ -134,7 +135,7 @@ read24( const unsigned char *in, size_t remaining )
 /* Output (up to) 24 bits as four base64 chars. Pad with '=' characters.
  */
 static void
-encode24( char *p, int bits, size_t remaining )
+encode24( char *p, int bits, int remaining )
 {
 	int i;
 
@@ -155,7 +156,7 @@ encode24( char *p, int bits, size_t remaining )
  * rather than quick.
  */
 char *
-im__b64_encode( const unsigned char *data, size_t data_length )
+vips__b64_encode( const unsigned char *data, size_t data_length )
 {
 	/* Worst case: 1.333 chars per byte, plus 10% for extra carriage 
 	 * returns and stuff. And the \n\0 at the end.
@@ -164,20 +165,21 @@ im__b64_encode( const unsigned char *data, size_t data_length )
 
 	char *buffer;
 	char *p;
-	size_t i;
+	int i;
 	int cursor;
 
-	if( data_length <= 0 ) {
-		im_error( "im__b64_encode", "%s", _( "too little data" ) );
+	if( data_length == 0 ) {
+		vips_error( "vips__b64_encode", "%s", _( "too little data" ) );
 		return( NULL );
 	}
 	if( output_data_length > 1024 * 1024 ) {
-		/* We shouldn't really be used for large amounts of data.
+		/* We shouldn't really be used for large amounts of data, plus
+		 * we are using int offsets.
 		 */
-		im_error( "im__b64_encode", "%s", _( "too much data" ) );
+		vips_error( "vips__b64_encode", "%s", _( "too much data" ) );
 		return( NULL );
 	}
-	if( !(buffer = im_malloc( NULL, output_data_length )) ) 
+	if( !(buffer = vips_malloc( NULL, output_data_length )) ) 
 		return( NULL );
 
 	p = buffer;
@@ -185,7 +187,7 @@ im__b64_encode( const unsigned char *data, size_t data_length )
 	cursor = 0;
 
 	for( i = 0; i < data_length; i += 3 ) {
-		size_t remaining = data_length - i;
+		int remaining = data_length - i;
 		int bits;
 
 		bits = read24( data + i, remaining );
@@ -211,7 +213,7 @@ im__b64_encode( const unsigned char *data, size_t data_length )
 	for( total = 0, i = 0; i < data_length; i++ )
 		total += data[i];
 
-	printf( "im__b64_encode: length = %d, checksum 0x%x\n", 
+	printf( "vips__b64_encode: length = %zu, checksum 0x%x\n", 
 		data_length, total & 0xffff );
 }
 #endif /*DEBUG*/
@@ -222,7 +224,7 @@ im__b64_encode( const unsigned char *data, size_t data_length )
 /* Decode base64 back to binary in a malloc'd buffer. NULL on error.
  */
 unsigned char *
-im__b64_decode( const char *buffer, size_t *data_length )
+vips__b64_decode( const char *buffer, size_t *data_length )
 {
 	const size_t buffer_length = strlen( buffer );
 
@@ -234,16 +236,17 @@ im__b64_decode( const char *buffer, size_t *data_length )
 	unsigned char *p;
 	unsigned int bits;
 	int nbits;
-	size_t i;
+	int i;
 
 	if( output_data_length > 1024 * 1024 ) {
-		/* We shouldn't really be used for large amounts of data.
+		/* We shouldn't really be used for large amounts of data, plus
+		 * we are using an int for offset.
 		 */
-		im_error( "im__b64_decode", "%s", _( "too much data" ) );
+		vips_error( "vips__b64_decode", "%s", _( "too much data" ) );
 		return( NULL );
 	}
 
-	if( !(data = im_malloc( NULL, output_data_length )) )
+	if( !(data = vips_malloc( NULL, output_data_length )) )
 		return( NULL );
 
 	p = data;
@@ -279,7 +282,7 @@ im__b64_decode( const char *buffer, size_t *data_length )
 	for( total = 0, i = 0; i < p - data; i++ )
 		total += data[i];
 
-	printf( "im__b64_decode: length = %d, checksum 0x%x\n", 
+	printf( "vips__b64_decode: length = %d, checksum 0x%x\n", 
 		p - data, total & 0xffff );
 }
 #endif /*DEBUG*/

@@ -19,7 +19,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -34,12 +35,10 @@
 #endif /*HAVE_CONFIG_H*/
 #include <vips/intl.h>
 
+#include <string.h>
+
 #include <vips/vips.h>
 #include <vips/internal.h>
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
 
 int 
 im_remainderconst_vec( IMAGE *in, IMAGE *out, int n, double *c )
@@ -278,7 +277,7 @@ im_isfloat( IMAGE *im )
 gboolean
 im_iscomplex( IMAGE *im )
 {	
-	return( vips_bandfmt_iscomplex( im->BandFmt ) );
+	return( vips_band_format_iscomplex( im->BandFmt ) );
 }
 
 gboolean
@@ -396,6 +395,10 @@ im_isnative( im_arch_type arch )
 	default:
 		g_assert( 0 );
 	}  
+
+	/* Keep -Wall happy.
+	 */
+	return( -1 );
 }
 
 int
@@ -403,7 +406,7 @@ im_iterate( IMAGE *im,
 	im_start_fn start, im_generate_fn generate, im_stop_fn stop,
 	void *b, void *c )
 {
-	return( vips_sink( im, start, generate, stop, b, c ) );
+	return( vips_sink( im, start, (VipsGenerateFn) generate, stop, b, c ) );
 }
 
 int
@@ -415,12 +418,309 @@ im_render_priority( IMAGE *in, IMAGE *out, IMAGE *mask,
 	return( vips_sink_screen( in, out, mask, 
 		width, height, max, priority, notify, client ) ); 
 }
-	
+
+/**
+ * im_circle:
+ * @im: image to draw on
+ * @cx: centre of circle
+ * @cy: centre of circle
+ * @radius: circle radius
+ * @intensity: value to draw
+ *
+ * Draws a circle on a 1-band 8-bit image. 
+ *
+ * This an inplace operation, so @im is changed. It does not thread and will
+ * not work well as part of a pipeline. On 32-bit machines it will be limited
+ * to 2GB images.
+ *
+ * See also: im_fastline().
+ *
+ * Returns: 0 on success, or -1 on error.
+ */
 int 
-im_cache( IMAGE *in, IMAGE *out, int width, int height, int max )
+im_circle( IMAGE *im, int cx, int cy, int radius, int intensity )
 {
-	return( im_render_priority( in, out, NULL, 
-		width, height, max, 
-		0,
-		NULL, NULL ) );
+	PEL ink[1];
+
+	if( im_rwcheck( im ) ||
+		im_check_uncoded( "im_circle", im ) ||
+		im_check_mono( "im_circle", im ) ||
+		im_check_format( "im_circle", im, IM_BANDFMT_UCHAR ) )
+		return( -1 );
+
+	ink[0] = intensity;
+
+	return( im_draw_circle( im, cx, cy, radius, FALSE, ink ) );
+}
+
+/* A flood blob we can call from nip. Grr! Should be a way to wrap these
+ * automatically. Maybe nip could do it if it sees a RW image argument?
+ */
+
+int
+im_flood_copy( IMAGE *in, IMAGE *out, int x, int y, PEL *ink )
+{
+	IMAGE *t;
+
+	if( !(t = im_open_local( out, "im_flood_blob_copy", "t" )) ||
+		im_copy( in, t ) ||
+		im_flood( t, x, y, ink, NULL ) ||
+		im_copy( t, out ) ) 
+		return( -1 );
+
+	return( 0 );
+}
+
+int
+im_flood_blob_copy( IMAGE *in, IMAGE *out, int x, int y, PEL *ink )
+{
+	IMAGE *t;
+
+	if( !(t = im_open_local( out, "im_flood_blob_copy", "t" )) ||
+		im_copy( in, t ) ||
+		im_flood_blob( t, x, y, ink, NULL ) ||
+		im_copy( t, out ) ) 
+		return( -1 );
+
+	return( 0 );
+}
+
+int
+im_flood_other_copy( IMAGE *test, IMAGE *mark, IMAGE *out, 
+	int x, int y, int serial )
+{
+	IMAGE *t;
+
+	if( !(t = im_open_local( out, "im_flood_other_copy", "t" )) ||
+		im_copy( mark, t ) ||
+		im_flood_other( test, t, x, y, serial, NULL ) ||
+		im_copy( t, out ) ) 
+		return( -1 );
+
+	return( 0 );
+}
+
+int
+im_paintrect( IMAGE *im, Rect *r, PEL *ink )
+{
+	return( im_draw_rect( im, 
+		r->left, r->top, r->width, r->height, 1, ink ) );
+}
+
+int
+im_insertplace( IMAGE *main, IMAGE *sub, int x, int y )
+{
+	return( im_draw_image( main, sub, x, y ) );
+}
+
+int 
+im_fastline( IMAGE *im, int x1, int y1, int x2, int y2, PEL *pel )
+{
+	return( im_draw_line( im, x1, y1, x2, y2, pel ) );
+}
+
+int 
+im_fastlineuser( IMAGE *im, 
+	int x1, int y1, int x2, int y2, 
+	VipsPlotFn fn, void *client1, void *client2, void *client3 )
+{
+	return( im_draw_line_user( im, x1, y1, x2, y2, 
+		fn, client1, client2, client3 ) );
+}
+
+int
+im_plotmask( IMAGE *im, int ix, int iy, PEL *ink, PEL *mask, Rect *r )
+{
+	IMAGE *mask_im;
+
+	if( !(mask_im = im_image( mask, 
+		r->width, r->height, 1, IM_BANDFMT_UCHAR )) )
+		return( -1 );
+	if( im_draw_mask( im, mask_im, ix + r->left, iy + r->top, ink ) ) {
+		im_close( mask_im );
+		return( -1 );
+	}
+	im_close( mask_im );
+
+	return( 0 );
+}
+
+int 
+im_readpoint( IMAGE *im, int x, int y, PEL *pel )
+{
+	return( im_read_point( im, x, y, pel ) );
+}
+
+int 
+im_plotpoint( IMAGE *im, int x, int y, PEL *pel )
+{
+	return( im_draw_point( im, x, y, pel ) );
+}
+
+/* Smear a section of an IMAGE. As above, but shift it left a bit.
+ */
+int
+im_smear( IMAGE *im, int ix, int iy, Rect *r )
+{	
+	int x, y, a, b, c;
+	int ba = im->Bands;
+	int el = ba * im->Xsize;
+	Rect area, image, clipped;
+	double total[ 256 ];
+
+	if( im_rwcheck( im ) )
+		return( -1 );
+
+	/* Don't do the margins.
+	 */
+	area = *r;
+	area.left += ix;
+	area.top += iy;
+	image.left = 0;
+	image.top = 0;
+	image.width = im->Xsize;
+	image.height = im->Ysize;
+	im_rect_marginadjust( &image, -1 );
+	image.left--;
+	im_rect_intersectrect( &area, &image, &clipped );
+
+	/* Any left?
+	 */
+	if( im_rect_isempty( &clipped ) )
+		return( 0 );
+
+/* What we do for each type.
+ */
+#define SMEAR(TYPE) \
+	for( y = clipped.top; y < clipped.top + clipped.height; y++ ) \
+		for( x = clipped.left;  \
+			x < clipped.left + clipped.width; x++ ) { \
+			TYPE *to = (TYPE *) im->data + x * ba + y * el; \
+			TYPE *from = to - el; \
+			TYPE *f; \
+ 			\
+			for( a = 0; a < ba; a++ ) \
+				total[a] = 0.0; \
+			\
+			for( a = 0; a < 3; a++ ) { \
+				f = from; \
+				for( b = 0; b < 3; b++ ) \
+					for( c = 0; c < ba; c++ ) \
+						total[c] += *f++; \
+				from += el; \
+			} \
+ 			\
+			for( a = 0; a < ba; a++ ) \
+				to[a] = (40 * (double) to[a+ba] + total[a]) \
+					/ 49.0; \
+		}
+
+	/* Loop through the remaining pixels.
+	 */
+	switch( im->BandFmt ) {
+	case IM_BANDFMT_UCHAR: 
+		SMEAR(unsigned char); 
+		break; 
+
+	case IM_BANDFMT_CHAR: 
+		SMEAR(char); 
+		break; 
+
+	case IM_BANDFMT_USHORT: 
+		SMEAR(unsigned short); 
+		break; 
+
+	case IM_BANDFMT_SHORT: 
+		SMEAR(short); 
+		break; 
+
+	case IM_BANDFMT_UINT: 
+		SMEAR(unsigned int); 
+		break; 
+
+	case IM_BANDFMT_INT: 
+		SMEAR(int); 
+		break; 
+
+	case IM_BANDFMT_FLOAT: 
+		SMEAR(float); 
+		break; 
+
+	case IM_BANDFMT_DOUBLE: 
+		SMEAR(double); 
+		break; 
+
+	/* Do complex types too. Just treat as float and double, but with
+	 * twice the number of bands.
+	 */
+	case IM_BANDFMT_COMPLEX:
+		/* Twice number of bands: double size and bands.
+		 */
+		ba *= 2;
+		el *= 2;
+
+		SMEAR(float);
+
+		break;
+
+	case IM_BANDFMT_DPCOMPLEX:
+		/* Twice number of bands: double size and bands.
+		 */
+		ba *= 2;
+		el *= 2;
+
+		SMEAR(double);
+
+		break;
+
+	default:
+		im_error( "im_smear", "%s", _( "unknown band format" ) );
+		return( -1 );
+	}
+
+	return( 0 );
+}
+
+int
+im_smudge( VipsImage *image, int ix, int iy, Rect *r )
+{
+	return( im_draw_smudge( image, 
+		r->left + ix, r->top + iy, r->width, r->height ) );
+}
+
+int 
+im_flood( IMAGE *im, int x, int y, PEL *ink, Rect *dout )
+{
+	return( im_draw_flood( im, x, y, ink, dout ) );
+}
+
+int 
+im_flood_blob( IMAGE *im, int x, int y, PEL *ink, Rect *dout )
+{
+	return( im_draw_flood_blob( im, x, y, ink, dout ) );
+}
+
+int 
+im_flood_other( IMAGE *test, IMAGE *mark, 
+	int x, int y, int serial, Rect *dout )
+{
+	return( im_draw_flood_other( mark, test, x, y, serial, dout ) );
+}
+
+int
+vips_check_coding_rad( const char *domain, VipsImage *im )
+{
+	return( vips_check_coding( domain, im, VIPS_CODING_RAD ) ); 
+}
+
+int
+vips_check_coding_labq( const char *domain, VipsImage *im )
+{
+	return( vips_check_coding( domain, im, VIPS_CODING_LABQ ) ); 
+}
+
+int
+vips_check_bands_3ormore( const char *domain, VipsImage *im )
+{
+	return( vips_check_bands_atleast( domain, im, 3 ) ); 
 }

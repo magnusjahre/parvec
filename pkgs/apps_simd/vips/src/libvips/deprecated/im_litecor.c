@@ -46,7 +46,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -66,17 +67,12 @@
 
 #include <vips/vips.h>
 
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
-
 /*   If maximum output is > 255 scale output between minout and maxout,
  * by normalising maxout to 255.
  *   If maximum output is < 255 do the light correction without scaling
  */
 static int
-im_litecor0( in, white, out )
-IMAGE *in, *white, *out;
+im_litecor0( IMAGE *in, IMAGE *white, IMAGE *out )
 {	PEL *p, *w;
 	PEL *q, *bu;
 	int c;
@@ -207,9 +203,7 @@ IMAGE *in, *white, *out;
 /* Clip all corrected values above 255, if any.
  */
 static int
-im_litecor1( in, white, out, factor )
-IMAGE *in, *white, *out;
-double factor;
+im_litecor1( IMAGE *in, IMAGE *white, IMAGE *out, double factor )
 {	PEL *p, *w;
 	PEL *q, *bu;
 	int c;
@@ -288,10 +282,7 @@ double factor;
  * parameters.
  */
 int
-im_litecor( in, white, out, clip, factor )
-IMAGE *in, *white, *out;
-int clip;
-double factor;
+im_litecor( IMAGE *in, IMAGE *white, IMAGE *out, int clip, double factor )
 {	/* Check our args. 
 	 */
 	if( im_iocheck( in, out ) ) 

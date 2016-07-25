@@ -36,7 +36,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -57,12 +58,8 @@
 
 #include <vips/vips.h>
 
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
-
-extern int im_gfadd();
-extern int im_gaddim();
+int im_gfadd(double a, IMAGE *in1, double b, IMAGE *in2, double c, IMAGE *out);
+int im_gaddim(double a, IMAGE *in1, double b, IMAGE *in2, double c, IMAGE *out);
 
 /* This function works on either mmaped files or on images in buffer
  */
@@ -72,9 +69,7 @@ extern int im_gaddim();
  *
  * Deprecated.
  */
-int im_gadd(a, in1, b, in2, c, out)
-IMAGE *in1, *in2, *out;
-double a, b, c;
+int im_gadd(double a, IMAGE *in1, double b, IMAGE *in2, double c, IMAGE *out)
 {
 	int flagint = 0;
 	int flagfloat = 0;

@@ -1,4 +1,4 @@
-/* math.c --- call various -lm functions (trig, log etc.) on imags
+/* VipsMath --- call various -lm functions (trig, log etc.) on images
  *
  * Copyright: 1990, N. Dessipris, based on im_powtra()
  * Author: Nicos Dessipris
@@ -21,25 +21,30 @@
  * 	- use im__math()
  * 19/9/09
  * 	- im_sintra() adapted to make math.c
+ * 4/11/11
+ * 	- redone as a class
+ * 11/8/15
+ * 	- log/log10 zero-avoid
  */
 
 /*
 
-    This file is part of VIPS.
-    
-    VIPS is free software; you can redistribute it and/or modify
-    it under the terms of the GNU Lesser General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
+    Copyright (C) 1991-2005 The National Gallery
 
-    This program is distributed in the hope that it will be useful,
+    This library is free software; you can redistribute it and/or
+    modify it under the terms of the GNU Lesser General Public
+    License as published by the Free Software Foundation; either
+    version 2.1 of the License, or (at your option) any later version.
+
+    This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU Lesser General Public License for more details.
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+    Lesser General Public License for more details.
 
-    You should have received a copy of the GNU Lesser General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    You should have received a copy of the GNU Lesser General Public
+    License along with this library; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -47,6 +52,10 @@
 
     These files are distributed with VIPS - http://www.vips.ecs.soton.ac.uk
 
+ */
+
+/*
+#define DEBUG
  */
 
 #ifdef HAVE_CONFIG_H
@@ -59,266 +68,424 @@
 #include <math.h>
 
 #include <vips/vips.h>
-#include <vips/internal.h>
 
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
+#include "unary.h"
 
-/* What we do for each band element. Non-complex only.
- */
-#define FUN_LOOP( IN, OUT, FUN ) { \
-	IN *p = (IN *) in; \
-	OUT *q = (OUT *) out; \
-	\
-	for( x = 0; x < ne; x++ ) \
-		q[x] = FUN( (double) p[x] ); \
-}
+typedef struct _VipsMath {
+	VipsUnary parent_instance;
 
-/* Operate on a buffer of PELs
- */
-#define FUN_BUFFER( FUN ) \
-static void \
-FUN ## _buffer( PEL *in, PEL *out, int width, IMAGE *im ) \
-{ \
-	const int ne = width * im->Bands; \
-	\
-	int x; \
-	\
-	/* Switch for all input types. \
-         */ \
-        switch( im->BandFmt ) { \
-        case IM_BANDFMT_UCHAR: 	FUN_LOOP( unsigned char, float, FUN ); break; \
-        case IM_BANDFMT_CHAR: 	FUN_LOOP( signed char, float, FUN ); break; \
-        case IM_BANDFMT_USHORT: FUN_LOOP( unsigned short, float, FUN ); break; \
-        case IM_BANDFMT_SHORT: 	FUN_LOOP( signed short, float, FUN ); break; \
-        case IM_BANDFMT_UINT: 	FUN_LOOP( unsigned int, float, FUN ); break; \
-        case IM_BANDFMT_INT: 	FUN_LOOP( signed int, float, FUN );  break; \
-        case IM_BANDFMT_FLOAT: 	FUN_LOOP( float, float, FUN ); break; \
-        case IM_BANDFMT_DOUBLE:	FUN_LOOP( double, double, FUN ); break; \
-	\
-        default: \
-		g_assert( 0 ); \
-        } \
-}
+	VipsOperationMath math;
 
-/* Do a math (eg. sin(), acos(), log()) type-function. No complex, everything
- * goes to float except double.
- */
-int 
-im__math( const char *name, IMAGE *in, IMAGE *out, im_wrapone_fn gen )
+} VipsMath;
+
+typedef VipsUnaryClass VipsMathClass;
+
+G_DEFINE_TYPE( VipsMath, vips_math, VIPS_TYPE_UNARY );
+
+static int
+vips_math_build( VipsObject *object )
 {
-	if( im_piocheck( in, out ) ||
-		im_check_uncoded( name, in ) ||
-		im_check_noncomplex( name, in ) )
+	VipsObjectClass *class = VIPS_OBJECT_GET_CLASS( object );
+	VipsUnary *unary = (VipsUnary *) object;
+
+	if( unary->in &&
+		vips_check_noncomplex( class->nickname, unary->in ) )
 		return( -1 );
 
-	if( im_cp_desc( out, in ) )
-		return( -1 );
-	if( vips_bandfmt_isint( in->BandFmt ) ) 
-		out->BandFmt = IM_BANDFMT_FLOAT;
-
-	if( im_wrapone( in, out, gen, in, NULL ) )
+	if( VIPS_OBJECT_CLASS( vips_math_parent_class )->build( object ) )
 		return( -1 );
 
 	return( 0 );
 }
 
-/* Sin in degrees.
- */
-#define DSIN( X ) (sin( IM_RAD( X ) ))
-
-FUN_BUFFER( DSIN )
-
-/**
- * im_sintra
- * @in: input #IMAGE
- * @out: output #IMAGE
- *
- * For each pixel, call <function>sin(3)</function> (sine). Angles are 
- * expressed in degrees. The output type is float, unless the input is 
- * double, in which case the output is double.  Non-complex images only.
- *
- * See also: im_asintra(), im_costra(), im_tantra().
- *
- * Returns: 0 on success, -1 on error
- */
-int 
-im_sintra( IMAGE *in, IMAGE *out )
-{
-	return( im__math( "im_sintra", in, out, (im_wrapone_fn) DSIN_buffer ) );
+#define LOOP( IN, OUT, OP ) { \
+	IN * restrict p = (IN *) in[0]; \
+	OUT * restrict q = (OUT *) out; \
+	\
+	for( x = 0; x < sz; x++ ) \
+		q[x] = OP( p[x] ); \
 }
 
-/* Asin in degrees.
- */
-#define ADSIN( X ) (IM_DEG( asin( X ) ))
+#define SWITCH( OP ) \
+	switch( vips_image_get_format( im ) ) { \
+	case VIPS_FORMAT_UCHAR: \
+		LOOP( unsigned char, float, OP ); break; \
+	case VIPS_FORMAT_CHAR: \
+		LOOP( signed char, float, OP ); break; \
+	case VIPS_FORMAT_USHORT: \
+		LOOP( unsigned short, float, OP ); break; \
+	case VIPS_FORMAT_SHORT: \
+		LOOP( signed short, float, OP ); break; \
+	case VIPS_FORMAT_UINT: \
+		LOOP( unsigned int, float, OP ); break; \
+	case VIPS_FORMAT_INT: \
+		LOOP( signed int, float, OP ); break; \
+	case VIPS_FORMAT_FLOAT: \
+		LOOP( float, float, OP ); break; \
+	case VIPS_FORMAT_DOUBLE: \
+		LOOP( double, double, OP ); break;\
+ 	\
+	default: \
+		g_assert_not_reached(); \
+	} 
 
-FUN_BUFFER( ADSIN )
-
-/**
- * im_asintra
- * @in: input #IMAGE
- * @out: output #IMAGE
- *
- * For each pixel, call <function>asin(3)</function> (arc, or inverse sine). 
- * Angles are 
- * expressed in degrees. The output type is float, unless the input is 
- * double, in which case the output is double.  Non-complex images only.
- *
- * See also: im_asintra(), im_costra(), im_tantra().
- *
- * Returns: 0 on success, -1 on error
+/* sin/cos/tan in degrees.
  */
-int 
-im_asintra( IMAGE *in, IMAGE *out )
+#define DSIN( X ) (sin( VIPS_RAD( X ) ))
+#define DCOS( X ) (cos( VIPS_RAD( X ) ))
+#define DTAN( X ) (tan( VIPS_RAD( X ) ))
+#define ADSIN( X ) (VIPS_DEG( asin( X ) ))
+#define ADCOS( X ) (VIPS_DEG( acos( X ) ))
+#define ADTAN( X ) (VIPS_DEG( atan( X ) ))
+
+/* exp10() is a gnu extension, use pow().
+ */
+#define EXP10( X ) (pow( 10.0, (X) ))
+
+/* Zero-avoiding log, cf. zero-avoiding behaviour of /.
+ */
+#define LOGZ( X ) ((X) == 0.0 ? 0.0 : log( X ))
+#define LOGZ10( X ) ((X) == 0.0 ? 0.0 : log10( X ))
+
+static void
+vips_math_buffer( VipsArithmetic *arithmetic, 
+	VipsPel *out, VipsPel **in, int width )
 {
-	return( im__math( "im_asintra", in, out, 
-		(im_wrapone_fn) ADSIN_buffer ) );
+	VipsMath *math = (VipsMath *) arithmetic;
+	VipsImage *im = arithmetic->ready[0];
+	const int sz = width * vips_image_get_bands( im );
+
+	int x;
+
+	switch( math->math ) {
+	case VIPS_OPERATION_MATH_SIN: 	SWITCH( DSIN ); break;
+	case VIPS_OPERATION_MATH_COS: 	SWITCH( DCOS ); break;
+	case VIPS_OPERATION_MATH_TAN: 	SWITCH( DTAN ); break;
+	case VIPS_OPERATION_MATH_ASIN: 	SWITCH( ADSIN ); break;
+	case VIPS_OPERATION_MATH_ACOS: 	SWITCH( ADCOS ); break;
+	case VIPS_OPERATION_MATH_ATAN: 	SWITCH( ADTAN ); break;
+	case VIPS_OPERATION_MATH_LOG: 	SWITCH( LOGZ ); break;
+	case VIPS_OPERATION_MATH_LOG10:	SWITCH( LOGZ10 ); break;
+	case VIPS_OPERATION_MATH_EXP: 	SWITCH( exp ); break;
+	case VIPS_OPERATION_MATH_EXP10:	SWITCH( EXP10 ); break;
+
+	default:
+		g_assert_not_reached();
+	}
 }
 
-/* Cos in degrees.
+/* Save a bit of typing.
  */
-#define DCOS( X ) (cos( IM_RAD( X ) ))
+#define UC VIPS_FORMAT_UCHAR
+#define C VIPS_FORMAT_CHAR
+#define US VIPS_FORMAT_USHORT
+#define S VIPS_FORMAT_SHORT
+#define UI VIPS_FORMAT_UINT
+#define I VIPS_FORMAT_INT
+#define F VIPS_FORMAT_FLOAT
+#define X VIPS_FORMAT_COMPLEX
+#define D VIPS_FORMAT_DOUBLE
+#define DX VIPS_FORMAT_DPCOMPLEX
 
-FUN_BUFFER( DCOS )
+static const VipsBandFormat vips_math_format_table[10] = {
+/* UC  C   US  S   UI  I   F   X   D   DX */
+   F,  F,  F,  F,  F,  F,  F,  X,  D,  DX 
+};
 
-/**
- * im_costra
- * @in: input #IMAGE
- * @out: output #IMAGE
- *
- * For each pixel, call <function>cos(3)</function> (cosine). Angles are 
- * expressed in degrees. The output type is float, unless the input is 
- * double, in which case the output is double.  Non-complex images only.
- *
- * See also: im_acostra(), im_sintra(), im_tantra().
- *
- * Returns: 0 on success, -1 on error
- */
-int 
-im_costra( IMAGE *in, IMAGE *out )
+static void
+vips_math_class_init( VipsMathClass *class )
 {
-	return( im__math( "im_costra", in, out, (im_wrapone_fn) DCOS_buffer ) );
+	GObjectClass *gobject_class = G_OBJECT_CLASS( class );
+	VipsObjectClass *object_class = (VipsObjectClass *) class;
+	VipsArithmeticClass *aclass = VIPS_ARITHMETIC_CLASS( class );
+
+	gobject_class->set_property = vips_object_set_property;
+	gobject_class->get_property = vips_object_get_property;
+
+	object_class->nickname = "math";
+	object_class->description = _( "apply a math operation to an image" );
+	object_class->build = vips_math_build;
+
+	aclass->process_line = vips_math_buffer;
+
+	vips_arithmetic_set_format_table( aclass, vips_math_format_table ); 
+
+	VIPS_ARG_ENUM( class, "math", 200, 
+		_( "Operation" ), 
+		_( "math to perform" ),
+		VIPS_ARGUMENT_REQUIRED_INPUT,
+		G_STRUCT_OFFSET( VipsMath, math ),
+		VIPS_TYPE_OPERATION_MATH, VIPS_OPERATION_MATH_SIN ); 
 }
 
-/* Acos in degrees.
- */
-#define ADCOS( X ) (IM_DEG( acos( X ) ))
-
-FUN_BUFFER( ADCOS )
-
-/**
- * im_acostra
- * @in: input #IMAGE
- * @out: output #IMAGE
- *
- * For each pixel, call <function>acos(3)</function> (arc or inverse cosine). 
- * Angles are expressed in
- * degrees. The output type is float, unless the input is double, in which 
- * case the output is double.  Non-complex images only.
- *
- * See also: im_costra(), im_asintra(), im_atantra().
- *
- * Returns: 0 on success, -1 on error
- */
-int 
-im_acostra( IMAGE *in, IMAGE *out )
+static void
+vips_math_init( VipsMath *math )
 {
-	return( im__math( "im_acostra", in, out, 
-		(im_wrapone_fn) ADCOS_buffer ) );
 }
 
-/* Tan in degrees.
- */
-#define DTAN( X ) (tan( IM_RAD( X ) ))
-
-FUN_BUFFER( DTAN )
-
-/**
- * im_tantra
- * @in: input #IMAGE
- * @out: output #IMAGE
- *
- * For each pixel, call <function>tan(3)</function> (tangent). Angles are 
- * expressed in degrees. The output type is float, unless the input is 
- * double, in which case the output is double.  Non-complex images only.
- *
- * See also: im_atantra(), im_sintra(), im_tantra().
- *
- * Returns: 0 on success, -1 on error
- */
-int 
-im_tantra( IMAGE *in, IMAGE *out )
+static int
+vips_mathv( VipsImage *in, VipsImage **out, VipsOperationMath math, va_list ap )
 {
-	return( im__math( "im_tantra", in, out, (im_wrapone_fn) DTAN_buffer ) );
+	return( vips_call_split( "math", ap, in, out, math ) );
 }
 
-/* Atan in degrees.
- */
-#define ADTAN( X ) (IM_DEG( atan( X ) ))
-
-FUN_BUFFER( ADTAN )
-
 /**
- * im_atantra
- * @in: input #IMAGE
- * @out: output #IMAGE
+ * vips_math:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @math: math operation to perform
+ * @...: %NULL-terminated list of optional named arguments
  *
- * For each pixel, call <function>atan(3)</function> (arc or inverse tangent). 
- * Angles are expressed in
- * degrees. The output type is float, unless the input is double, in which 
- * case the output is double.  Non-complex images only.
+ * Perform various functions in -lm, the maths library, on images. 
  *
- * See also: im_tantra(), im_asintra(), im_atantra().
+ * Angles are expressed in degrees. The output type is float unless the 
+ * input is double, in which case the output is double.  
+ *
+ * Non-complex images only.
+ *
+ * See also: vips_math2().
  *
  * Returns: 0 on success, -1 on error
  */
-int 
-im_atantra( IMAGE *in, IMAGE *out )
+int
+vips_math( VipsImage *in, VipsImage **out, VipsOperationMath math, ... )
 {
-	return( im__math( "im_atantra", in, out, 
-		(im_wrapone_fn) ADTAN_buffer ) );
+	va_list ap;
+	int result;
+
+	va_start( ap, math );
+	result = vips_mathv( in, out, math, ap );
+	va_end( ap );
+
+	return( result );
 }
 
-FUN_BUFFER( log10 )
-
 /**
- * im_log10tra
- * @in: input #IMAGE
- * @out: output #IMAGE
+ * vips_sin:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
  *
- * For each pixel, call <function>log10(3)</function> (base 10 logarithm). 
- * The output type is float, unless the input is 
- * double, in which case the output is double.  Non-complex images only.
- *
- * See also: im_exp10tra(), im_logntra(), im_sintra().
+ * Perform #VIPS_OPERATION_MATH_SIN on an image. See vips_math().
  *
  * Returns: 0 on success, -1 on error
  */
-int 
-im_log10tra( IMAGE *in, IMAGE *out )
+int
+vips_sin( VipsImage *in, VipsImage **out, ... )
 {
-	return( im__math( "im_log10tra", in, out, 
-		(im_wrapone_fn) log10_buffer ) );
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_SIN, ap );
+	va_end( ap );
+
+	return( result );
 }
 
-FUN_BUFFER( log )
-
 /**
- * im_logtra
- * @in: input #IMAGE
- * @out: output #IMAGE
+ * vips_cos:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
  *
- * For each pixel, call <function>log(3)</function> (natural logarithm). 
- * The output type is float, unless the input is 
- * double, in which case the output is double.  Non-complex images only.
- *
- * See also: im_exp10tra(), im_logntra(), im_sintra().
+ * Perform #VIPS_OPERATION_MATH_COS on an image. See vips_math().
  *
  * Returns: 0 on success, -1 on error
  */
-int 
-im_logtra( IMAGE *in, IMAGE *out )
+int
+vips_cos( VipsImage *in, VipsImage **out, ... )
 {
-	return( im__math( "im_logtra", in, out, (im_wrapone_fn) log_buffer ) );
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_COS, ap );
+	va_end( ap );
+
+	return( result );
+}
+
+/**
+ * vips_tan:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
+ *
+ * Perform #VIPS_OPERATION_MATH_TAN on an image. See vips_math().
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int
+vips_tan( VipsImage *in, VipsImage **out, ... )
+{
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_TAN, ap );
+	va_end( ap );
+
+	return( result );
+}
+
+/**
+ * vips_asin:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
+ *
+ * Perform #VIPS_OPERATION_MATH_ASIN on an image. See vips_math().
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int
+vips_asin( VipsImage *in, VipsImage **out, ... )
+{
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_ASIN, ap );
+	va_end( ap );
+
+	return( result );
+}
+
+/**
+ * vips_acos:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
+ *
+ * Perform #VIPS_OPERATION_MATH_ACOS on an image. See vips_math().
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int
+vips_acos( VipsImage *in, VipsImage **out, ... )
+{
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_ACOS, ap );
+	va_end( ap );
+
+	return( result );
+}
+
+/**
+ * vips_atan:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
+ *
+ * Perform #VIPS_OPERATION_MATH_ATAN on an image. See vips_math().
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int
+vips_atan( VipsImage *in, VipsImage **out, ... )
+{
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_ATAN, ap );
+	va_end( ap );
+
+	return( result );
+}
+
+/**
+ * vips_log:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
+ *
+ * Perform #VIPS_OPERATION_MATH_LOG on an image. See vips_math().
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int
+vips_log( VipsImage *in, VipsImage **out, ... )
+{
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_LOG, ap );
+	va_end( ap );
+
+	return( result );
+}
+
+/**
+ * vips_log10:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
+ *
+ * Perform #VIPS_OPERATION_MATH_LOG10 on an image. See vips_math().
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int
+vips_log10( VipsImage *in, VipsImage **out, ... )
+{
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_LOG10, ap );
+	va_end( ap );
+
+	return( result );
+}
+
+/**
+ * vips_exp:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
+ *
+ * Perform #VIPS_OPERATION_MATH_EXP on an image. See vips_math().
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int
+vips_exp( VipsImage *in, VipsImage **out, ... )
+{
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_EXP, ap );
+	va_end( ap );
+
+	return( result );
+}
+
+/**
+ * vips_exp10:
+ * @in: input #VipsImage
+ * @out: output #VipsImage
+ * @...: %NULL-terminated list of optional named arguments
+ *
+ * Perform #VIPS_OPERATION_MATH_EXP10 on an image. See vips_math().
+ *
+ * Returns: 0 on success, -1 on error
+ */
+int
+vips_exp10( VipsImage *in, VipsImage **out, ... )
+{
+	va_list ap;
+	int result;
+
+	va_start( ap, out );
+	result = vips_mathv( in, out, VIPS_OPERATION_MATH_EXP10, ap );
+	va_end( ap );
+
+	return( result );
 }

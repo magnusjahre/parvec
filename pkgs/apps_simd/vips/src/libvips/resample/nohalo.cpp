@@ -30,9 +30,9 @@
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this program; if not, write to the Free
-    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-    02111-1307 USA
+    License along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301 USA
 
  */
 
@@ -46,7 +46,7 @@
  * 2009-2010 (c) Nicolas Robidoux, Chantal Racette, John Cupitt and
  * Adam Turcotte
  *
- * Nicolas Robidoux thanks Geert Jordaens, Ralf Meyer, Øyvind Kolås,
+ * N. Robidoux thanks Geert Jordaens, Ralf Meyer, Øyvind Kolås,
  * Minglun Gong, Eric Daoust and Sven Neumann for useful comments and
  * code.
  *
@@ -54,24 +54,27 @@
  * (National Science and Engineering Research Council of Canada)
  * Discovery Grant awarded to him (298424--2004).
  *
- * Chantal Racette's image resampling research and programming funded
- * in part by a NSERC Discovery Grant awarded to Julien Dompierre
- * (20-61098).
+ * C. Racette's image resampling research and programming funded in
+ * part by an NSERC (National Science and Engineering Research Council
+ * of Canada) Alexander Graham Bell Canada Graduate Scholarship, by an
+ * NSERC Discovery Grant awarded to Julien Dompierre (grant number
+ * 20-61098) and by N. Robidoux's Laurentian University professional
+ * allowance.
  *
  * A. Turcotte's image resampling research on reduced halo funded in
  * part by an NSERC Alexander Graham Bell Canada Graduate Scholarhip
  * awarded to him and by a Google Summer of Code 2010 award awarded to
  * GIMP (Gnu Image Manipulation Program).
  *
- * Nohalo with LBB finishing scheme was developed by Nicolas Robidoux
- * and Chantal Racette of the Department of Mathematics and Computer
- * Science of Laurentian University in the course of C. Racette's
- * Masters thesis in Computational Sciences. Preliminary work on
- * Nohalo and monotone interpolation was performed by C. Racette and
- * N. Robidoux in the course of her honours thesis, by N. Robidoux,
- * A. Turcotte and E. Daoust during Google Summer of Code 2009
- * (through two awards made to GIMP to improve GEGL), and, earlier, by
- * N. Robidoux, A. Turcotte, J. Cupitt, M. Gong and K. Martinez.
+ * Nohalo with LBB finishing scheme was developed by N. Robidoux and
+ * C. Racette at the Department of Mathematics and Computer Science of
+ * Laurentian University in the course of C. Racette's Masters thesis
+ * in Computational Sciences. Preliminary work on Nohalo and monotone
+ * interpolation was performed by C. Racette and N. Robidoux in the
+ * course of her honours thesis, by N. Robidoux, A. Turcotte and
+ * E. Daoust during Google Summer of Code 2009 (through two awards
+ * made to GIMP to improve GEGL), and, earlier, by N. Robidoux,
+ * A. Turcotte, J. Cupitt, M. Gong and K. Martinez.
  */
 
 /*
@@ -98,9 +101,12 @@
  * If you want to use the "sharp" (cheaper) version, uncomment the
  * following three pre-processor code lines:
  */
+
+/*
 #ifndef __NOHALO_CHEAP_H__
 #define __NOHALO_CHEAP_H__
 #endif
+ */
 
 /*
  * ================
@@ -224,6 +230,10 @@
  * http://doi.acm.org/10.1145/1557626.1557657.
  */
 
+/* Uncomment to enable bounds checking for VIPS_REGION_ADDR().
+ */
+#define DEBUG
+
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif /*HAVE_CONFIG_H*/
@@ -264,40 +274,44 @@ typedef struct _VipsInterpolateNohaloClass {
 } VipsInterpolateNohaloClass;
 
 /*
- * MINMOD is an implementation of the minmod function which only needs
- * two conditional moves.
+ * NOHALO_MINMOD is an implementation of the minmod function which
+ * only needs two "conditional moves."
+ * NOHALO_MINMOD(a,b,a_times_a,a_times_b) "returns"
+ * minmod(a,b). The macro parameter ("input") a_times_a is assumed to
+ * contain the square of a; a_times_b, the product of a and b.
  *
- * MINMOD(a,b,a_times_a,a_times_b) "returns" minmod(a,b). The
- * parameter ("input") a_times_a is assumed to contain the square of
- * a; the parameter a_times_b, the product of a and b.
+ * For uncompressed natural images in high bit depth (images for which
+ * the slopes a and b are unlikely to be equal to zero or be equal to
+ * each other), or chips with good branch prediction, the following
+ * version of the minmod function may work well:
  *
- * The version most suitable for images with flat (constant) colour
- * areas, since a, which is a pixel difference, will often be 0, in
- * which case both forward branches are likely:
+ * ( (a_times_b)>=0. ? ( (a_times_b)<(a_times_a) ? (b) : (a) ) : 0. )
  *
- * ( (a_times_b)>=0 ? 1 : 0 ) * ( (a_times_a)<=(a_times_b) ? (a) : (b) )
+ * In this version, the forward branch of the second conditional move
+ * is taken when |b|>|a| and when a*b<0. However, the "else" branch is
+ * taken when a=0 (or when a=b), which is why the above version is not
+ * as effective for images with regions with constant pixel values (or
+ * regions with pixel values which vary linearly or bilinearly) since
+ * we apply minmod to pairs of differences.
  *
- * For natural images in high bit depth (images for which the slopes a
- * and b are unlikely to be equal to zero or be equal to each other),
- * we recommend using
+ * The following version is more suitable for images with flat
+ * (constant) colour areas, since a, which is a pixel difference, will
+ * often be 0, in which case both forward branches are likely. This
+ * may be preferable if "branch flag look ahead" does not work so
+ * well.
  *
- * ( (a_times_b)>=0 ? 1 : 0 ) * ( (a_times_b)<(a_times_a) ? (b) : (a) )
+ * ( (a_times_b)>=0. ? ( (a_times_a)<=(a_times_b) ? (a) : (b) ) : 0. )
  *
- * instead. With this second version, the forward branch of the second
- * conditional move is taken when |b|>|a| and when a*b<0. However, the
- * "else" branch is taken when a=0 (or when a=b), which is why this
- * second version is not recommended for images with large regions
- * with constant pixel values (or even, actually, regions with nearby
- * pixel values which vary bilinearly, which may arise from dirt-cheap
- * demosaicing or computer graphics operations).
- *
- * Both of the above use a multiplication instead of a nested
- * "if-then-else" because gcc does not always rewrite the latter using
- * conditional moves.
+ * This last version appears to be slightly better than the former in
+ * speed tests performed on a recent multicore Intel chip, especially
+ * when enlarging a sharp image by a large factor, hence the choice.
  */
 #define NOHALO_MINMOD(a,b,a_times_a,a_times_b) \
-  ( (a_times_b)>=0. ? 1. : 0. ) * ( (a_times_b)<(a_times_a) ? (b) : (a) )
+  ( ( (a_times_b)>=0. ) ? ( (a_times_a)<=(a_times_b) ? (a) : (b) ) : 0. )
 
+/*
+ * Absolute value and sign macros:
+ */
 #define NOHALO_ABS(x)  ( ((x)>=0.) ? (x) : -(x) )
 #define NOHALO_SIGN(x) ( ((x)>=0.) ? 1.  : -1.  )
 
@@ -684,10 +698,9 @@ nohalo_subdivision (const double           uno_two,
  * final clamping is needed to stay "in range" (e.g., 0-255 for
  * standard 8-bit images).
  *
- * LBB was developed by Nicolas Robidoux and Chantal Racette of the
- * Department of Mathematics and Computer Science of Laurentian
- * University in the course of Chantal's Masters Thesis in
- * Computational Sciences.
+ * LBB was developed by N. Robidoux and C. Racette of the Department
+ * of Mathematics and Computer Science of Laurentian University in the
+ * course of C.'s Masters Thesis in Computational Sciences.
  */
 
 /*
@@ -1215,8 +1228,8 @@ lbbicubic( const double c00,
  */
 #define NOHALO_CONVERSION( conversion )               \
   template <typename T> static void inline            \
-  nohalo_ ## conversion(       PEL*   restrict pout,  \
-                         const PEL*   restrict pin,   \
+  nohalo_ ## conversion(       void*  restrict pout,  \
+                         const void*  restrict pin,   \
                          const int             bands, \
                          const int             lskip, \
                          const double          x_0,   \
@@ -1470,33 +1483,25 @@ G_DEFINE_TYPE( VipsInterpolateNohalo, vips_interpolate_nohalo,
 
 static void
 vips_interpolate_nohalo_interpolate( VipsInterpolate* restrict interpolate,
-                                     PEL*             restrict out,
-                                     REGION*          restrict in,
+                                     void*            restrict out,
+                                     VipsRegion*      restrict in,
                                      double                    absolute_x,
                                      double                    absolute_y )
 {
-  /*
-   * Floor's surrogate FAST_PSEUDO_FLOOR is used to make sure that the
-   * transition through 0 is smooth. If it is known that absolute_x
-   * and absolute_y will never be less than 0, plain cast---that is,
-   * const int ix = absolute_x---should be used instead.  Actually,
-   * any function which agrees with floor for non-integer values, and
-   * picks one of the two possibilities for integer values, can be
-   * used. FAST_PSEUDO_FLOOR fits the bill.
+  /* absolute_x and absolute_y are always >= 2.0 (see double-check assert
+   * below), so we don't need floor(). 
    *
-   * Then, x is the x-coordinate of the sampling point relative to the
-   * position of the center of the convex hull of the 2x2 block of
-   * closest pixels. Similarly for y. Range of values: [-.5,.5).
+   * It's 2 not 0 since we ask for a window_offset of 2 at the bottom.
    */
-  const int ix = FAST_PSEUDO_FLOOR( absolute_x + .5 );
-  const int iy = FAST_PSEUDO_FLOOR( absolute_y + .5 );
+  const int ix = (int) (absolute_x + 0.5);
+  const int iy = (int) (absolute_y + 0.5);
 
   /*
    * Move the pointer to (the first band of) the top/left pixel of the
    * 2x2 group of pixel centers which contains the sampling location
    * in its convex hull:
    */
-  const PEL* restrict p = (PEL *) IM_REGION_ADDR( in, ix, iy );
+  const VipsPel* restrict p = VIPS_REGION_ADDR( in, ix, iy );
 
   const double relative_x = absolute_x - ix;
   const double relative_y = absolute_y - iy;
@@ -1504,50 +1509,63 @@ vips_interpolate_nohalo_interpolate( VipsInterpolate* restrict interpolate,
   /*
    * VIPS versions of Nicolas's pixel addressing values.
    */
-  const int actual_bands = in->im->Bands;
-  const int lskip = IM_REGION_LSKIP( in ) / IM_IMAGE_SIZEOF_ELEMENT( in->im );
+  const int lskip = VIPS_REGION_LSKIP( in ) / 
+	  VIPS_IMAGE_SIZEOF_ELEMENT( in->im );
+
   /*
    * Double the bands for complex images to account for the real and
    * imaginary parts being computed independently:
    */
+  const int actual_bands = in->im->Bands;
   const int bands =
-    vips_bandfmt_iscomplex( in->im->BandFmt ) ? 2 * actual_bands : actual_bands;
+    vips_band_format_iscomplex( in->im->BandFmt ) ? 
+      2 * actual_bands : actual_bands;
+
+  g_assert( ix - 2 >= in->valid.left );
+  g_assert( iy - 2 >= in->valid.top );
+  g_assert( ix + 2 <= VIPS_RECT_RIGHT( &in->valid ) );
+  g_assert( iy + 2 <= VIPS_RECT_BOTTOM( &in->valid ) );
+
+  /* Confirm that absolute_x and absolute_y are >= 2, see above. 
+   */
+  g_assert( absolute_x >= 2.0 );
+  g_assert( absolute_y >= 2.0 );
 
   switch( in->im->BandFmt ) {
-  case IM_BANDFMT_UCHAR:
+  case VIPS_FORMAT_UCHAR:
     CALL( unsigned char, nosign );
     break;
 
-  case IM_BANDFMT_CHAR:
+  case VIPS_FORMAT_CHAR:
     CALL( signed char, withsign );
     break;
 
-  case IM_BANDFMT_USHORT:
+  case VIPS_FORMAT_USHORT:
     CALL( unsigned short, nosign );
     break;
 
-  case IM_BANDFMT_SHORT:
+  case VIPS_FORMAT_SHORT:
     CALL( signed short, withsign );
     break;
 
-  case IM_BANDFMT_UINT:
+  case VIPS_FORMAT_UINT:
     CALL( unsigned int, nosign );
     break;
 
-  case IM_BANDFMT_INT:
+  case VIPS_FORMAT_INT:
     CALL( signed int, withsign );
     break;
 
   /*
    * Complex images are handled by doubling of bands.
    */
-  case IM_BANDFMT_FLOAT:
-  case IM_BANDFMT_COMPLEX:
+  case VIPS_FORMAT_FLOAT:
+  case VIPS_FORMAT_COMPLEX:
     CALL( float, fptypes );
     break;
 
-  case IM_BANDFMT_DOUBLE:
-  case IM_BANDFMT_DPCOMPLEX:
+  case VIPS_FORMAT_DOUBLE:
+  case VIPS_FORMAT_DPCOMPLEX:
     CALL( double, fptypes );
     break;
 
@@ -1560,19 +1578,15 @@ vips_interpolate_nohalo_interpolate( VipsInterpolate* restrict interpolate,
 static void
 vips_interpolate_nohalo_class_init( VipsInterpolateNohaloClass *klass )
 {
-  GObjectClass *gobject_class = G_OBJECT_CLASS( klass );
   VipsObjectClass *object_class = VIPS_OBJECT_CLASS( klass );
   VipsInterpolateClass *interpolate_class = VIPS_INTERPOLATE_CLASS( klass );
 
-  gobject_class->set_property = vips_object_set_property;
-  gobject_class->get_property = vips_object_get_property;
-
   object_class->nickname    = "nohalo";
   object_class->description =
-    _( "Edge sharpening resampler with halo reduction" );
+    _( "edge sharpening resampler with halo reduction" );
 
   interpolate_class->interpolate   = vips_interpolate_nohalo_interpolate;
-  interpolate_class->window_size   = 5;
+  interpolate_class->window_size   = 6;
   interpolate_class->window_offset = 2;
 }
 

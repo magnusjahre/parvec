@@ -1,14 +1,4 @@
-/* Merge two images left-right. dx, dy is the offset needed to get from sec 
- * (secondary image) to ref (reference image). 
- *
- * Usage:
- *
- *   int 
- *   im_lrmerge( ref, sec, out, dx, dy )
- *   IMAGE *ref, *sec, *out;
- *   int dx, dy;
- *   
- * Returns 0 on success and -1 on error
+/* Merge two images left-right. 
  *
  * Copyright: 1990, 1991 N. Dessipris 
  * Author: N. Dessipris
@@ -88,6 +78,11 @@
  * 20/6/05
  *	- now requires all bands == 0 for transparency (used to just check
  *	  band 0)
+ * 24/1/11
+ * 	- gtk-doc
+ * 	- match formats and bands automatically
+ * 22/5/14
+ * 	- wrap as a class
  */
 
 /*
@@ -106,7 +101,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -136,11 +132,7 @@
 #include <vips/transform.h>
 #include <vips/internal.h>
 
-#include "merge.h"
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
+#include "pmosaicing.h"
 
 /* Blend luts. Shared between all lr and tb blends.
  */
@@ -153,7 +145,7 @@ int *im__icoef2 = NULL;
  * scale later when we index it.
  */
 int
-im__make_blend_luts()
+im__make_blend_luts( void )
 {
 	int x;
 
@@ -188,14 +180,14 @@ im__make_blend_luts()
 static int
 find_first( REGION *ir, int *pos, int x, int y, int w )
 {
-	PEL *pr = (PEL *) IM_REGION_ADDR( ir, x, y );
+	VipsPel *pr = IM_REGION_ADDR( ir, x, y );
 	IMAGE *im = ir->im;
 	int ne = w * im->Bands;
 	int i;
 
 	/* Double the number of bands in a complex.
 	 */
-	if( vips_bandfmt_iscomplex( im->BandFmt ) )
+	if( vips_band_format_iscomplex( im->BandFmt ) )
 		ne *= 2;
 
 /* Search for the first non-zero band element from the left edge of the image.
@@ -237,14 +229,14 @@ find_first( REGION *ir, int *pos, int x, int y, int w )
 static int
 find_last( REGION *ir, int *pos, int x, int y, int w )
 {
-	PEL *pr = (PEL *) IM_REGION_ADDR( ir, x, y );
+	VipsPel *pr = IM_REGION_ADDR( ir, x, y );
 	IMAGE *im = ir->im;
 	int ne = w * im->Bands;
 	int i;
 
 	/* Double the number of bands in a complex.
 	 */
-	if( vips_bandfmt_iscomplex( im->BandFmt ) )
+	if( vips_band_format_iscomplex( im->BandFmt ) )
 		ne *= 2;
 
 /* Search for the first non-zero band element from the right.
@@ -579,9 +571,9 @@ lr_blend( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 	 */
 	for( y = oreg->top, yr = prr.top, ys = psr.top; 
 		y < IM_RECT_BOTTOM( oreg ); y++, yr++, ys++ ) { 
-		PEL *pr = (PEL *) IM_REGION_ADDR( rir, prr.left, yr );
-		PEL *ps = (PEL *) IM_REGION_ADDR( sir, psr.left, ys );
-		PEL *q = (PEL *) IM_REGION_ADDR( or, oreg->left, y );
+		VipsPel *pr = IM_REGION_ADDR( rir, prr.left, yr );
+		VipsPel *ps = IM_REGION_ADDR( sir, psr.left, ys );
+		VipsPel *q = IM_REGION_ADDR( or, oreg->left, y );
 
 		const int j = y - ovlap->overlap.top;
 		const int first = ovlap->first[j];
@@ -658,9 +650,9 @@ lr_blend_labpack( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 	 */
 	for( y = oreg->top, yr = prr.top, ys = psr.top; 
 		y < IM_RECT_BOTTOM( oreg ); y++, yr++, ys++ ) { 
-		PEL *pr = (PEL *) IM_REGION_ADDR( rir, prr.left, yr );
-		PEL *ps = (PEL *) IM_REGION_ADDR( sir, psr.left, ys );
-		PEL *q = (PEL *) IM_REGION_ADDR( or, oreg->left, y );
+		VipsPel *pr = IM_REGION_ADDR( rir, prr.left, yr );
+		VipsPel *ps = IM_REGION_ADDR( sir, psr.left, ys );
+		VipsPel *q = IM_REGION_ADDR( or, oreg->left, y );
 
 		const int j = y - ovlap->overlap.top;
 		const int first = ovlap->first[j];
@@ -673,8 +665,8 @@ lr_blend_labpack( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 
 		/* Unpack two bits we want.
 		 */
-		imb_LabQ2Lab( pr, r, oreg->width );
-		imb_LabQ2Lab( ps, s, oreg->width );
+		vips__LabQ2Lab_vec( r, pr, oreg->width );
+		vips__LabQ2Lab_vec( s, ps, oreg->width );
 
 		/* Blend as floats.
 		 */
@@ -682,7 +674,7 @@ lr_blend_labpack( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 
 		/* Re-pack to output buffer.
 		 */
-		imb_Lab2LabQ( inf->merge, q, oreg->width );
+		vips__Lab2LabQ_vec( q, inf->merge, oreg->width );
 	}
 
 	return( 0 );
@@ -691,7 +683,7 @@ lr_blend_labpack( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 static void *
 lock_free( GMutex *lock )
 {
-	g_mutex_free( lock );
+	vips_g_mutex_free( lock );
 
 	return( NULL );
 }
@@ -700,22 +692,23 @@ lock_free( GMutex *lock )
  * im_tbmerge, so not static.
  */
 Overlapping *
-im__build_mergestate( IMAGE *ref, IMAGE *sec, IMAGE *out, 
-	int dx, int dy, int mwidth )
+im__build_mergestate( const char *domain,
+	IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 {
-   	Overlapping *ovlap = IM_NEW( out, Overlapping );
+	IMAGE **vec;
+   	Overlapping *ovlap;
 	int x;
 
-	if( !ovlap )
+	if( !(vec = im__insert_base( domain, ref, sec, out )) ||
+		!(ovlap = IM_NEW( out, Overlapping )) )
 		return( NULL );
 	if( mwidth < -1 ) {
-		im_error( "im_lr/tbmerge", 
-			"%s", _( "mwidth must be -1 or >= 0" ) );
+		im_error( domain, "%s", _( "mwidth must be -1 or >= 0" ) );
 		return( NULL );
 	}
 
-	ovlap->ref = ref;
-	ovlap->sec = sec;
+	ovlap->ref = vec[0];
+	ovlap->sec = vec[1];
 	ovlap->out = out;
 	ovlap->dx = dx;
 	ovlap->dy = dy;
@@ -725,21 +718,21 @@ im__build_mergestate( IMAGE *ref, IMAGE *sec, IMAGE *out,
 	 */
    	ovlap->rarea.left = 0;
    	ovlap->rarea.top = 0;
-   	ovlap->rarea.width = ref->Xsize;
-   	ovlap->rarea.height = ref->Ysize;
+   	ovlap->rarea.width = ovlap->ref->Xsize;
+   	ovlap->rarea.height = ovlap->ref->Ysize;
 
 	/* Area occupied by sec image. 
 	 */
    	ovlap->sarea.left = -dx;
    	ovlap->sarea.top = -dy;
-   	ovlap->sarea.width = sec->Xsize;
-   	ovlap->sarea.height = sec->Ysize;
+   	ovlap->sarea.width = ovlap->sec->Xsize;
+   	ovlap->sarea.height = ovlap->sec->Ysize;
 
 	/* Compute overlap. 
 	 */
    	im_rect_intersectrect( &ovlap->rarea, &ovlap->sarea, &ovlap->overlap );
 	if( im_rect_isempty( &ovlap->overlap ) ) {
-		im_error( "im_lr/tbmerge", "%s", _( "no overlap" ) );
+		im_error( domain, "%s", _( "no overlap" ) );
 		return( NULL );
 	}
 
@@ -777,10 +770,10 @@ im__build_mergestate( IMAGE *ref, IMAGE *sec, IMAGE *out,
 	for( x = 0; x < ovlap->flsize; x++ )
 		ovlap->first[x] = -1;
 
-	ovlap->fl_lock = g_mutex_new();
+	ovlap->fl_lock = vips_g_mutex_new();
 	if( im_add_close_callback( out, 
 		(im_callback_fn) lock_free, ovlap->fl_lock, NULL ) ) {
-		g_mutex_free( ovlap->fl_lock );
+		vips_g_mutex_free( ovlap->fl_lock );
 		return( NULL );
 	}
 
@@ -794,12 +787,13 @@ build_lrstate( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 {
    	Overlapping *ovlap;
 
-	if( !(ovlap = im__build_mergestate( ref, sec, out, dx, dy, mwidth )) )
+	if( !(ovlap = im__build_mergestate( "im_lrmerge", 
+		ref, sec, out, dx, dy, mwidth )) )
 		return( NULL );
 
 	/* Select blender.
 	 */
-	switch( ref->Coding ) {
+	switch( ovlap->ref->Coding ) {
 	case IM_CODING_LABQ:
 		ovlap->blend = lr_blend_labpack;
 		break;
@@ -1040,7 +1034,7 @@ im__start_merge( IMAGE *out, void *a, void *b )
 
 int
 im__lrmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
-{  
+{
 	Overlapping *ovlap;
 
 #ifdef DEBUG
@@ -1051,20 +1045,6 @@ im__lrmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 	printf( "sec is %d x %d pixels\n", sec->Xsize, sec->Ysize );
 #endif
 
-	/* Check IMAGEs parameters
-	 */
-	if( ref->Bands != sec->Bands || 
-		ref->BandFmt != sec->BandFmt ||
-		ref->Coding != sec->Coding ) {
-		im_error( "im_lrmerge", 
-			"%s", _( "input images incompatible" ) );
-		return( -1 );
-	}
-	if( ref->Coding != IM_CODING_NONE && ref->Coding != IM_CODING_LABQ ) {
-		im_error( "im_lrmerge", 
-			"%s", _( "inputs not uncoded or IM_CODING_LABQ" ) );
-		return( -1 );
-	}
 	if( dx > 0 || dx < 1 - ref->Xsize ) {
 #ifdef DEBUG
 		printf( "im__lrmerge: no overlap, using insert\n" ); 
@@ -1079,8 +1059,6 @@ im__lrmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 
 		return( 0 );
 	}
-	if( im_piocheck( ref, out ) || im_piocheck( sec, out ) )
-		return( -1 );
 
 	/* Build state for this join.
 	 */
@@ -1089,7 +1067,7 @@ im__lrmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 
 	/* Prepare the output IMAGE.
 	 */ 
-	if( im_cp_descv( out, ref, sec, NULL ) )
+	if( im_cp_descv( out, ovlap->ref, ovlap->sec, NULL ) )
 		return( -1 );
 	out->Xsize = ovlap->oarea.width;
 	out->Ysize = ovlap->oarea.height;
@@ -1098,7 +1076,7 @@ im__lrmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 
 	/* Set demand hints. 
 	 */
-	if( im_demand_hint( out, IM_THINSTRIP, ref, sec, NULL ) )
+	if( im_demand_hint( out, IM_THINSTRIP, ovlap->ref, ovlap->sec, NULL ) )
 		return( -1 );
 
 	/* Generate!
@@ -1110,14 +1088,46 @@ im__lrmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 	return ( 0 );
 }
 
+const char *
+im__get_mosaic_name( VipsImage *image )
+{
+	const char *name;
+
+	if( vips_image_get_typeof( image, "mosaic-name" ) ) {
+		if( vips_image_get_string( image, "mosaic-name", &name ) )
+			return( NULL );
+	}
+	else 
+		name = image->filename;
+
+	return( name ); 
+}
+
+void
+im__add_mosaic_name( VipsImage *image )
+{
+	static int serial = 0;
+
+	char name[256];
+
+	/* We must override any inherited name, so don't test for doesn't
+	 * exist before setting.
+	 */
+	vips_snprintf( name, 256, "mosaic-temp-%d", serial++ );
+	vips_image_set_string( image, "mosaic-name", name );
+}
+
 int
 im_lrmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 { 
 	if( im__lrmerge( ref, sec, out, dx, dy, mwidth ) )
 		return( -1 );
 
+	im__add_mosaic_name( out );
 	if( im_histlin( out, "#LRJOIN <%s> <%s> <%s> <%d> <%d> <%d>", 
-		ref->filename, sec->filename, out->filename, 
+		im__get_mosaic_name( ref ), 
+		im__get_mosaic_name( sec ), 
+		im__get_mosaic_name( out ), 
 		-dx, -dy, mwidth ) )
 		return( -1 );
 

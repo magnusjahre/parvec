@@ -20,7 +20,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -37,10 +38,10 @@
 extern "C" {
 #endif /*__cplusplus*/
 
-int im_video_v4l1( IMAGE *im, const char *device,
+int im_video_v4l1( VipsImage *im, const char *device,
 	int channel, int brightness, int colour, int contrast, int hue,
 	int ngrabs );
-int im_video_test( IMAGE *im, int brightness, int error );
+int im_video_test( VipsImage *im, int brightness, int error );
 
 #ifdef __cplusplus
 }

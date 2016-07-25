@@ -20,7 +20,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -30,35 +31,50 @@
 
  */
 
-#ifndef IM_RESAMPLE_H
-#define IM_RESAMPLE_H
+#ifndef VIPS_RESAMPLE_H
+#define VIPS_RESAMPLE_H
 
 #ifdef __cplusplus
 extern "C" {
 #endif /*__cplusplus*/
 
-int im_affinei( IMAGE *in, IMAGE *out, 
-	VipsInterpolate *interpolate,
-	double a, double b, double c, double d, double dx, double dy, 
-	int ox, int oy, int ow, int oh );
-int im_affinei_all( IMAGE *in, IMAGE *out, VipsInterpolate *interpolate,
-	double a, double b, double c, double d, double dx, double dy ) ;
+typedef enum {
+	VIPS_KERNEL_NEAREST,
+	VIPS_KERNEL_LINEAR,
+	VIPS_KERNEL_CUBIC,
+	VIPS_KERNEL_LANCZOS2,
+	VIPS_KERNEL_LANCZOS3,
+	VIPS_KERNEL_LAST
+} VipsKernel;
 
-int im_stretch3( IMAGE *in, IMAGE *out, double dx, double dy );
+int vips_shrink( VipsImage *in, VipsImage **out, 
+	double xshrink, double yshrink, ... )
+	__attribute__((sentinel));
+int vips_shrinkh( VipsImage *in, VipsImage **out, int xshrink, ... );
+int vips_shrinkv( VipsImage *in, VipsImage **out, int yshrink, ... );
 
-int im_shrink( IMAGE *in, IMAGE *out, double xshrink, double yshrink );
-int im_rightshift_size( IMAGE *in, IMAGE *out, int xshift, int yshift, int band_fmt );
+int vips_reduce( VipsImage *in, VipsImage **out, 
+	double xshrink, double yshrink, ... );
+int vips_reduceh( VipsImage *in, VipsImage **out, double xshrink, ... );
+int vips_reducev( VipsImage *in, VipsImage **out, double yshrink, ... );
 
-int im_match_linear( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int xr1, int yr1, int xs1, int ys1,
-	int xr2, int yr2, int xs2, int ys2 );
-int im_match_linear_search( IMAGE *ref, IMAGE *sec, IMAGE *out,
-	int xr1, int yr1, int xs1, int ys1,
-	int xr2, int yr2, int xs2, int ys2,
-	int hwindowsize, int hsearchsize );
+int vips_similarity( VipsImage *in, VipsImage **out, ... )
+	__attribute__((sentinel));
+int vips_affine( VipsImage *in, VipsImage **out, 
+	double a, double b, double c, double d, ... )
+	__attribute__((sentinel));
+
+int vips_resize( VipsImage *in, VipsImage **out, double scale, ... )
+	__attribute__((sentinel));
+
+int vips_mapim( VipsImage *in, VipsImage **out, VipsImage *index, ... ) 
+	__attribute__((sentinel));
+
+int vips_quadratic( VipsImage *in, VipsImage **out, VipsImage *coeff, ... )
+	__attribute__((sentinel));
 
 #ifdef __cplusplus
 }
 #endif /*__cplusplus*/
 
-#endif /*IM_RESAMPLE_H*/
+#endif /*VIPS_RESAMPLE_H*/

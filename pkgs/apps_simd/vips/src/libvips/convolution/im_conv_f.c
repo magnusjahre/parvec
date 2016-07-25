@@ -31,11 +31,20 @@
  * 	- add restrict, though it doesn't seem to help gcc
  * 	- add mask-all-zero check
  * 13/11/09
- * 	- rename as im_conv_f() to make it easier to vips.c to make the
+ * 	- rename as im_conv_f() to make it easier for vips.c to make the
  * 	  overloaded version
  * 3/2/10
  * 	- gtkdoc
  * 	- more cleanups
+ * 1/10/10
+ * 	- support complex (just double the bands)
+ * 29/10/10
+ * 	- get rid of im_convsep_f(), just call this twice, no longer worth
+ * 	  keeping two versions
+ * 15/10/11 Nicolas
+ * 	- handle offset correctly in seperable convolutions
+ * 26/1/16 Lovell Fuller
+ * 	- remove Duff for a 25% speedup
  */
 
 /*
@@ -54,7 +63,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -72,13 +82,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
-#include <assert.h>
 
 #include <vips/vips.h>
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
 
 /* Our parameters ... we take a copy of the mask argument, plus we make a
  * smaller version with the zeros squeezed out. 
@@ -152,7 +157,7 @@ typedef struct {
 	REGION *ir;		/* Input region */
 
 	int *offsets;		/* Offsets for each non-zero matrix element */
-	PEL **pts;		/* Per-non-zero mask element image pointers */
+	VipsPel **pts;		/* Per-non-zero mask element image pointers */
 
 	int last_bpl;		/* Avoid recalcing offsets, if we can */
 } ConvSequence;
@@ -192,18 +197,13 @@ conv_start( IMAGE *out, void *a, void *b )
 	 */
 	seq->ir = im_region_create( in );
 	seq->offsets = IM_ARRAY( out, conv->nnz, int );
-	seq->pts = IM_ARRAY( out, conv->nnz, PEL * );
+	seq->pts = IM_ARRAY( out, conv->nnz, VipsPel * );
 	if( !seq->ir || !seq->offsets || !seq->pts ) {
 		conv_stop( seq, in, conv );
 		return( NULL );
 	}
 
 	return( (void *) seq );
-}
-
-#define INNER { \
-	sum += t[i] * p[i][x]; \
-	i += 1; \
 }
 
 #define CONV_FLOAT( ITYPE, OTYPE ) { \
@@ -213,10 +213,10 @@ conv_start( IMAGE *out, void *a, void *b )
 	for( x = 0; x < sz; x++ ) {  \
 		double sum; \
 		int i; \
- 		\
+		\
 		sum = 0; \
-		i = 0; \
-		IM_UNROLL( conv->nnz, INNER ); \
+		for ( i = 0; i < nnz; i++ ) \
+			sum += t[i] * p[i][x]; \
  		\
 		sum = (sum / mask->scale) + mask->offset; \
 		\
@@ -235,13 +235,15 @@ conv_gen( REGION *or, void *vseq, void *a, void *b )
 	REGION *ir = seq->ir;
 	DOUBLEMASK *mask = conv->mask;
 	double * restrict t = conv->coeff; 
+	const int nnz = conv->nnz;
 
 	Rect *r = &or->valid;
 	Rect s;
 	int le = r->left;
 	int to = r->top;
 	int bo = IM_RECT_BOTTOM(r);
-	int sz = IM_REGION_N_ELEMENTS( or );
+	int sz = IM_REGION_N_ELEMENTS( or ) * 
+		(vips_band_format_iscomplex( in->BandFmt ) ? 2 : 1);
 
 	int x, y, z, i;
 
@@ -260,7 +262,7 @@ conv_gen( REGION *or, void *vseq, void *a, void *b )
 	if( seq->last_bpl != IM_REGION_LSKIP( ir ) ) {
 		seq->last_bpl = IM_REGION_LSKIP( ir );
 
-		for( i = 0; i < conv->nnz; i++ ) {
+		for( i = 0; i < nnz; i++ ) {
 			z = conv->coeff_pos[i];
 			x = z % conv->mask->xsize;
 			y = z / conv->mask->xsize;
@@ -274,9 +276,9 @@ conv_gen( REGION *or, void *vseq, void *a, void *b )
 	for( y = to; y < bo; y++ ) { 
 		/* Init pts for this line of PELs.
 		 */
-                for( z = 0; z < conv->nnz; z++ ) 
-                        seq->pts[z] = seq->offsets[z] +  
-                                (PEL *) IM_REGION_ADDR( ir, le, y ); 
+		for( z = 0; z < nnz; z++ )
+			seq->pts[z] = seq->offsets[z] +
+				IM_REGION_ADDR( ir, le, y ); 
 
 		switch( in->BandFmt ) {
 		case IM_BANDFMT_UCHAR: 	
@@ -292,12 +294,14 @@ conv_gen( REGION *or, void *vseq, void *a, void *b )
 		case IM_BANDFMT_INT:    
 			CONV_FLOAT( signed int, float ); break;
 		case IM_BANDFMT_FLOAT:  
+		case IM_BANDFMT_COMPLEX:  
 			CONV_FLOAT( float, float ); break;
 		case IM_BANDFMT_DOUBLE: 
+		case IM_BANDFMT_DPCOMPLEX:  
 			CONV_FLOAT( double, double ); break;
 
 		default:
-			assert( 0 );
+			g_assert_not_reached();
 		}
 	}
 
@@ -313,7 +317,6 @@ im_conv_f_raw( IMAGE *in, IMAGE *out, DOUBLEMASK *mask )
 	 */
 	if( im_piocheck( in, out ) ||
 		im_check_uncoded( "im_conv", in ) ||
-		im_check_noncomplex( "im_conv", in ) || 
 		im_check_dmask( "im_conv", mask ) ) 
 		return( -1 );
 	if( mask->scale == 0 ) {
@@ -337,10 +340,7 @@ im_conv_f_raw( IMAGE *in, IMAGE *out, DOUBLEMASK *mask )
 		return( -1 );
 	}
 
-	/* Set demand hints. FATSTRIP is good for us, as THINSTRIP will cause
-	 * too many recalculations on overlaps.
-	 */
-	if( im_demand_hint( out, IM_FATSTRIP, in, NULL ) )
+	if( im_demand_hint( out, IM_SMALLTILE, in, NULL ) )
 		return( -1 );
 
 	if( im_generate( out, conv_start, conv_gen, conv_stop, in, conv ) )
@@ -360,8 +360,7 @@ im_conv_f_raw( IMAGE *in, IMAGE *out, DOUBLEMASK *mask )
  *
  * Convolve @in with @mask using floating-point arithmetic. The output image 
  * is always %IM_BANDFMT_FLOAT unless @in is %IM_BANDFMT_DOUBLE, in which case
- * @out is also %IM_BANDFMT_DOUBLE. Non-complex images
- * only.
+ * @out is also %IM_BANDFMT_DOUBLE. 
  *
  * Each output pixel is
  * calculated as sigma[i]{pixel[i] * mask[i]} / scale + offset, where scale

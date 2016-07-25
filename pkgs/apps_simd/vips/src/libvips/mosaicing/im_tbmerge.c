@@ -68,6 +68,9 @@
  * 20/6/05
  *	- now requires all bands == 0 for transparency (used to just check
  *	  band 0)
+ * 24/1/11
+ * 	- gtk-doc
+ * 	- match formats and bands automatically
  */
 
 /*
@@ -86,7 +89,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -110,18 +114,14 @@
 #include <vips/transform.h>
 #include <vips/internal.h>
 
-#include "merge.h"
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
+#include "pmosaicing.h"
 
 /* Return the position of the first non-zero pel from the top.
  */
 static int
 find_top( REGION *ir, int *pos, int x, int y, int h )
 {
-	PEL *pr = (PEL *) IM_REGION_ADDR( ir, x, y );
+	VipsPel *pr = IM_REGION_ADDR( ir, x, y );
 	IMAGE *im = ir->im;
 	int ls = IM_REGION_LSKIP( ir ) / IM_IMAGE_SIZEOF_ELEMENT( im );
 	int b = im->Bands;
@@ -129,7 +129,7 @@ find_top( REGION *ir, int *pos, int x, int y, int h )
 
 	/* Double the number of bands in a complex.
 	 */
-	if( vips_bandfmt_iscomplex( im->BandFmt ) )
+	if( vips_band_format_iscomplex( im->BandFmt ) )
 		b *= 2;
 
 /* Search for the first non-zero band element from the top edge of the image.
@@ -175,7 +175,7 @@ find_top( REGION *ir, int *pos, int x, int y, int h )
 static int
 find_bot( REGION *ir, int *pos, int x, int y, int h )
 {
-	PEL *pr = (PEL *) IM_REGION_ADDR( ir, x, y );
+	VipsPel *pr = IM_REGION_ADDR( ir, x, y );
 	IMAGE *im = ir->im;
 	int ls = IM_REGION_LSKIP( ir ) / IM_IMAGE_SIZEOF_ELEMENT( ir->im );
 	int b = im->Bands;
@@ -183,7 +183,7 @@ find_bot( REGION *ir, int *pos, int x, int y, int h )
 
 	/* Double the number of bands in a complex.
 	 */
-	if( vips_bandfmt_iscomplex( im->BandFmt ) )
+	if( vips_band_format_iscomplex( im->BandFmt ) )
 		b *= 2;
 
 /* Search for the first non-zero band element from the top edge of the image.
@@ -502,9 +502,9 @@ tb_blend( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 	 */
 	for( y = oreg->top, yr = prr.top, ys = psr.top; 
 		y < IM_RECT_BOTTOM( oreg ); y++, yr++, ys++ ) { 
-		PEL *pr = (PEL *) IM_REGION_ADDR( rir, prr.left, yr );
-		PEL *ps = (PEL *) IM_REGION_ADDR( sir, psr.left, ys );
-		PEL *q = (PEL *) IM_REGION_ADDR( or, oreg->left, y );
+		VipsPel *pr = IM_REGION_ADDR( rir, prr.left, yr );
+		VipsPel *ps = IM_REGION_ADDR( sir, psr.left, ys );
+		VipsPel *q = IM_REGION_ADDR( or, oreg->left, y );
 
 		const int j = oreg->left - ovlap->overlap.left;
 		const int *first = ovlap->first + j;
@@ -580,9 +580,9 @@ tb_blend_labpack( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 	 */
 	for( y = oreg->top, yr = prr.top, ys = psr.top; 
 		y < IM_RECT_BOTTOM( oreg ); y++, yr++, ys++ ) { 
-		PEL *pr = (PEL *) IM_REGION_ADDR( rir, prr.left, yr );
-		PEL *ps = (PEL *) IM_REGION_ADDR( sir, psr.left, ys );
-		PEL *q = (PEL *) IM_REGION_ADDR( or, oreg->left, y );
+		VipsPel *pr = IM_REGION_ADDR( rir, prr.left, yr );
+		VipsPel *ps = IM_REGION_ADDR( sir, psr.left, ys );
+		VipsPel *q = IM_REGION_ADDR( or, oreg->left, y );
 
 		const int j = oreg->left - ovlap->overlap.left;
 		const int *first = ovlap->first + j;
@@ -594,8 +594,8 @@ tb_blend_labpack( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 
 		/* Unpack two bits we want.
 		 */
-		imb_LabQ2Lab( pr, r, oreg->width );
-		imb_LabQ2Lab( ps, s, oreg->width );
+		vips__LabQ2Lab_vec( r, pr, oreg->width );
+		vips__LabQ2Lab_vec( s, ps, oreg->width );
 
 		/* Blend as floats.
 		 */
@@ -603,7 +603,7 @@ tb_blend_labpack( REGION *or, MergeInfo *inf, Overlapping *ovlap, Rect *oreg )
 
 		/* Re-pack to output buffer.
 		 */
-		imb_Lab2LabQ( inf->merge, q, oreg->width );
+		vips__Lab2LabQ_vec( q, inf->merge, oreg->width );
 	}
 
 	return( 0 );
@@ -616,12 +616,13 @@ build_tbstate( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 {
    	Overlapping *ovlap;
 
-	if( !(ovlap = im__build_mergestate( ref, sec, out, dx, dy, mwidth )) )
+	if( !(ovlap = im__build_mergestate( "im_tbmerge", 
+		ref, sec, out, dx, dy, mwidth )) )
 		return( NULL );
 
 	/* Select blender.
 	 */
-	switch( ref->Coding ) {
+	switch( ovlap->ref->Coding ) {
 	case IM_CODING_LABQ:
 		ovlap->blend = tb_blend_labpack;
 		break;
@@ -665,20 +666,6 @@ im__tbmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 {  
 	Overlapping *ovlap;
 
-	/* Check IMAGEs parameters
-	 */
-	if( ref->Bands != sec->Bands || 
-		ref->BandFmt != sec->BandFmt ||
-		ref->Coding != sec->Coding ) {
-		im_error( "im_tbmerge", 
-			"%s", _( "input images incompatible" ) );
-		return( -1 );
-	}
-	if( ref->Coding != IM_CODING_NONE && ref->Coding != IM_CODING_LABQ ) {
-		im_error( "im_tbmerge", 
-			"%s", _( "inputs not uncoded or IM_CODING_LABQ" ) );
-		return( -1 );
-	}
 	if( dy > 0 || dy < 1 - ref->Ysize ) {
 		/* No overlap, use insert instead.
 		 */
@@ -689,8 +676,6 @@ im__tbmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 
 		return( 0 );
 	}
-	if( im_piocheck( ref, out ) || im_piocheck( sec, out ) )
-		return( -1 );
 
 	/* Build state for this join.
 	 */
@@ -726,8 +711,11 @@ im_tbmerge( IMAGE *ref, IMAGE *sec, IMAGE *out, int dx, int dy, int mwidth )
 	if( im__tbmerge( ref, sec, out, dx, dy, mwidth ) )
 		return( -1 );
 
+	im__add_mosaic_name( out );
 	if( im_histlin( out, "#TBJOIN <%s> <%s> <%s> <%d> <%d> <%d>", 
-		ref->filename, sec->filename, out->filename, 
+		im__get_mosaic_name( ref ), 
+		im__get_mosaic_name( sec ), 
+		im__get_mosaic_name( out ), 
 		-dx, -dy, mwidth ) )
 		return( -1 );
 

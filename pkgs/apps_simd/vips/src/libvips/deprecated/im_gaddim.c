@@ -37,7 +37,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -57,10 +58,6 @@
 #include <math.h>
 
 #include <vips/vips.h>
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
 
 /* This function works on either mmaped files or on images in buffer
  */
@@ -122,9 +119,7 @@ static int array[6][6] = {
  *
  * Deprecated.
  */
-int im_gaddim(a, in1, b, in2, c, out)
-IMAGE *in1, *in2, *out;
-double a, b, c;
+int im_gaddim(double a, IMAGE *in1, double b, IMAGE *in2, double c, IMAGE *out)
 {
 	static int fmt[] = { IM_BANDFMT_UCHAR, IM_BANDFMT_CHAR,
 	IM_BANDFMT_USHORT, IM_BANDFMT_SHORT, 

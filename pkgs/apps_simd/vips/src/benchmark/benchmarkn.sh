@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 uname -a
 gcc --version
@@ -21,27 +21,40 @@ if [ $? != 0 ]; then
   echo "build of test image failed -- out of disc space?"
   exit 1
 fi
-echo -n "test image is" `header -f Xsize temp.v` 
-echo " by" `header -f Ysize temp.v` "pixels"
+echo -n "test image is" `vipsheader -f width temp.v` 
+echo " by" `vipsheader -f height temp.v` "pixels"
+max_cpus=`vips im_concurrency_get`
 
+echo "max cpus = $max_cpus"
 echo "starting benchmark ..."
-echo "chain=$chain"
+echo /usr/bin/time -f %e vips \
+  --vips-concurrency=xx \
+  im_benchmarkn temp.v temp2.v $chain
+echo reported real-time is best of three runs
+echo cpus real-time
 
-for cpus in 1 2 3 4 5 6 ; do
-  export IM_CONCURRENCY=$cpus
-
-  echo IM_CONCURRENCY=$IM_CONCURRENCY
-  echo time -p vips im_benchmarkn temp.v temp2.v $chain
-  time -p vips im_benchmarkn temp.v temp2.v $chain
-  time -p vips im_benchmarkn temp.v temp2.v $chain
-
+for((cpus = 1; cpus <= max_cpus; cpus++)); do
+  t1=`/usr/bin/time -f %e vips \
+	  --vips-concurrency=$cpus \
+	  im_benchmarkn temp.v temp2.v $chain 2>&1`
   if [ $? != 0 ]; then
     echo "benchmark failed -- install problem?"
     exit 1
   fi
+  t2=`/usr/bin/time -f %e vips \
+	  --vips-concurrency=$cpus \
+	  im_benchmarkn temp.v temp2.v $chain 2>&1`
+  t3=`/usr/bin/time -f %e vips \
+	  --vips-concurrency=$cpus \
+	  im_benchmarkn temp.v temp2.v $chain 2>&1`
 
-  # find pixel average ... should be the same for all IM_CONCURRENCY settings
-  # or we have some kind of terrible bug
-  echo vips im_avg temp2.v
-  vips im_avg temp2.v
+  # echo $t1 $t2 $t3
+
+  if [[ $t2 < $t1 ]]; then
+	  t1=$t2
+  fi
+  if [[ $t3 < $t1 ]]; then
+	  t1=$t3
+  fi
+  echo $cpus $t1
 done

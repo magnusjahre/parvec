@@ -27,7 +27,8 @@
 
     You should have received a copy of the GNU Lesser General Public License
     along with this program; if not, write to the Free Software
-    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301  USA
 
  */
 
@@ -47,10 +48,6 @@
 #include <math.h>
 
 #include <vips/vips.h>
-
-#ifdef WITH_DMALLOC
-#include <dmalloc.h>
-#endif /*WITH_DMALLOC*/
 
 /* What we do for each pel.
  */
@@ -117,11 +114,11 @@ im_resize_linear( IMAGE *in, IMAGE *out, int X, int Y )
     PEL 	*q, *p;
 
     int 	ils, ips, ies;		/* Input and output line, pel and */
-    int 	ols, ops, oes;		/* element sizes */
+    int 	ols, oes;		/* element sizes */
 
 	if( im_iocheck( in, out ) )
 		return( -1 );
-	if( vips_bandfmt_iscomplex( in->BandFmt ) ) {
+	if( vips_band_format_iscomplex( in->BandFmt ) ) {
 		im_error( "im_lowpass", "%s", _( "non-complex input only" ) );
 		return( -1 );
 	}
@@ -143,7 +140,6 @@ im_resize_linear( IMAGE *in, IMAGE *out, int X, int Y )
 	ies = IM_IMAGE_SIZEOF_ELEMENT( in );
 
 	ols = IM_IMAGE_SIZEOF_LINE( out );
-	ops = IM_IMAGE_SIZEOF_PEL( out );
 	oes = IM_IMAGE_SIZEOF_ELEMENT( out );
 
 /* buffer lines

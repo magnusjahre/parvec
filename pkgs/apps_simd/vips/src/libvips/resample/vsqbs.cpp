@@ -20,9 +20,9 @@
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this program; if not, write to the Free
-    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
-    02111-1307 USA
+    License along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+    02110-1301 USA
 
  */
 
@@ -54,8 +54,8 @@
  * implemented as if there is no subdivision.
  *
  * At high enlargement ratios, VSQBS is very effective at "masking"
- * that that the original has pixels uniformly distributed on a
- * grid. In particular, VSQBS produces resamples with only very mild
+ * that the original has pixels uniformly distributed on a grid. In
+ * particular, VSQBS produces resamples with only very mild
  * staircasing. Like cubic B-Spline smoothing, however, VSQBS is not
  * an interpolatory method. For example, using VSQBS to perform the
  * identity geometric transformation (enlargement by a scaling factor
@@ -178,8 +178,8 @@ typedef struct _VipsInterpolateVsqbsClass {
  */
 #define VSQBS_CONVERSION( conversion )               \
   template <typename T> static void inline           \
-  vsqbs_ ## conversion(       PEL*   restrict pout,  \
-                        const PEL*   restrict pin,   \
+  vsqbs_ ## conversion(       void*    restrict pout, \
+                        const VipsPel* restrict pin,  \
                         const int             bands, \
                         const int             lskip, \
                         const double          x_0,   \
@@ -225,12 +225,12 @@ typedef struct _VipsInterpolateVsqbsClass {
     const double rite          = 1.0 - left_p_cent;         \
     const double bot           = 1.0 - top_p_mid;           \
     \
-    const double four_c_uno_two = top  * left_p_cent;                   \
-    const double four_c_dos_one = left *  top_p_mid;                    \
+    const double four_c_uno_two = left_p_cent * top;                    \
+    const double four_c_dos_one = left        * top_p_mid;              \
     const double four_c_dos_two = left_p_cent + top_p_mid;              \
     const double four_c_dos_thr = cent_p_rite * top_p_mid + rite;       \
     const double four_c_tre_two = mid_p_bot * left_p_cent + bot;        \
-    const double four_c_tre_thr = mid_p_bot * rite + bot * cent_p_rite; \
+    const double four_c_tre_thr = mid_p_bot * rite + cent_p_rite * bot; \
     const double four_c_uno_thr = top  - four_c_uno_two;                \
     const double four_c_tre_one = left - four_c_dos_one;                \
     \
@@ -303,33 +303,25 @@ extern "C" {
 
 static void
 vips_interpolate_vsqbs_interpolate( VipsInterpolate* restrict interpolate,
-                                    PEL*             restrict out,
-                                    REGION*          restrict in,
+                                    void*            restrict out,
+                                    VipsRegion*      restrict in,
                                     double                    absolute_x,
                                     double                    absolute_y )
 {
-  /*
-   * Floor's surrogate FAST_PSEUDO_FLOOR is used to make sure that the
-   * transition through 0 is smooth. If it is known that absolute_x
-   * and absolute_y will never be less than 0, plain cast---that is,
-   * const int ix = absolute_x---should be used instead.  Actually,
-   * any function which agrees with floor for non-integer values, and
-   * picks one of the two possibilities for integer values, can be
-   * used. FAST_PSEUDO_FLOOR fits the bill.
+  /* absolute_x and absolute_y are always >= 1.0 (see double-check assert
+   * below), so we don't need floor(). 
    *
-   * Then, x is the x-coordinate of the sampling point relative to the
-   * position of the center of the convex hull of the 2x2 block of
-   * closest pixels. Similarly for y. Range of values: [-.5,.5).
+   * It's 1 not 0 since we ask for a window_offset of 1 at the bottom.
    */
-  const int ix = FAST_PSEUDO_FLOOR( absolute_x + .5 );
-  const int iy = FAST_PSEUDO_FLOOR( absolute_y + .5 );
+  const int ix = (int) (absolute_x + 0.5);
+  const int iy = (int) (absolute_y + 0.5);
 
   /*
    * Move the pointer to (the first band of) the top/left pixel of the
    * 2x2 group of pixel centers which contains the sampling location
    * in its convex hull:
    */
-  const PEL* restrict p = (PEL *) IM_REGION_ADDR( in, ix, iy );
+  const VipsPel* restrict p = VIPS_REGION_ADDR( in, ix, iy );
 
   const double relative_x = absolute_x - ix;
   const double relative_y = absolute_y - iy;
@@ -337,50 +329,63 @@ vips_interpolate_vsqbs_interpolate( VipsInterpolate* restrict interpolate,
   /*
    * VIPS versions of Nicolas's pixel addressing values.
    */
-  const int actual_bands = in->im->Bands;
-  const int lskip = IM_REGION_LSKIP( in ) / IM_IMAGE_SIZEOF_ELEMENT( in->im );
+  const int lskip = VIPS_REGION_LSKIP( in ) / 
+	  VIPS_IMAGE_SIZEOF_ELEMENT( in->im );
+
   /*
    * Double the bands for complex images to account for the real and
    * imaginary parts being computed independently:
    */
+  const int actual_bands = in->im->Bands;
   const int bands =
-    vips_bandfmt_iscomplex( in->im->BandFmt ) ? 2 * actual_bands : actual_bands;
+    vips_band_format_iscomplex( in->im->BandFmt ) ? 
+      2 * actual_bands : actual_bands;
+
+  g_assert( ix - 1 >= in->valid.left );
+  g_assert( iy - 1 >= in->valid.top );
+  g_assert( ix + 1 <= VIPS_RECT_RIGHT( &in->valid ) );
+  g_assert( iy + 1 <= VIPS_RECT_BOTTOM( &in->valid ) );
+
+  /* Confirm that absolute_x and absolute_y are >= 1, see above. 
+   */
+  g_assert( absolute_x >= 1.0 );
+  g_assert( absolute_y >= 1.0 );
 
   switch( in->im->BandFmt ) {
-  case IM_BANDFMT_UCHAR:
+  case VIPS_FORMAT_UCHAR:
     CALL( unsigned char, nosign );
     break;
 
-  case IM_BANDFMT_CHAR:
+  case VIPS_FORMAT_CHAR:
     CALL( signed char, withsign );
     break;
 
-  case IM_BANDFMT_USHORT:
+  case VIPS_FORMAT_USHORT:
     CALL( unsigned short, nosign );
     break;
 
-  case IM_BANDFMT_SHORT:
+  case VIPS_FORMAT_SHORT:
     CALL( signed short, withsign );
     break;
 
-  case IM_BANDFMT_UINT:
+  case VIPS_FORMAT_UINT:
     CALL( unsigned int, nosign );
     break;
 
-  case IM_BANDFMT_INT:
+  case VIPS_FORMAT_INT:
     CALL( signed int, withsign );
     break;
 
   /*
    * Complex images are handled by doubling bands:
    */
-  case IM_BANDFMT_FLOAT:
-  case IM_BANDFMT_COMPLEX:
+  case VIPS_FORMAT_FLOAT:
+  case VIPS_FORMAT_COMPLEX:
     CALL( float, fptypes );
     break;
 
-  case IM_BANDFMT_DOUBLE:
-  case IM_BANDFMT_DPCOMPLEX:
+  case VIPS_FORMAT_DOUBLE:
+  case VIPS_FORMAT_DPCOMPLEX:
     CALL( double, fptypes );
     break;
 
@@ -393,18 +398,14 @@ vips_interpolate_vsqbs_interpolate( VipsInterpolate* restrict interpolate,
 static void
 vips_interpolate_vsqbs_class_init( VipsInterpolateVsqbsClass *klass )
 {
-  GObjectClass             *gobject_class =         G_OBJECT_CLASS( klass );
   VipsObjectClass           *object_class =      VIPS_OBJECT_CLASS( klass );
   VipsInterpolateClass *interpolate_class = VIPS_INTERPOLATE_CLASS( klass );
-
-  gobject_class->set_property = vips_object_set_property;
-  gobject_class->get_property = vips_object_get_property;
 
   object_class->nickname    = "vsqbs";
   object_class->description = _( "B-Splines with antialiasing smoothing" );
 
   interpolate_class->interpolate   = vips_interpolate_vsqbs_interpolate;
-  interpolate_class->window_size   = 3;
+  interpolate_class->window_size   = 4;
   interpolate_class->window_offset = 1;
 }
 
