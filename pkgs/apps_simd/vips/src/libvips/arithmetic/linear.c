@@ -1,16 +1,16 @@
-/* im_lintra.c -- linear transform 
+/* im_lintra.c -- linear transform
  *
  * Copyright: 1990, N. Dessipris, based on im_powtra()
  * Author: Nicos Dessipris
  * Written on: 02/05/1990
- * Modified on: 
+ * Modified on:
  * 23/4/93 JC
  *	- adapted to work with partial images
  * 1/7/93 JC
  *	- adapted for partial v2
  * 7/10/94 JC
  *	- new IM_NEW()
- *	- more typedefs 
+ *	- more typedefs
  * 9/2/95 JC
  *	- adapted for im_wrap...
  *	- operations on complex images now just transform the real channel
@@ -46,6 +46,8 @@
  * 	- add uchar output option
  */
 
+// SIMD Version by Juan M. Cebrian, NTNU - 2013. (modifications under JMCG tag)
+
 /*
 
     Copyright (C) 1991-2005 The National Gallery
@@ -57,7 +59,7 @@
 
     This library is distributed in the hope that it will be useful,
     but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU 
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
@@ -89,6 +91,19 @@
 #include <vips/vips.h>
 
 #include "unary.h"
+
+/* JMCG BEGIN */
+//#define DFTYPE
+#include "simd_defines.h"
+#include <assert.h>
+
+//#define DEBUG_SIMD
+#ifdef DEBUG_SIMD
+#include <math.h>
+float diff = 0.0f;
+float max_diff = 0.0f;
+#endif
+/* JMCG END */
 
 typedef struct _VipsLinear {
 	VipsUnary parent_instance;
@@ -135,17 +150,17 @@ vips_linear_build( VipsObject *object )
 	if( unary->in ) {
 		int bands;
 
-		vips_image_decode_predict( unary->in, &bands, NULL ); 
+		vips_image_decode_predict( unary->in, &bands, NULL );
 		linear->n = VIPS_MAX( linear->n, bands );
 	}
 	arithmetic->base_bands = linear->n;
 
-	if( unary->in && 
-		linear->a && 
+	if( unary->in &&
+		linear->a &&
 		linear->b ) {
-		if( vips_check_vector( class->nickname, 
+		if( vips_check_vector( class->nickname,
 			linear->a->n, unary->in ) ||
-			vips_check_vector( class->nickname, 
+			vips_check_vector( class->nickname,
 				linear->b->n, unary->in ) )
 		return( -1 );
 	}
@@ -180,6 +195,540 @@ vips_linear_build( VipsObject *object )
 	return( 0 );
 }
 
+/* JMCG BEGIN */
+#ifdef SIMD_WIDTH
+// JMCG Common for NEON, SSE and AVX
+
+// Validation function for loopn_$SIMD_uchar
+static void inline validate_loopn_uchar(double *a, double *b, int width, unsigned char *p, float *q) {
+  int i, x;
+  for( i = 0, x = 0; x < width; x++ ) {
+    q[i] = a[0] * (unsigned char) p[i] + b[0];
+    q[i+1] = a[1] * (unsigned char) p[i+1] + b[1];
+    q[i+2] = a[2] * (unsigned char) p[i+2] + b[2];
+    i += 3;
+  }
+}
+
+// Validation function for loopn_$SIMD_float
+static void inline validate_loopn_float(double *a, double *b, int width, float *p, float *q) {
+  int i, x;
+  for( i = 0, x = 0; x < width; x++ ) {
+    q[i] = a[0] * (float) p[i] + b[0];
+    q[i+1] = a[1] * (float) p[i+1] + b[1];
+    q[i+2] = a[2] * (float) p[i+2] + b[2];
+    i += 3;
+  }
+}
+
+#endif
+
+#ifdef PARSEC_USE_AVX
+
+// JMCG Vectorization - LOOPN for UCHAR (IN = unsigned char, OUT = float)
+// We use inline functions instead of macros for debugging purposes
+static void inline loopn_avx_uchar(double *a, double *b, int width, PEL *in, PEL *out) {
+  unsigned char *p = (unsigned char *) in;
+  float *q = (float *) out;
+
+  // a and b are doubles, so all calculations are done over doubles as GCC would do with single data
+  __m128d a_01, a_20, a_12, b_01, b_20, b_12;
+  __m256d a_0210, a_1021, a_2102, b_0210, b_1021, b_2102;
+
+  __m256d p_1,p_2,p_3;
+  __m128i temp_l;
+  int i, x;
+
+  // JMCG
+  // Since we are only vectorizing for NB = 3 and can only fit 2 doubles per register on SSE
+  // we unrolled 12 times to minimized loads of uchars, but in this final version,
+  // as we use *(__m128i *) (&p[i]) is not really necessary, we could unroll 6 times only as we do for floats
+
+
+  // Since we are only vectorizing for NB = 3 and can only fit 2 doubles per register on SSE, we unroll 6 times
+  a_01 = _mm_loadu_pd(&a[0]); // GR
+  a_12 = _mm_loadu_pd(&a[1]); // BG
+  a_20 = _mm_loadh_pd(_mm_load_sd(&a[2]),
+                      &a[0]); // RB
+
+  a_0210 = _mm256_insertf128_pd(a_0210,a_01,0);
+  a_0210 = _mm256_insertf128_pd(a_0210,a_20,1); // RBGR
+
+  a_1021 = _mm256_insertf128_pd(a_1021,a_12,0);
+  a_1021 = _mm256_insertf128_pd(a_1021,a_01,1); // GRBG
+
+  a_2102 = _mm256_insertf128_pd(a_2102,a_20,0);
+  a_2102 = _mm256_insertf128_pd(a_2102,a_12,1); // BGRB
+
+  b_01 = _mm_loadu_pd(&b[0]); // GR
+  b_12 = _mm_loadu_pd(&b[1]); // BG
+  b_20 = _mm_loadh_pd(_mm_load_sd(&b[2]),
+                      &b[0]); // RG
+
+  b_0210 = _mm256_insertf128_pd(b_0210,b_01,0);
+  b_0210 = _mm256_insertf128_pd(b_0210,b_20,1); // RBGR
+
+  b_1021 = _mm256_insertf128_pd(b_1021,b_12,0);
+  b_1021 = _mm256_insertf128_pd(b_1021,b_01,1); // GRBG
+
+  b_2102 = _mm256_insertf128_pd(b_2102,b_20,0);
+  b_2102 = _mm256_insertf128_pd(b_2102,b_12,1); // BGRB
+
+  i = 0;
+  x = 0;
+
+  while ((x + 4) < width) {
+    // Most likely (for parsec native width is 79, 68 and 25)
+
+    temp_l = _mm_cvtepu8_epi32(*(__m128i *) (&p[i]));
+    p_1 = _mm256_cvtepi32_pd(temp_l); // R2B1G1R1
+
+    temp_l = _mm_cvtepu8_epi32(*(__m128i *) (&p[i+4]));
+    p_2 = _mm256_cvtepi32_pd(temp_l); // G3R3B2G2
+
+    temp_l = _mm_cvtepu8_epi32(*(__m128i *) (&p[i+8]));
+    p_3 = _mm256_cvtepi32_pd(temp_l); // B4G4R4B3
+
+    p_1 = _mm256_add_pd(_mm256_mul_pd(p_1,a_0210),b_0210); // (R2B1G1R1 * A0A2A1A0) + B0B2B1B0
+    p_2 = _mm256_add_pd(_mm256_mul_pd(p_2,a_1021),b_1021); // (G3R3B2G2 * A1A0A2A1) + B1B0B2B1
+    p_3 = _mm256_add_pd(_mm256_mul_pd(p_3,a_2102),b_2102); // (B4G4R4B3 * A2A1A0A2) + B2B1B0B2
+
+    _mm_storeu_ps(&q[i],_mm256_cvtpd_ps(p_1));
+    _mm_storeu_ps(&q[i+4],_mm256_cvtpd_ps(p_2));
+    _mm_storeu_ps(&q[i+8],_mm256_cvtpd_ps(p_3));
+
+    i += 12;
+    x += 4;
+  }
+
+  // Compute leftovers
+  for( ; x < width; x++ ) {
+    q[i] = (a[0] * (unsigned char) p[i]) + b[0];
+    q[i+1] = (a[1] * (unsigned char) p[i+1]) + b[1];
+    q[i+2] = (a[2] * (unsigned char) p[i+2]) + b[2];
+    i+=3;
+  }
+#ifdef DEBUG_SIMD
+  float test_out[width*3];
+  validate_loopn_uchar(a, b, width, p, &test_out[0]);
+  i = 0;
+  for(x = 0 ; x < width; x++ ) {
+    //    printf("Uchar Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
+    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff > max_diff) {
+      max_diff = diff;
+      printf("Maxdiff UChar = %f\n",max_diff);
+      fflush(stdout);
+    }
+    i += 3;
+  }
+#endif
+}
+
+// JMCG Vectorization - LOOPN for FLOAT (IN = float, OUT = float)
+// We use inline functions instead of macros for debugging purposes
+static void inline loopn_avx_float(double *a, double *b, int width, PEL *in, PEL *out) {
+  float *p = (float *) in;
+  float *q = (float *) out;
+
+  // a and b are doubles, so all calculations are done over doubles as GCC would do with single data
+  __m128d a_01, a_20, a_12, b_01, b_20, b_12;
+  __m256d a_0210, a_1021, a_2102, b_0210, b_1021, b_2102;
+
+  __m256d p_1,p_2,p_3;
+  __m128 temp;
+  int i, x;
+
+  // Since we are only vectorizing for NB = 3 and can only fit 2 doubles per register on SSE, we unroll 6 times
+  a_01 = _mm_loadu_pd(&a[0]); // GR
+  a_12 = _mm_loadu_pd(&a[1]); // BG
+  a_20 = _mm_loadh_pd(_mm_load_sd(&a[2]),
+		      &a[0]); // RB
+
+  a_0210 = _mm256_insertf128_pd(a_0210,a_01,0);
+  a_0210 = _mm256_insertf128_pd(a_0210,a_20,1); // RBGR
+
+  a_1021 = _mm256_insertf128_pd(a_1021,a_12,0);
+  a_1021 = _mm256_insertf128_pd(a_1021,a_01,1); // GRBG
+
+  a_2102 = _mm256_insertf128_pd(a_2102,a_20,0);
+  a_2102 = _mm256_insertf128_pd(a_2102,a_12,1); // BGRB
+
+  b_01 = _mm_loadu_pd(&b[0]); // GR
+  b_12 = _mm_loadu_pd(&b[1]); // BG
+  b_20 = _mm_loadh_pd(_mm_load_sd(&b[2]),
+		      &b[0]); // RG
+
+  b_0210 = _mm256_insertf128_pd(b_0210,b_01,0);
+  b_0210 = _mm256_insertf128_pd(b_0210,b_20,1); // RBGR
+
+  b_1021 = _mm256_insertf128_pd(b_1021,b_12,0);
+  b_1021 = _mm256_insertf128_pd(b_1021,b_01,1); // GRBG
+
+  b_2102 = _mm256_insertf128_pd(b_2102,b_20,0);
+  b_2102 = _mm256_insertf128_pd(b_2102,b_12,1); // BGRB
+
+  i = 0;
+  x = 0;
+
+  while ((x + 4) < width) {
+    // Most likely (for parsec native width is 79, 68 and 25)
+    p_1 = _mm256_cvtps_pd(_mm_loadu_ps(&p[i])); // R2B1G1R1
+    temp = _mm_loadu_ps(&p[i]);
+    p_2 = _mm256_cvtps_pd(_mm_loadu_ps(&p[i+4])); // G3R3B2G2
+    temp = _mm_loadu_ps(&p[i+4]);
+    p_3 = _mm256_cvtps_pd(_mm_loadu_ps(&p[i+8])); // B4G4R4B3
+    temp = _mm_loadu_ps(&p[i+8]);
+
+    p_1 = _mm256_add_pd(_mm256_mul_pd(p_1,a_0210),b_0210); // (R2B1G1R1 * A0A2A1A0) + B0B2B1B0
+    p_2 = _mm256_add_pd(_mm256_mul_pd(p_2,a_1021),b_1021); // (G3R3B2G2 * A1A0A2A1) + B1B0B2B1
+    p_3 = _mm256_add_pd(_mm256_mul_pd(p_3,a_2102),b_2102); // (B4G4R4B3 * A2A1A0A2) + B2B1B0B2
+
+    _mm_storeu_ps(&q[i],_mm256_cvtpd_ps(p_1));
+    _mm_storeu_ps(&q[i+4],_mm256_cvtpd_ps(p_2));
+    _mm_storeu_ps(&q[i+8],_mm256_cvtpd_ps(p_3));
+
+    i += 12;
+    x += 4;
+  }
+
+  // Compute leftovers
+  for( ; x < width; x++ ) {
+    q[i] = (a[0] * (float) p[i]) + b[0];
+    q[i+1] = (a[1] * (float) p[i+1]) + b[1];
+    q[i+2] = (a[2] * (float) p[i+2]) + b[2];
+    i+=3;
+  }
+#ifdef DEBUG_SIMD
+  float test_out[width*3];
+  validate_loopn_float(a, b, width, p, &test_out[0]);
+  i = 0;
+  for(x = 0 ; x < width; x++ ) {
+    //    printf("Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
+    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff > max_diff) {
+      max_diff = diff;
+      printf("Maxdiff = %f\n",max_diff);
+      fflush(stdout);
+    }
+    i += 3;
+  }
+#endif
+}
+#endif // PARSEC_USE_AVX
+
+
+#ifdef PARSEC_USE_SSE
+// JMCG Vectorization - LOOPN for UCHAR (IN = unsigned char, OUT = float)
+// We use inline functions instead of macros for debugging purposes
+static void inline loopn_sse_uchar(double *a, double *b, int width, PEL *in, PEL *out) {
+  unsigned char *p = (unsigned char *) in;
+  float *q = (float *) out;
+
+  // a and b are doubles, so all calculations are done over doubles as GCC would do with single data
+  __m128d a_01, a_20, a_12, b_01, b_20, b_12;
+  __m128d p_1,p_2,p_3,p_4,p_5,p_6;
+  __m128i temp_l,temp_h;
+  int i, x;
+
+  // JMCG
+  // Since we are only vectorizing for NB = 3 and can only fit 2 doubles per register on SSE
+  // we unrolled 12 times to minimized loads of uchars, but in this final version,
+  // as we use *(__m128i *) (&p[i]) is not really necessary, we could unroll 6 times only as we do for floats
+
+  a_01 = _mm_loadu_pd(&a[0]);
+  a_12 = _mm_loadu_pd(&a[1]);
+  a_20 = _mm_loadh_pd(_mm_load_sd(&a[2]),
+		      &a[0]);
+
+  b_01 = _mm_loadu_pd(&b[0]);
+  b_12 = _mm_loadu_pd(&b[1]);
+  b_20 = _mm_loadh_pd(_mm_load_sd(&b[2]),
+		      &b[0]);
+  i = 0;
+  x = 0;
+
+  while ((x + 4) < width) {
+    // Most likely (for parsec native width is 79, 68 and 25)
+
+    temp_l = _mm_cvtepu8_epi32(*(__m128i *) (&p[i]));
+    p_1 = _mm_cvtepi32_pd(temp_l); // G1R1
+    temp_h = _mm_shuffle_epi32(temp_l,_MM_SHUFFLE(1,0,3,2));
+    p_2 = _mm_cvtepi32_pd(temp_h); // R2B1
+
+    temp_l = _mm_cvtepu8_epi32(*(__m128i *) (&p[i+4]));
+    p_3 = _mm_cvtepi32_pd(temp_l); // B2G2
+    temp_h = _mm_shuffle_epi32(temp_l,_MM_SHUFFLE(1,0,3,2));
+    p_4 = _mm_cvtepi32_pd(temp_h); // G3R3
+
+    temp_l = _mm_cvtepu8_epi32(*(__m128i *) (&p[i+8]));
+    p_5 = _mm_cvtepi32_pd(temp_l); // R4B3
+    temp_h = _mm_shuffle_epi32(temp_l,_MM_SHUFFLE(1,0,3,2));
+    p_6 = _mm_cvtepi32_pd(temp_h); // G4R4
+
+
+    p_1 = _mm_add_pd(_mm_mul_pd(p_1,a_01),b_01); // (G1R1 * A1A0) + B1B0
+    p_2 = _mm_add_pd(_mm_mul_pd(p_2,a_20),b_20); // (R2B1 * A0A2) + B0B2
+    p_3 = _mm_add_pd(_mm_mul_pd(p_3,a_12),b_12); // (B2G2 * A2A1) + B2B1
+
+    p_4 = _mm_add_pd(_mm_mul_pd(p_4,a_01),b_01); // (G3R3 * A1A0) + B1B0
+    p_5 = _mm_add_pd(_mm_mul_pd(p_5,a_20),b_20); // (R4B3 * A0A2) + B0B2
+    p_6 = _mm_add_pd(_mm_mul_pd(p_6,a_12),b_12); // (B4G4 * A2A1) + B2B1
+
+    _mm_storel_pi((__m64*) &q[i],_mm_cvtpd_ps(p_1));
+    _mm_storel_pi((__m64*) &q[i+2],_mm_cvtpd_ps(p_2));
+    _mm_storel_pi((__m64*) &q[i+4],_mm_cvtpd_ps(p_3));
+    _mm_storel_pi((__m64*) &q[i+6],_mm_cvtpd_ps(p_4));
+    _mm_storel_pi((__m64*) &q[i+8],_mm_cvtpd_ps(p_5));
+    _mm_storel_pi((__m64*) &q[i+10],_mm_cvtpd_ps(p_6));
+
+    i += 12;
+    x += 4;
+  }
+
+  // Compute leftovers
+  for( ; x < width; x++ ) {
+    q[i] = (a[0] * (unsigned char) p[i]) + b[0];
+    q[i+1] = (a[1] * (unsigned char) p[i+1]) + b[1];
+    q[i+2] = (a[2] * (unsigned char) p[i+2]) + b[2];
+    i+=3;
+  }
+#ifdef DEBUG_SIMD
+  float test_out[width*3];
+  validate_loopn_uchar(a, b, width, p, &test_out[0]);
+  i = 0;
+  for(x = 0 ; x < width; x++ ) {
+    //    printf("Uchar Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
+    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff > max_diff) {
+      max_diff = diff;
+      printf("Maxdiff UChar = %f\n",max_diff);
+      fflush(stdout);
+    }
+    i += 3;
+  }
+#endif
+}
+
+// JMCG Vectorization - LOOPN for FLOAT (IN = float, OUT = float)
+// We use inline functions instead of macros for debugging purposes
+static void inline loopn_sse_float(double *a, double *b, int width, PEL *in, PEL *out) {
+  float *p = (float *) in;
+  float *q = (float *) out;
+
+  // a and b are doubles, so all calculations are done over doubles as GCC would do with single data
+  __m128d a_01, a_20, a_12, b_01, b_20, b_12;
+  __m128d p_1,p_2,p_3;
+  __m128 temp;
+  int i, x;
+
+  // Since we are only vectorizing for NB = 3 and can only fit 2 doubles per register on SSE, we unroll 6 times
+  a_01 = _mm_loadu_pd(&a[0]);
+  a_12 = _mm_loadu_pd(&a[1]);
+  a_20 = _mm_loadh_pd(_mm_load_sd(&a[2]),
+		      &a[0]);
+
+  b_01 = _mm_loadu_pd(&b[0]);
+  b_12 = _mm_loadu_pd(&b[1]);
+  b_20 = _mm_loadh_pd(_mm_load_sd(&b[2]),
+		      &b[0]);
+  i = 0;
+  x = 0;
+
+  while ((x + 2) < width) {
+    // Most likely (for parsec native width is 79, 68 and 25)
+    p_1 = _mm_cvtps_pd(_mm_loadl_pi(temp, (__m64*) &p[i])); // G1R1
+    p_2 = _mm_cvtps_pd(_mm_loadl_pi(temp, (__m64*) &p[i+2])); // R2B1
+    p_3 = _mm_cvtps_pd(_mm_loadl_pi(temp, (__m64*) &p[i+4])); // B2G2
+
+    p_1 = _mm_add_pd(_mm_mul_pd(p_1,a_01),b_01); // (G1R1 * A1A0) + B1B0
+    p_2 = _mm_add_pd(_mm_mul_pd(p_2,a_20),b_20); // (R2B1 * A0A2) + B0B2
+    p_3 = _mm_add_pd(_mm_mul_pd(p_3,a_12),b_12); // (B2G2 * A2A1) + B2B1
+
+    _mm_storel_pi((__m64*) &q[i],_mm_cvtpd_ps(p_1));
+    _mm_storel_pi((__m64*) &q[i+2],_mm_cvtpd_ps(p_2));
+    _mm_storel_pi((__m64*) &q[i+4],_mm_cvtpd_ps(p_3));
+
+    i += 6;
+    x += 2;
+  }
+
+  // Compute leftovers
+  for( ; x < width; x++ ) {
+    q[i] = (a[0] * (float) p[i]) + b[0];
+    q[i+1] = (a[1] * (float) p[i+1]) + b[1];
+    q[i+2] = (a[2] * (float) p[i+2]) + b[2];
+    i+=3;
+  }
+#ifdef DEBUG_SIMD
+  float test_out[width*3];
+  validate_loopn_float(a, b, width, p, &test_out[0]);
+  i = 0;
+  for(x = 0 ; x < width; x++ ) {
+    //    printf("Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
+    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff > max_diff) {
+      max_diff = diff;
+      printf("Maxdiff = %f\n",max_diff);
+      fflush(stdout);
+    }
+    i += 3;
+  }
+#endif
+}
+#endif // PARSEC_USE_SSE
+
+#ifdef PARSEC_USE_NEON
+
+// JMCG Vectorization - LOOPN for UCHAR (IN = unsigned char, OUT = float) NOTE: NEON DOES NOT SUPPORT DOUBLE AT THIS POINT (Aug. 2013)
+// We use inline functions instead of macros for debugging purposes
+
+static void inline loopn_neon_uchar(double *a, double *b, int width, PEL *in, PEL *out) {
+  unsigned char *p = (unsigned char *) in;
+  float *q = (float *) out;
+
+  // a and b are doubles, not supported by NEON, using floats
+  float32x4_t a_0210, a_1021, a_2102, b_0210, b_1021, b_2102;
+  float32x4_t p_1,p_2,p_3;
+  int i, x;
+
+  // JMCG Manual unroll
+  // I cannot figure out exactly how to manually load doubles in NEON
+  // converting to float, so we let gcc handle the conversion
+  a_0210 = _MM_SETM((float)a[0],(float)a[2],(float)a[1],(float)a[0]); // RBGR
+  a_1021 = _MM_SETM((float)a[1],(float)a[0],(float)a[2],(float)a[1]); // GRBG
+  a_2102 = _MM_SETM((float)a[2],(float)a[1],(float)a[0],(float)a[2]); // BGRB
+
+  b_0210 = _MM_SETM((float)b[0],(float)b[2],(float)b[1],(float)b[0]); // RBGR
+  b_1021 = _MM_SETM((float)b[1],(float)b[0],(float)b[2],(float)b[1]); // GRBG
+  b_2102 = _MM_SETM((float)b[2],(float)b[1],(float)b[0],(float)b[2]); // BGRB
+
+  i = 0;
+  x = 0;
+
+  while ((x + 4) < width) {
+    // Most likely (for parsec native width is 79, 68 and 25)
+
+    uint32x2_t load_temp;
+    load_temp = vld1_lane_u32((uint32_t *)&p[i],load_temp,0); // Load 4 uchar values in the lower part of a 64 register
+    p_1 = vcvtq_f32_u32(vmovl_u16(vreinterpret_u16_u32(vget_low_u32(vreinterpretq_u32_u16(vmovl_u8(vreinterpret_u8_u32(load_temp))))))); // expand the 4 uchars to fill all lanes of a 128 register (equivalent to Intel _mm_cvtepu8_epi32) // R2B1G1R1
+
+    load_temp = vld1_lane_u32((uint32_t *)&p[i+4],load_temp,0);
+    p_2 = vcvtq_f32_u32(vmovl_u16(vreinterpret_u16_u32(vget_low_u32(vreinterpretq_u32_u16(vmovl_u8(vreinterpret_u8_u32(load_temp))))))); // G3R3B2G2
+
+    load_temp = vld1_lane_u32((uint32_t *)&p[i+8],load_temp,0);
+    p_3 = vcvtq_f32_u32(vmovl_u16(vreinterpret_u16_u32(vget_low_u32(vreinterpretq_u32_u16(vmovl_u8(vreinterpret_u8_u32(load_temp))))))); // B4G4R4B3
+
+    p_1 = vaddq_f32(vmulq_f32(p_1,a_0210),b_0210); // (R2B1G1R1 * A0A2A1A0) + B0B2B1B0
+    p_2 = vaddq_f32(vmulq_f32(p_2,a_1021),b_1021); // (G3R3B2G2 * A1A0A2A1) + B1B0B2B1
+    p_3 = vaddq_f32(vmulq_f32(p_3,a_2102),b_2102); // (B4G4R4B3 * A2A1A0A2) + B2B1B0B2
+
+    vst1q_f32(&q[i],p_1);
+    vst1q_f32(&q[i+4],p_2);
+    vst1q_f32(&q[i+8],p_3);
+
+    i += 12;
+    x += 4;
+  }
+
+  // Compute leftovers
+  for( ; x < width; x++ ) {
+    q[i] = (a[0] * (unsigned char) p[i]) + b[0];
+    q[i+1] = (a[1] * (unsigned char) p[i+1]) + b[1];
+    q[i+2] = (a[2] * (unsigned char) p[i+2]) + b[2];
+    i+=3;
+  }
+#ifdef DEBUG_SIMD
+  float test_out[width*3];
+  validate_loopn_uchar(a, b, width, p, &test_out[0]);
+  i = 0;
+  for(x = 0 ; x < width; x++ ) {
+    //printf("Uchar Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
+    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff > max_diff) {
+      max_diff = diff;
+      printf("Maxdiff UChar = %f\n",max_diff);
+      fflush(stdout);
+    }
+    i += 3;
+  }
+#endif
+}
+
+// JMCG Vectorization - LOOPN for FLOAT (IN = float, OUT = float) NOTE: NEON DOES NOT SUPPORT DOUBLE AT THIS POINT (Aug. 2013)
+// We use inline functions instead of macros for debugging purposes
+static void inline loopn_neon_float(double *a, double *b, int width, PEL *in, PEL *out) {
+  float *p = (float *) in;
+  float *q = (float *) out;
+
+  // a and b are doubles, so all calculations are done over doubles as GCC would do with single data
+  float32x4_t a_0210, a_1021, a_2102, b_0210, b_1021, b_2102;
+  float32x4_t p_1,p_2,p_3;
+
+  int i, x;
+
+  // JMCG Manual unroll
+  // I cannot figure out exactly how to manually load doubles in NEON
+  // converting to float, so we let gcc handle the conversion
+  a_0210 = _MM_SETM((float)a[0],(float)a[2],(float)a[1],(float)a[0]); // RBGR
+  a_1021 = _MM_SETM((float)a[1],(float)a[0],(float)a[2],(float)a[1]); // GRBG
+  a_2102 = _MM_SETM((float)a[2],(float)a[1],(float)a[0],(float)a[2]); // BGRB
+
+  b_0210 = _MM_SETM((float)b[0],(float)b[2],(float)b[1],(float)b[0]); // RBGR
+  b_1021 = _MM_SETM((float)b[1],(float)b[0],(float)b[2],(float)b[1]); // GRBG
+  b_2102 = _MM_SETM((float)b[2],(float)b[1],(float)b[0],(float)b[2]); // BGRB
+
+  i = 0;
+  x = 0;
+
+  while ((x + 4) < width) {
+    // Most likely (for parsec native width is 79, 68 and 25)
+
+    p_1 = vld1q_f32(&p[i]); // R2B1G1R1
+    p_2 = vld1q_f32(&p[i+4]); // G3R3B2G2
+    p_3 = vld1q_f32(&p[i+8]); // B4G4R4B3
+
+    p_1 = vaddq_f32(vmulq_f32(p_1,a_0210),b_0210); // (R2B1G1R1 * A0A2A1A0) + B0B2B1B0
+    p_2 = vaddq_f32(vmulq_f32(p_2,a_1021),b_1021); // (G3R3B2G2 * A1A0A2A1) + B1B0B2B1
+    p_3 = vaddq_f32(vmulq_f32(p_3,a_2102),b_2102); // (B4G4R4B3 * A2A1A0A2) + B2B1B0B2
+
+    vst1q_f32(&q[i],p_1);
+    vst1q_f32(&q[i+4],p_2);
+    vst1q_f32(&q[i+8],p_3);
+
+    i += 12;
+    x += 4;
+  }
+
+  // Compute leftovers
+  for( ; x < width; x++ ) {
+    q[i] = (a[0] * (float) p[i]) + b[0];
+    q[i+1] = (a[1] * (float) p[i+1]) + b[1];
+    q[i+2] = (a[2] * (float) p[i+2]) + b[2];
+    i+=3;
+  }
+#ifdef DEBUG_SIMD
+  float test_out[width*3];
+  validate_loopn_float(a, b, width, p, &test_out[0]);
+  i = 0;
+  for(x = 0 ; x < width; x++ ) {
+    //    printf("Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
+    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff > max_diff) {
+      max_diff = diff;
+      printf("Maxdiff = %f\n",max_diff);
+      fflush(stdout);
+    }
+    i += 3;
+  }
+#endif
+}
+
+#endif // PARSEC_USE_NEON
+
+/* JMCG END */
+
+
 /* Non-complex input, any output, all bands of the constant equal.
  */
 #define LOOP1( IN, OUT ) { \
@@ -213,7 +762,7 @@ vips_linear_build( VipsObject *object )
 	} \
 }
 
-/* Complex input, complex output. 
+/* Complex input, complex output.
  */
 #define LOOPCMPLXN( IN, OUT ) { \
 	IN * restrict p = (IN *) in[0]; \
@@ -268,7 +817,7 @@ vips_linear_build( VipsObject *object )
 	} \
 }
 
-/* Complex input, uchar output. 
+/* Complex input, uchar output.
  */
 #define LOOPCMPLXNuc( IN ) { \
 	IN * restrict p = (IN *) in[0]; \
@@ -286,7 +835,7 @@ vips_linear_build( VipsObject *object )
 /* Lintra a buffer, n set of scale/offset.
  */
 static void
-vips_linear_buffer( VipsArithmetic *arithmetic, 
+vips_linear_buffer( VipsArithmetic *arithmetic,
 	VipsPel *out, VipsPel **in, int width )
 {
 	VipsImage *im = arithmetic->ready[0];
@@ -297,61 +846,85 @@ vips_linear_buffer( VipsArithmetic *arithmetic,
 
 	int i, x, k;
 
-	if( linear->uchar )
-		switch( vips_image_get_format( im ) ) {
-		case VIPS_FORMAT_UCHAR: 	
-			LOOPuc( unsigned char ); break;
-		case VIPS_FORMAT_CHAR: 		
-			LOOPuc( signed char ); break; 
-		case VIPS_FORMAT_USHORT: 	
-			LOOPuc( unsigned short ); break; 
-		case VIPS_FORMAT_SHORT: 	
-			LOOPuc( signed short ); break; 
-		case VIPS_FORMAT_UINT: 		
-			LOOPuc( unsigned int ); break; 
-		case VIPS_FORMAT_INT: 		
-			LOOPuc( signed int );  break; 
-		case VIPS_FORMAT_FLOAT: 	
-			LOOPuc( float ); break; 
-		case VIPS_FORMAT_DOUBLE:	
-			LOOPuc( double ); break; 
-		case VIPS_FORMAT_COMPLEX:	
-			LOOPCMPLXNuc( float ); break; 
-		case VIPS_FORMAT_DPCOMPLEX:	
-			LOOPCMPLXNuc( double ); break;
+	if( linear->uchar ) {
+	  switch( vips_image_get_format( im ) ) {
+	  case VIPS_FORMAT_UCHAR: 	    LOOPuc( unsigned char ); break;
+	  case VIPS_FORMAT_CHAR:	    LOOPuc( signed char ); break;
+	  case VIPS_FORMAT_USHORT: 	    LOOPuc( unsigned short ); break;
+	  case VIPS_FORMAT_SHORT: 	    LOOPuc( signed short ); break;
+	  case VIPS_FORMAT_UINT: 	    LOOPuc( unsigned int ); break;
+	  case VIPS_FORMAT_INT:	            LOOPuc( signed int );  break;
+	  case VIPS_FORMAT_FLOAT:	    LOOPuc( float ); break;
+	  case VIPS_FORMAT_DOUBLE: 	    LOOPuc( double ); break;
+	  case VIPS_FORMAT_COMPLEX: 	    LOOPCMPLXNuc( float ); break;
+	  case VIPS_FORMAT_DPCOMPLEX: 	    LOOPCMPLXNuc( double ); break;
 
-		default:
-			g_assert_not_reached();
-		}
-	else
-		switch( vips_image_get_format( im ) ) {
-		case VIPS_FORMAT_UCHAR: 	
-			LOOP( unsigned char, float ); break;
-		case VIPS_FORMAT_CHAR: 		
-			LOOP( signed char, float ); break; 
-		case VIPS_FORMAT_USHORT: 	
-			LOOP( unsigned short, float ); break; 
-		case VIPS_FORMAT_SHORT: 	
-			LOOP( signed short, float ); break; 
-		case VIPS_FORMAT_UINT: 		
-			LOOP( unsigned int, float ); break; 
-		case VIPS_FORMAT_INT: 		
-			LOOP( signed int, float );  break; 
-		case VIPS_FORMAT_FLOAT: 	
-			LOOP( float, float ); break; 
-		case VIPS_FORMAT_DOUBLE:	
-			LOOP( double, double ); break; 
-		case VIPS_FORMAT_COMPLEX:	
-			LOOPCMPLXN( float, float ); break; 
-		case VIPS_FORMAT_DPCOMPLEX:	
-			LOOPCMPLXN( double, double ); break;
+	  default:
+	    g_assert_not_reached();
+	  }
+	} else {
+	  if(nb==3) {
+	    switch( vips_image_get_format( im ) ) {
+	      /* JMCG BEGIN */
+#ifdef SIMD_WIDTH
+#ifdef PARSEC_USE_SSE
+	    case VIPS_FORMAT_UCHAR:	      loopn_sse_uchar(a, b, width, in[0], out); break;
+#endif
+#ifdef PARSEC_USE_AVX
+	    case VIPS_FORMAT_UCHAR:           loopn_avx_uchar(a, b, width, in[0], out); break;
+#endif
+#ifdef PARSEC_USE_NEON
+	    case VIPS_FORMAT_UCHAR:           loopn_neon_uchar(a, b, width, in[0], out); break;
+#endif
+#else
+	    case VIPS_FORMAT_UCHAR:	      LOOP( unsigned char, float ); break;
+#endif
+	      /* JMCG END */
+	    case VIPS_FORMAT_CHAR:	      LOOP( signed char, float ); break;
+	    case VIPS_FORMAT_USHORT:	      LOOP( unsigned short, float ); break;
+	    case VIPS_FORMAT_SHORT:	      LOOP( signed short, float ); break;
+	    case VIPS_FORMAT_UINT:	      LOOP( unsigned int, float ); break;
+	    case VIPS_FORMAT_INT:	      LOOP( signed int, float );  break;
+	      /* JMCG BEGIN */
+#ifdef SIMD_WIDTH
+#ifdef PARSEC_USE_SSE
+	    case VIPS_FORMAT_FLOAT:  	      loopn_sse_float(a, b, width, in[0], out); break;
+#endif
+#ifdef PARSEC_USE_AVX
+	    case VIPS_FORMAT_FLOAT:           loopn_avx_float(a, b, width, in[0], out); break;
+#endif
+#ifdef PARSEC_USE_NEON
+	    case VIPS_FORMAT_FLOAT:	      loopn_neon_float(a, b, width, in[0], out); break;
+#endif
+#else
+	    case VIPS_FORMAT_FLOAT:   	      LOOP( float, float ); break;
+#endif
+	      /* JMCG END */
+	    case VIPS_FORMAT_DOUBLE: 	      LOOP( double, double ); break;
+	    case VIPS_FORMAT_COMPLEX:	      LOOPCMPLXN( float, float ); break;
+	    case VIPS_FORMAT_DPCOMPLEX:	      LOOPCMPLXN( double, double ); break;
 
-		default:
-			g_assert_not_reached();
-		}
-
+	    default:
+	      g_assert_not_reached();
+	    }
+	  } else {
+	    switch( vips_image_get_format( im ) ) {
+	    case VIPS_FORMAT_UCHAR:	      LOOP( unsigned char, float ); break;
+	    case VIPS_FORMAT_CHAR:	      LOOP( signed char, float ); break;
+	    case VIPS_FORMAT_USHORT:	      LOOP( unsigned short, float ); break;
+	    case VIPS_FORMAT_SHORT:	      LOOP( signed short, float ); break;
+	    case VIPS_FORMAT_UINT:	      LOOP( unsigned int, float ); break;
+	    case VIPS_FORMAT_INT:	      LOOP( signed int, float );  break;
+	    case VIPS_FORMAT_FLOAT:    	      LOOP( float, float ); break;
+	    case VIPS_FORMAT_DOUBLE:	      LOOP( double, double ); break;
+	    case VIPS_FORMAT_COMPLEX:	      LOOPCMPLXN( float, float ); break;
+	    case VIPS_FORMAT_DPCOMPLEX:	      LOOPCMPLXN( double, double ); break;
+	    default:
+	      g_assert_not_reached();
+	    }
+	  }
+	}
 }
-
 /* Save a bit of typing.
  */
 #define UC VIPS_FORMAT_UCHAR
@@ -369,7 +942,7 @@ vips_linear_buffer( VipsArithmetic *arithmetic,
  */
 static const VipsBandFormat vips_linear_format_table[10] = {
 /* UC  C   US  S   UI  I   F   X   D   DX */
-   F,  F,  F,  F,  F,  F,  F,  X,  D,  DX 
+   F,  F,  F,  F,  F,  F,  F,  X,  D,  DX
 };
 
 static void
@@ -388,24 +961,24 @@ vips_linear_class_init( VipsLinearClass *class )
 
 	aclass->process_line = vips_linear_buffer;
 
-	vips_arithmetic_set_format_table( aclass, vips_linear_format_table ); 
+	vips_arithmetic_set_format_table( aclass, vips_linear_format_table );
 
-	VIPS_ARG_BOXED( class, "a", 110, 
-		_( "a" ), 
+	VIPS_ARG_BOXED( class, "a", 110,
+		_( "a" ),
 		_( "Multiply by this" ),
 		VIPS_ARGUMENT_REQUIRED_INPUT,
 		G_STRUCT_OFFSET( VipsLinear, a ),
 		VIPS_TYPE_ARRAY_DOUBLE );
 
-	VIPS_ARG_BOXED( class, "b", 111, 
-		_( "b" ), 
+	VIPS_ARG_BOXED( class, "b", 111,
+		_( "b" ),
 		_( "Add this" ),
 		VIPS_ARGUMENT_REQUIRED_INPUT,
 		G_STRUCT_OFFSET( VipsLinear, b ),
 		VIPS_TYPE_ARRAY_DOUBLE );
 
-	VIPS_ARG_BOOL( class, "uchar", 112, 
-		_( "uchar" ), 
+	VIPS_ARG_BOOL( class, "uchar", 112,
+		_( "uchar" ),
 		_( "Output should be uchar" ),
 		VIPS_ARGUMENT_OPTIONAL_INPUT,
 		G_STRUCT_OFFSET( VipsLinear, uchar ),
@@ -419,7 +992,7 @@ vips_linear_init( VipsLinear *linear )
 }
 
 static int
-vips_linearv( VipsImage *in, VipsImage **out, 
+vips_linearv( VipsImage *in, VipsImage **out,
 	double *a, double *b, int n, va_list ap )
 {
 	VipsArea *area_a;
@@ -453,11 +1026,11 @@ vips_linearv( VipsImage *in, VipsImage **out,
  * Pass an image through a linear transform, ie. (@out = @in * @a + @b). Output
  * is float for integer input, double for double input, complex for
  * complex input and double complex for double complex input. Set @uchar to
- * output uchar pixels. 
+ * output uchar pixels.
  *
- * If the arrays of constants have just one element, that constant is used for 
- * all image bands. If the arrays have more than one element and they have 
- * the same number of elements as there are bands in the image, then 
+ * If the arrays of constants have just one element, that constant is used for
+ * all image bands. If the arrays have more than one element and they have
+ * the same number of elements as there are bands in the image, then
  * one array element is used for each band. If the arrays have more than one
  * element and the image only has a single band, the result is a many-band
  * image where each band corresponds to one array element.
@@ -491,7 +1064,7 @@ vips_linear( VipsImage *in, VipsImage **out, double *a, double *b, int n, ... )
  *
  * @uchar: output uchar pixels
  *
- * Run vips_linear() with a single constant. 
+ * Run vips_linear() with a single constant.
  *
  * See also: vips_linear().
  *

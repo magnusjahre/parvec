@@ -18,6 +18,8 @@
  * 	- faster bilinear
  */
 
+// SIMD Version by Juan M. Cebrian, NTNU - 2013. (modifications under JMCG tag)
+
 /*
 
     This file is part of VIPS.
@@ -60,6 +62,10 @@
 #include <vips/vips.h>
 #include <vips/internal.h>
 
+// JMCG
+//#define DFTYPE
+#include "simd_defines.h"
+
 /**
  * SECTION: interpolate
  * @short_description: various interpolators: nearest, bilinear, and
@@ -97,7 +103,7 @@ G_DEFINE_ABSTRACT_TYPE( VipsInterpolate, vips_interpolate, VIPS_TYPE_OBJECT );
  * @get_window_offset: return the window offset for this method
  * @window_offset: or just set this for a constant window offset
  *
- * The abstract base class for the various VIPS interpolation functions. 
+ * The abstract base class for the various VIPS interpolation functions.
  * Use "vips --list classes" to see all the interpolators available.
  *
  * An interpolator consists of a function to perform the interpolation, plus
@@ -106,7 +112,7 @@ G_DEFINE_ABSTRACT_TYPE( VipsInterpolate, vips_interpolate, VIPS_TYPE_OBJECT );
  *
  * @window_size is the size of the window that the interpolator needs. For
  * example, a bicubic interpolator needs to see a window of 4x4 pixels to be
- * able to interpolate a value. 
+ * able to interpolate a value.
  *
  * You can either have a function in @get_window_size which returns the window
  * that a specific interpolator needs, or you can leave @get_window_size %NULL
@@ -121,7 +127,7 @@ G_DEFINE_ABSTRACT_TYPE( VipsInterpolate, vips_interpolate, VIPS_TYPE_OBJECT );
  *
  * You also need to set @nickname and @description in #VipsObject.
  *
- * See also: #VipsInterpolateMethod, #VipsObject, 
+ * See also: #VipsInterpolateMethod, #VipsObject,
  * vips_interpolate_bilinear_static().
  */
 
@@ -157,7 +163,7 @@ vips_interpolate_real_get_window_offset( VipsInterpolate *interpolate )
 	if( class->window_offset != -1 )
 		return( class->window_offset );
 	else {
-		int window_size = 
+		int window_size =
 			vips_interpolate_get_window_size( interpolate );
 
 		/* Don't go -ve, of course, for window_size 1.
@@ -198,7 +204,7 @@ vips_interpolate_init( VipsInterpolate *interpolate )
 #endif /*DEBUG*/
 }
 
-/** 
+/**
  * vips_interpolate: (skip)
  * @interpolate: interpolator to use
  * @out: write result here
@@ -223,7 +229,7 @@ vips_interpolate( VipsInterpolate *interpolate,
 	class->interpolate( interpolate, out, in, x, y );
 }
 
-/** 
+/**
  * vips_interpolate_get_method: (skip)
  * @interpolate: interpolator to use
  *
@@ -242,11 +248,11 @@ vips_interpolate_get_method( VipsInterpolate *interpolate )
 	return( class->interpolate );
 }
 
-/** 
+/**
  * vips_interpolate_get_window_size:
  * @interpolate: interpolator to use
  *
- * Look up an interpolators desired window size. 
+ * Look up an interpolators desired window size.
  *
  * Returns: the interpolators required window size
  */
@@ -260,11 +266,11 @@ vips_interpolate_get_window_size( VipsInterpolate *interpolate )
 	return( class->get_window_size( interpolate ) );
 }
 
-/** 
+/**
  * vips_interpolate_get_window_offset:
  * @interpolate: interpolator to use
  *
- * Look up an interpolators desired window offset. 
+ * Look up an interpolators desired window offset.
  *
  * Returns: the interpolators required window offset
  */
@@ -288,7 +294,7 @@ vips_interpolate_get_window_offset( VipsInterpolate *interpolate )
 /**
  * VIPS_TRANSFORM_SCALE:
  *
- * #VIPS_TRANSFORM_SHIFT as a multiplicative constant. 
+ * #VIPS_TRANSFORM_SHIFT as a multiplicative constant.
  */
 
 /**
@@ -301,7 +307,7 @@ vips_interpolate_get_window_offset( VipsInterpolate *interpolate )
 /**
  * VIPS_INTERPOLATE_SCALE:
  *
- * #VIPS_INTERPOLATE_SHIFT as a multiplicative constant. 
+ * #VIPS_INTERPOLATE_SHIFT as a multiplicative constant.
  */
 
 /* VipsInterpolateNearest class
@@ -381,7 +387,7 @@ vips_interpolate_nearest_new( void )
 /**
  * vips_interpolate_nearest_static:
  *
- * A convenience function that returns a nearest-neighbour interpolator you 
+ * A convenience function that returns a nearest-neighbour interpolator you
  * don't need to free.
  *
  * Returns: (transfer none): a nearest-neighbour interpolator
@@ -422,6 +428,15 @@ typedef VipsInterpolateClass VipsInterpolateBilinearClass;
 
 G_DEFINE_TYPE( VipsInterpolateBilinear, vips_interpolate_bilinear,
 	VIPS_TYPE_INTERPOLATE );
+
+#ifdef SIMD_WIDTH
+//#define DEBUG_SIMD
+#ifdef DEBUG_SIMD
+#include <math.h>
+float diff = 0.0f;
+float max_diff = 0.0f;
+#endif
+#endif
 
 /* in this class, name vars in the 2x2 grid as eg.
  * p1  p2
@@ -470,7 +485,7 @@ G_DEFINE_TYPE( VipsInterpolateBilinear, vips_interpolate_bilinear,
 	z += 1; \
 }
 
-/* Interpolate a pel ... int32 and float types, no tables, float 
+/* Interpolate a pel ... int32 and float types, no tables, float
  * arithmetic.
  */
 #define BILINEAR_FLOAT( TYPE ) { \
@@ -495,9 +510,188 @@ G_DEFINE_TYPE( VipsInterpolateBilinear, vips_interpolate_bilinear,
 	VIPS_UNROLL( b, BILINEAR_FLOAT_INNER ); \
 }
 
+// JMCG BEGIN
+// Vectorization. Note: We only vectorize for floats
+#ifdef SIMD_WIDTH
+
+#ifdef DEBUG_SIMD
+// JMCG Validation function.
+// Output:  Write original function results to tq_r
+
+static void inline validate_float(const PEL *p1, const PEL *p2, const PEL *p3, const PEL *p4, const float c1, const float c2, const float c3, const float c4, float *tq_r, float *tq_g, float *tq_b) {
+  const float *tp1 = (float *) p1;
+  const float *tp2 = (float *) p2;
+  const float *tp3 = (float *) p3;
+  const float *tp4 = (float *) p4;
+
+  *tq_r = c1 * tp1[0] + c2 * tp2[0] + c3 * tp3[0] + c4 * tp4[0];
+  *tq_g = c1 * tp1[1] + c2 * tp2[1] + c3 * tp3[1] + c4 * tp4[1];
+  *tq_b = c1 * tp1[2] + c2 * tp2[2] + c3 * tp3[2] + c4 * tp4[2];
+}
+#endif
+
+#ifndef PARSEC_USE_NEON
+
+// JMCG Bilinear filter SSE
+// Calculate bilinear filter without conversion to Structure of Arrays
+// Returns: bilinear filter
+
+static void inline bilinear_float_ssev2(PEL *out, const PEL *p1, const PEL *p2, const PEL *p3, const PEL *p4, const int ix, const int iy, const double x, const double y) {
+  float * restrict tq = (float *) out;
+
+  float Y = y - iy;
+  float X = x - ix;
+
+  float Yd = 1.0f - Y;
+
+  float c4 = Y * X;
+  float c2 = Yd * X;
+  float c3 = Y - c4;
+  float c1 = Yd - c2;
+
+  __m128 w1 = _mm_set1_ps(c1);
+  __m128 w2 = _mm_set1_ps(c2);
+  __m128 w3 = _mm_set1_ps(c3);
+  __m128 w4 = _mm_set1_ps(c4);
+
+  // No worries about these points, always inside our memory range
+  // even when loading a fourth value that we are not interested in
+  __m128 tp1 = _mm_loadu_ps((float *) p1);
+  __m128 tp2 = _mm_loadu_ps((float *) p2);
+  __m128 tp3 = _mm_loadu_ps((float *) p3);
+
+  // tp4 load can be out of the allocated memory, we need to load in two times
+  // and shuffle the result
+  float *_tp4 = (float *) p4;
+  __m128 tp4_2;
+  __m128 tp4 = _mm_load_ss(&(_tp4[2]));
+  tp4_2 = _mm_loadl_pi(tp4_2,((const __m64*)&(_tp4[0])));
+  tp4 = _mm_shuffle_ps(tp4_2,tp4,_MM_SHUFFLE(1,0,1,0));
+
+  __m128 tp_out = _mm_add_ps(_mm_add_ps(_mm_add_ps(_mm_mul_ps(tp3,w3),
+					    _mm_mul_ps(tp4,w4)),
+				    _mm_mul_ps(tp2,w2)),
+			    _mm_mul_ps(tp1,w1)
+			    );
+  _mm_storel_pi((__m64*)&(tq[0]),tp_out);
+  _mm_store_ss((float *)&(tq[2]),
+	       _mm_shuffle_ps(tp_out,tp_out,_MM_SHUFFLE(2,2,2,2))
+	       );
+
+#ifdef DEBUG_SIMD
+  float tq_r,tq_g,tq_b;
+  validate_float(p1,p2,p3,p4,c1,c2,c3,c4,&tq_r,&tq_g,&tq_b);
+  diff = fabs(tq[0] - tq_r) + fabs(tq[1] - tq_g) + fabs(tq[2] - tq_b);
+  if (diff > max_diff) {
+    max_diff = diff;
+    printf("Maxdiff = %f\n",max_diff);
+    fflush(stdout);
+  }
+#endif
+}
+
+#else // PARSEC_USE_NEON
+
+static void inline bilinear_float_neon(PEL *out, const PEL *p1, const PEL *p2, const PEL *p3, const PEL *p4, const int ix, const int iy, const double x, const double y) {
+  float * restrict tq = (float *) out;
+
+  float Y = y - iy;
+  float X = x - ix;
+
+  float Yd = 1.0f - Y;
+
+  float c4 = Y * X;
+  float c2 = Yd * X;
+  float c3 = Y - c4;
+  float c1 = Yd - c2;
+
+  float32x4_t w1 = vdupq_n_f32(c1);
+  float32x4_t w2 = vdupq_n_f32(c2);
+  float32x4_t w3 = vdupq_n_f32(c3);
+  float32x4_t w4 = vdupq_n_f32(c4);
+
+  // No worries about these points, always inside our memory range
+  // even when loading a fourth value that we are not interested in
+  float32x4_t tp1 = vld1q_f32((float *) p1);
+  float32x4_t tp2 = vld1q_f32((float *) p2);
+  float32x4_t tp3 = vld1q_f32((float *) p3);
+
+  // tp4 load can be out of the allocated memory, we need to load in two times
+  // and shuffle the result
+  float *_tp4 = (float *) p4;
+  float32x2_t tp4_2;
+  float32x2_t tp4_1 = vld1_lane_f32(&(_tp4[2]),tp4_2,0);
+  tp4_2 = vld1_f32((const float32x2_t*)&(_tp4[0]));
+
+  float32x4_t tp4 = vcombine_f32(tp4_2,tp4_1);
+
+  float32x4_t tp_out = vaddq_f32(vaddq_f32(vaddq_f32(vmulq_f32(tp3,w3),
+						     vmulq_f32(tp4,w4)),
+					   vmulq_f32(tp2,w2)),
+				 vmulq_f32(tp1,w1)
+				 );
+
+  vst1_f32((const float32x2_t*)&(tq[0]),vget_low_f32(tp_out));
+  vst1_lane_f32((float *)&(tq[2]),vget_high_f32(tp_out),0);
+
+#ifdef DEBUG_SIMD
+  float tq_r,tq_g,tq_b;
+  validate_float(p1,p2,p3,p4,c1,c2,c3,c4,&tq_r,&tq_g,&tq_b);
+  diff = fabs(tq[0] - tq_r) + fabs(tq[1] - tq_g) + fabs(tq[2] - tq_b);
+  if (diff > max_diff) {
+    max_diff = diff;
+    printf("Maxdiff = %f\n",max_diff);
+    fflush(stdout);
+  }
+#endif
+}
+
+#endif // PARSEC_USE_NEON
+#endif // SIMD_WIDTH
+/* JMCG END */
+
+
 /* Expand for band types. with a fixed-point interpolator and a float
  * interpolator.
  */
+/* JMCG BEGIN */
+#ifdef SIMD_WIDTH
+#ifndef PARSEC_USE_NEON
+#define SWITCH_INTERPOLATE( FMT, INT, FLOAT ) { \
+    switch( (FMT) ) {					     \
+    case VIPS_FORMAT_UCHAR:	INT( unsigned char ); break; \
+    case VIPS_FORMAT_CHAR: 	INT( char ); break;	       \
+    case VIPS_FORMAT_USHORT:INT( unsigned short ); break;      \
+    case VIPS_FORMAT_SHORT: INT( short ); break;	       \
+    case VIPS_FORMAT_UINT: 	FLOAT( unsigned int ); break;  \
+    case VIPS_FORMAT_INT: 	FLOAT( int );  break;	       \
+    case VIPS_FORMAT_FLOAT:     bilinear_float_ssev2(out, p1, p2, p3, p4, ix, iy, x, y); break; \
+    case VIPS_FORMAT_DOUBLE:FLOAT( double ); break;	       \
+    case VIPS_FORMAT_COMPLEX: FLOAT( float ); break;	       \
+    case VIPS_FORMAT_DPCOMPLEX:FLOAT( double ); break;	       \
+    default:						       \
+    g_assert( FALSE );					       \
+    }							       \
+}
+#else // PARSEC_USE_NEON
+#define SWITCH_INTERPOLATE( FMT, INT, FLOAT ) { \
+    switch( (FMT) ) {					     \
+    case VIPS_FORMAT_UCHAR:	INT( unsigned char ); break; \
+    case VIPS_FORMAT_CHAR: 	INT( char ); break;	       \
+    case VIPS_FORMAT_USHORT:INT( unsigned short ); break;      \
+    case VIPS_FORMAT_SHORT: INT( short ); break;	       \
+    case VIPS_FORMAT_UINT: 	FLOAT( unsigned int ); break;  \
+    case VIPS_FORMAT_INT: 	FLOAT( int );  break;	       \
+    case VIPS_FORMAT_FLOAT:     bilinear_float_neon(out, p1, p2, p3, p4, ix, iy, x, y); break; \
+    case VIPS_FORMAT_DOUBLE:FLOAT( double ); break;	       \
+    case VIPS_FORMAT_COMPLEX: FLOAT( float ); break;	       \
+    case VIPS_FORMAT_DPCOMPLEX:FLOAT( double ); break;	       \
+    default:						       \
+    g_assert( FALSE );					       \
+    }							       \
+}
+#endif // PARSEC_USE_NEON
+#else
 #define SWITCH_INTERPOLATE( FMT, INT, FLOAT ) { \
 	switch( (FMT) ) { \
 	case VIPS_FORMAT_UCHAR:	INT( unsigned char ); break; \
@@ -514,6 +708,8 @@ G_DEFINE_TYPE( VipsInterpolateBilinear, vips_interpolate_bilinear,
 		g_assert( FALSE ); \
 	} \
 }
+#endif
+/* JMCG END */
 
 static void
 vips_interpolate_bilinear_interpolate( VipsInterpolate *interpolate,
@@ -579,7 +775,7 @@ vips_interpolate_bilinear_new( void )
 /**
  * vips_interpolate_bilinear_static:
  *
- * A convenience function that returns a bilinear interpolator you 
+ * A convenience function that returns a bilinear interpolator you
  * don't need to free.
  *
  * Returns: (transfer none): a bilinear interpolator
@@ -633,7 +829,7 @@ vips_interpolate_new( const char *nickname )
 	GType type;
 
 	if( !(type = vips_type_find( "VipsInterpolate", nickname )) ) {
-		vips_error( "VipsInterpolate", 
+		vips_error( "VipsInterpolate",
 			_( "class \"%s\" not found" ), nickname );
 		return( NULL );
 	}

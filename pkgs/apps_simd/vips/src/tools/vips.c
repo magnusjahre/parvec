@@ -45,7 +45,7 @@
 /*
 
     This file is part of VIPS.
-    
+
     VIPS is free software; you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
@@ -92,6 +92,10 @@
 #include <vips/vips.h>
 #include <vips/internal.h>
 
+#ifdef ENABLE_PARSEC_HOOKS
+#include <hooks.h>
+#endif
+
 #ifdef OS_WIN32
 #define strcasecmp(a,b) _stricmp(a,b)
 #endif
@@ -110,13 +114,13 @@ list_class( GType type )
 	if( class->deprecated )
 		return( NULL );
 	if( VIPS_IS_OPERATION_CLASS( class ) &&
-		(VIPS_OPERATION_CLASS( class )->flags & 
+		(VIPS_OPERATION_CLASS( class )->flags &
 		 VIPS_OPERATION_DEPRECATED) )
-		return( NULL ); 
+		return( NULL );
 
 	for( i = 0; i < depth * 2; i++ )
 		printf( " " );
-	vips_object_print_summary_class( 
+	vips_object_print_summary_class(
 		VIPS_OBJECT_CLASS( g_type_class_ref( type ) ) );
 
 	return( NULL );
@@ -130,34 +134,34 @@ test_nickname( GType type, void *data )
 	VipsObjectClass *class;
 
 	if( (class = VIPS_OBJECT_CLASS( g_type_class_ref( type ) )) &&
-		strcmp( class->nickname, nickname ) == 0 ) 
-		return( class ); 
+		strcmp( class->nickname, nickname ) == 0 )
+		return( class );
 
 	return( NULL );
 }
 
 static gboolean
-parse_main_option_list( const gchar *option_name, const gchar *value, 
+parse_main_option_list( const gchar *option_name, const gchar *value,
 	gpointer data, GError **error )
 {
 	VipsObjectClass *class;
 
 	if( value &&
-		(class = (VipsObjectClass *) vips_type_map_all( 
-			g_type_from_name( "VipsObject" ), 
-			test_nickname, (void *) value )) ) { 
-		vips_type_map_all( G_TYPE_FROM_CLASS( class ), 
+		(class = (VipsObjectClass *) vips_type_map_all(
+			g_type_from_name( "VipsObject" ),
+			test_nickname, (void *) value )) ) {
+		vips_type_map_all( G_TYPE_FROM_CLASS( class ),
 			(VipsTypeMapFn) list_class, NULL );
 	}
 	else if( value ) {
-		vips_error( g_get_prgname(), 
+		vips_error( g_get_prgname(),
 			_( "'%s' is not the name of a vips class" ), value );
 		vips_error_g( error );
 
 		return( FALSE );
 	}
 	else {
-		vips_type_map_all( g_type_from_name( "VipsOperation" ), 
+		vips_type_map_all( g_type_from_name( "VipsOperation" ),
 			(VipsTypeMapFn) list_class, NULL );
 	}
 
@@ -165,14 +169,14 @@ parse_main_option_list( const gchar *option_name, const gchar *value,
 }
 
 static GOptionEntry main_option[] = {
-	{ "list", 'l', G_OPTION_FLAG_OPTIONAL_ARG, G_OPTION_ARG_CALLBACK, 
-		(GOptionArgFunc) parse_main_option_list, 
-		N_( "list objects" ), 
+	{ "list", 'l', G_OPTION_FLAG_OPTIONAL_ARG, G_OPTION_ARG_CALLBACK,
+		(GOptionArgFunc) parse_main_option_list,
+		N_( "list objects" ),
 		N_( "BASE-NAME" ) },
-	{ "plugin", 'p', 0, G_OPTION_ARG_FILENAME, &main_option_plugin, 
-		N_( "load PLUGIN" ), 
+	{ "plugin", 'p', 0, G_OPTION_ARG_FILENAME, &main_option_plugin,
+		N_( "load PLUGIN" ),
 		N_( "PLUGIN" ) },
-	{ "version", 'v', 0, G_OPTION_ARG_NONE, &main_option_version, 
+	{ "version", 'v', 0, G_OPTION_ARG_NONE, &main_option_version,
 		N_( "print version" ), NULL },
 	{ NULL }
 };
@@ -187,7 +191,7 @@ map_package( im_package *pack, map_name_fn fn )
 	int i;
 	void *result;
 
-	for( i = 0; i < pack->nfuncs; i++ ) 
+	for( i = 0; i < pack->nfuncs; i++ )
 		if( (result = fn( pack->table[i] )) )
 			return( result );
 
@@ -202,7 +206,7 @@ map_name( const char *name, map_name_fn fn )
 	im_package *pack;
 	im_function *func;
 
-	if( !name || strcmp( name, "all" ) == 0 ) 
+	if( !name || strcmp( name, "all" ) == 0 )
 		/* Do all packages.
 		 */
 		im_map_packages( (VSListMap2Fn) map_package, fn );
@@ -215,7 +219,7 @@ map_name( const char *name, map_name_fn fn )
 		 */
 		fn( func );
 	else {
-		vips_error( "map_name", 
+		vips_error( "map_name",
 			_( "no package or function \"%s\"" ), name );
 		return( fn );
 	}
@@ -227,7 +231,7 @@ static void *
 list_package( im_package *pack )
 {
 	printf( "%-20s - %d operations\n", pack->name, pack->nfuncs );
-	
+
 	return( NULL );
 }
 
@@ -235,26 +239,26 @@ static void *
 list_function( im_function *func )
 {
 	printf( "%-20s - %s\n", func->name, _( func->desc ) );
-	
+
 	return( NULL );
 }
 
 static int
 print_list( int argc, char **argv )
 {
-	if( !argv[0] || strcmp( argv[0], "packages" ) == 0 ) 
+	if( !argv[0] || strcmp( argv[0], "packages" ) == 0 )
 		im_map_packages( (VSListMap2Fn) list_package, NULL );
-	else if( strcmp( argv[0], "classes" ) == 0 ) 
-		vips_type_map_all( g_type_from_name( "VipsObject" ), 
+	else if( strcmp( argv[0], "classes" ) == 0 )
+		vips_type_map_all( g_type_from_name( "VipsObject" ),
 			(VipsTypeMapFn) list_class, NULL );
 	else if( g_type_from_name( argv[0] ) &&
 		g_type_is_a( g_type_from_name( argv[0] ), VIPS_TYPE_OBJECT ) ) {
-		vips_type_map_all( g_type_from_name( argv[0] ), 
+		vips_type_map_all( g_type_from_name( argv[0] ),
 			(VipsTypeMapFn) list_class, NULL );
 	}
 	else {
 		if( map_name( argv[0], list_function ) )
-			vips_error_exit( "unknown package \"%s\"", argv[0] ); 
+			vips_error_exit( "unknown package \"%s\"", argv[0] );
 	}
 
 	return( 0 );
@@ -267,9 +271,9 @@ print_links_package( im_package *pack )
 {
 	int i;
 
-	for( i = 0; i < pack->nfuncs; i++ ) 
+	for( i = 0; i < pack->nfuncs; i++ )
 		printf( "rm -f %s" IM_EXEEXT "; "
-			"ln -s vips" IM_EXEEXT " %s" IM_EXEEXT "\n", 
+			"ln -s vips" IM_EXEEXT " %s" IM_EXEEXT "\n",
 			pack->table[i]->name, pack->table[i]->name );
 
 	return( NULL );
@@ -304,7 +308,7 @@ isvips( const char *name )
 {
 	/* If we're running uninstalled we get the lt- prefix.
 	 */
-	if( vips_isprefix( "lt-", name ) ) 
+	if( vips_isprefix( "lt-", name ) )
 		name += 3;
 
 	return( vips_isprefix( "vips", name ) );
@@ -321,9 +325,9 @@ usage( im_function *fn )
 	/* Don't print the prgname if we're being run as a symlink.
 	 */
 	fprintf( stderr, "usage: " );
-	if( isvips( g_get_prgname() ) ) 
+	if( isvips( g_get_prgname() ) )
 		fprintf( stderr, "%s ", g_get_prgname() );
-	fprintf( stderr, "%s ", fn->name ); 
+	fprintf( stderr, "%s ", fn->name );
 
 	/* Print args requiring command-line input.
 	 */
@@ -336,7 +340,7 @@ usage( im_function *fn )
 	fprintf( stderr, "\nwhere:\n" );
 	for( i = 0; i < fn->argc; i++ )
 		if( fn->argv[i].desc->flags & IM_TYPE_ARG )
-			fprintf( stderr, "\t%s is of type \"%s\"\n", 
+			fprintf( stderr, "\t%s is of type \"%s\"\n",
 				fn->argv[i].name, fn->argv[i].desc->type );
 
 	/* Print output print args.
@@ -344,9 +348,9 @@ usage( im_function *fn )
 	if( has_print( fn ) ) {
 		fprintf( stderr, "prints:\n" );
 		for( i = 0; i < fn->argc; i++ )
-			if( fn->argv[i].print ) 
-				fprintf( stderr, "\t%s of type \"%s\"\n", 
-					fn->argv[i].name, 
+			if( fn->argv[i].print )
+				fprintf( stderr, "\t%s of type \"%s\"\n",
+					fn->argv[i].name,
 					fn->argv[i].desc->type );
 	}
 
@@ -392,7 +396,7 @@ vips2cpp( im_type_desc *ty )
 	 */
 	static char *vtypes[] = {
 		IM_TYPE_DOUBLE,
-		IM_TYPE_INT,  
+		IM_TYPE_INT,
 		IM_TYPE_COMPLEX,
 		IM_TYPE_STRING,
 		IM_TYPE_IMAGE,
@@ -423,7 +427,7 @@ vips2cpp( im_type_desc *ty )
 	};
 
 	for( k = 0; k < IM_NUMBER( vtypes ); k++ )
-		if( strcmp( ty->type, vtypes[k] ) == 0 ) 
+		if( strcmp( ty->type, vtypes[k] ) == 0 )
 			return( ctypes[k] );
 
 	return( NULL );
@@ -458,18 +462,18 @@ is_cppable( im_function *fn )
 	for( j = 0; j < fn->argc; j++ ) {
 		im_type_desc *ty = fn->argv[j].desc;
 
-		if( ty->flags & IM_TYPE_OUTPUT ) 
+		if( ty->flags & IM_TYPE_OUTPUT )
 			if( strcmp( ty->type, IM_TYPE_IMAGEVEC ) == 0 ||
 				strcmp( ty->type, IM_TYPE_DOUBLEVEC ) == 0 ||
 				strcmp( ty->type, IM_TYPE_INTVEC ) == 0 )
 			return( 0 );
 	}
 
-	/* Must be at least one image argument (input or output) ... since we 
+	/* Must be at least one image argument (input or output) ... since we
 	 * get inserted in the VImage class. Other funcs get wrapped by hand.
 	 */
-	for( j = 0; j < fn->argc; j++ ) 
-		if( strcmp( fn->argv[j].desc->type, IM_TYPE_IMAGE ) == 0 ) 
+	for( j = 0; j < fn->argc; j++ )
+		if( strcmp( fn->argv[j].desc->type, IM_TYPE_IMAGE ) == 0 )
 			break;
 	if( j == fn->argc )
 		return( 0 );
@@ -504,7 +508,7 @@ find_ioargs( im_function *fn, int *ia, int *oa )
 	for( j = 0; j < fn->argc; j++ ) {
 		im_type_desc *ty = fn->argv[j].desc;
 
-		if( !(ty->flags & IM_TYPE_OUTPUT) && 
+		if( !(ty->flags & IM_TYPE_OUTPUT) &&
 			strcmp( ty->type, IM_TYPE_IMAGE ) == 0 ) {
 				*ia = j;
 				break;
@@ -571,7 +575,7 @@ c2cpp_name( const char *in, char *out )
 	} while( changed );
 }
 
-/* Print prototype for a function (ie. will be followed by code). 
+/* Print prototype for a function (ie. will be followed by code).
  *
  * Eg.:
  *	VImage VImage::lin( double a, double b ) throw( VError )
@@ -593,7 +597,7 @@ print_cppproto( im_function *fn )
 	 */
 	c2cpp_name( fn->name, name );
 
-	/* Find input and output args. 
+	/* Find input and output args.
 	 */
 	find_ioargs( fn, &ia, &oa );
 
@@ -601,7 +605,7 @@ print_cppproto( im_function *fn )
 	 */
 	if( oa == -1 )
 		printf( "void " );
-	else 
+	else
 		printf( "%s ", vips2cpp( fn->argv[oa].desc ) );
 
 	printf( "VImage::%s(", name );
@@ -646,7 +650,7 @@ print_cppproto( im_function *fn )
 	return( NULL );
 }
 
-/* Print cpp decl for a function. 
+/* Print cpp decl for a function.
  *
  * Eg.
  *	VImage lin( double, double ) throw( VError );
@@ -668,10 +672,10 @@ print_cppdecl( im_function *fn )
 	 */
 	c2cpp_name( fn->name, name );
 
-	/* Find input and output args. 
+	/* Find input and output args.
 	 */
 	find_ioargs( fn, &ia, &oa );
-	if( ia == -1 ) 
+	if( ia == -1 )
 		/* No input image, so make it a static in the class
 		 * declaration.
 		 */
@@ -681,7 +685,7 @@ print_cppdecl( im_function *fn )
 	 */
 	if( oa == -1 )
 		printf( "void " );
-	else 
+	else
 		printf( "%s ", vips2cpp( fn->argv[oa].desc ) );
 
 	/* Print function name and start arg list.
@@ -714,7 +718,7 @@ print_cppdecl( im_function *fn )
 		if( ty->flags & IM_TYPE_OUTPUT )
 			printf( "&" );
 
-		/* Print arg name. 
+		/* Print arg name.
 		 *
 		 * Prepend the member name to make the arg
 		 * unique. This is important for SWIG since it needs to have
@@ -734,7 +738,7 @@ print_cppdecl( im_function *fn )
 }
 
 static void
-print_invec( int j, const char *arg, 
+print_invec( int j, const char *arg,
 	const char *vips_name, const char *c_name, const char *extract )
 {
 	printf( "\t((%s*) _vec.data(%d))->n = %s.size();\n",
@@ -774,7 +778,7 @@ print_cppdef( im_function *fn )
 	/* Declare return value, if any.
 	 */
 	if( oa != -1 )
-		printf( "\t%s %s;\n\n", 
+		printf( "\t%s %s;\n\n",
 			vips2cpp( fn->argv[oa].desc ),
 			fn->argv[oa].name );
 
@@ -799,7 +803,7 @@ print_cppdef( im_function *fn )
 		/* For output masks, we have to set an input filename. Not
 		 * freed, so constant string is OK.
 		 */
-		if( (ty->flags & IM_TYPE_OUTPUT) && 
+		if( (ty->flags & IM_TYPE_OUTPUT) &&
 			(strcmp( ty->type, IM_TYPE_IMASK ) == 0 ||
 			strcmp( ty->type, IM_TYPE_DMASK ) == 0) ) {
 			printf( "\t((im_mask_object*) _vec.data(%d))->name = "
@@ -819,7 +823,7 @@ print_cppdef( im_function *fn )
 			printf( "\t((im_mask_object*) "
 				"_vec.data(%d))->mask = %s.mask().iptr;\n",
 				j, fn->argv[j].name );
-		else if( strcmp( ty->type, IM_TYPE_DMASK ) == 0 ) 
+		else if( strcmp( ty->type, IM_TYPE_DMASK ) == 0 )
 			printf( "\t((im_mask_object*) "
 				"_vec.data(%d))->mask = %s.mask().dptr;\n",
 				j, fn->argv[j].name );
@@ -833,14 +837,14 @@ print_cppdef( im_function *fn )
 			 */
 			printf( "\t_vec.data(%d) = (im_object) %s;\n",
 				j, fn->argv[j].name );
-		else if( strcmp( ty->type, IM_TYPE_IMAGEVEC ) == 0 ) 
-			print_invec( j, fn->argv[j].name, 
+		else if( strcmp( ty->type, IM_TYPE_IMAGEVEC ) == 0 )
+			print_invec( j, fn->argv[j].name,
 				"im_imagevec_object", "IMAGE *", ".image()" );
-		else if( strcmp( ty->type, IM_TYPE_DOUBLEVEC ) == 0 ) 
-			print_invec( j, fn->argv[j].name, 
+		else if( strcmp( ty->type, IM_TYPE_DOUBLEVEC ) == 0 )
+			print_invec( j, fn->argv[j].name,
 				"im_doublevec_object", "double", "" );
-		else if( strcmp( ty->type, IM_TYPE_INTVEC ) == 0 ) 
-			print_invec( j, fn->argv[j].name, 
+		else if( strcmp( ty->type, IM_TYPE_INTVEC ) == 0 )
+			print_invec( j, fn->argv[j].name,
 				"im_intvec_object", "int", "" );
 		else if( strcmp( ty->type, IM_TYPE_INTERPOLATE ) == 0 ) {
 			printf( "\tif( vips__input_interpolate_init( "
@@ -875,7 +879,7 @@ print_cppdef( im_function *fn )
 			continue;
 
 		if( strcmp( ty->type, IM_TYPE_IMASK ) == 0 ||
-			strcmp( ty->type, IM_TYPE_DMASK ) == 0 ) 
+			strcmp( ty->type, IM_TYPE_DMASK ) == 0 )
 			/* Mask types are different - have to use
 			 * im_mask_object.
 			 */
@@ -886,12 +890,12 @@ print_cppdef( im_function *fn )
 			/* Strings are grabbed out of the vec.
 			 */
 			printf( "\t%s = (char*) _vec.data(%d);\n",
-				fn->argv[j].name, j ); 
-		else 
+				fn->argv[j].name, j );
+		else
 			/* Just use vips2cpp().
 			 */
 			printf( "\t%s = *((%s*)_vec.data(%d));\n",
-				fn->argv[j].name, vips2cpp( ty ), j ); 
+				fn->argv[j].name, vips2cpp( ty ), j );
 	}
 
 	/* Note dependancies if out is an image and this function uses
@@ -899,7 +903,7 @@ print_cppdef( im_function *fn )
 	 */
 	if( oa != -1 ) {
 		im_type_desc *ty = fn->argv[oa].desc;
-		
+
 		if( strcmp( ty->type, IM_TYPE_IMAGE ) == 0 &&
 			(fn->flags & IM_FN_PIO) ) {
 			/* Loop for all input args again ..
@@ -914,12 +918,12 @@ print_cppdef( im_function *fn )
 
 				/* Input image.
 				 */
-				if( strcmp( ty2->type, IM_TYPE_IMAGE ) == 0 ) 
+				if( strcmp( ty2->type, IM_TYPE_IMAGE ) == 0 )
 					printf( "\t%s._ref->addref( "
 						"%s._ref );\n",
 						fn->argv[oa].name,
 						fn->argv[j].name );
-				else if( strcmp( ty2->type, IM_TYPE_IMAGEVEC ) 
+				else if( strcmp( ty2->type, IM_TYPE_IMAGEVEC )
 					== 0 ) {
 					/* The out depends on every image in
 					 * the input vector.
@@ -963,7 +967,7 @@ print_cppdecls( int argc, char **argv )
 /* Print C++ bindings for function, package or all.
  */
 static int
-print_cppdefs( int argc, char **argv ) 
+print_cppdefs( int argc, char **argv )
 {
 	printf( "// this file automatically generated from\n"
 		"// VIPS library %s\n", vips_version_string() );
@@ -975,7 +979,7 @@ print_cppdefs( int argc, char **argv )
 }
 
 static int
-print_help( int argc, char **argv ) 
+print_help( int argc, char **argv )
 {
 	return( 0 );
 }
@@ -1023,7 +1027,7 @@ parse_options( GOptionContext *context, int *argc, char **argv )
 		printf( "%d) %s\n", i, argv[i] );
 #endif /*DEBUG*/
 
-	vips_buf_appendf( &buf, "%7s - %s\n", 
+	vips_buf_appendf( &buf, "%7s - %s\n",
 		"OPER", _( "execute vips operation OPER" ) );
 	g_option_context_set_summary( context, vips_buf_all( &buf ) );
 
@@ -1055,7 +1059,7 @@ add_operation_group( GOptionContext *context, VipsOperation *user_data )
 {
 	GOptionGroup *group;
 
-	group = g_option_group_new( "operation", 
+	group = g_option_group_new( "operation",
 		_( "Operation" ), _( "Operation help" ), user_data, NULL );
 	g_option_group_set_translation_domain( group, GETTEXT_PACKAGE );
 	g_option_context_add_group( context, group );
@@ -1063,7 +1067,7 @@ add_operation_group( GOptionContext *context, VipsOperation *user_data )
 	return( group );
 }
 
-/* VIPS universal main program. 
+/* VIPS universal main program.
  */
 int
 main( int argc, char **argv )
@@ -1079,13 +1083,26 @@ main( int argc, char **argv )
 
 	GError *error = NULL;
 
+#ifdef PARSEC_VERSION
+#define __PARSEC_STRING(x) #x
+#define __PARSEC_XSTRING(x) __PARSEC_STRING(x)
+        printf("PARSEC Benchmark Suite Version "__PARSEC_XSTRING(PARSEC_VERSION)"\n");
+        fflush(NULL);
+#else
+        printf("PARSEC Benchmark Suite\n");
+        fflush(NULL);
+#endif //PARSEC_VERSION
+#ifdef ENABLE_PARSEC_HOOKS
+        __parsec_bench_begin(__parsec_vips);
+#endif
+
 	if( VIPS_INIT( argv[0] ) )
 	        vips_error_exit( NULL );
 	textdomain( GETTEXT_PACKAGE );
 	setlocale( LC_ALL, "" );
 
 #ifdef DEBUG_FATAL
-	/* Set masks for debugging ... stop on any problem. 
+	/* Set masks for debugging ... stop on any problem.
 	 */
 	g_log_set_always_fatal(
 		G_LOG_FLAG_RECURSION |
@@ -1105,7 +1122,7 @@ main( int argc, char **argv )
 	 */
 	main_group = g_option_group_new( NULL, NULL, NULL, NULL, NULL );
 	g_option_group_add_entries( main_group, main_option );
-	vips_add_option_entries( main_group ); 
+	vips_add_option_entries( main_group );
 	g_option_group_set_translation_domain( main_group, GETTEXT_PACKAGE );
 	g_option_context_set_main_group( context, main_group );
 
@@ -1116,7 +1133,7 @@ main( int argc, char **argv )
 
 	/* "vips" with no arguments does "vips --help".
 	 */
-	if( argc == 1 ) { 
+	if( argc == 1 ) {
 		char *help;
 
 		help = g_option_context_get_help( context, TRUE, NULL );
@@ -1142,10 +1159,10 @@ main( int argc, char **argv )
 
 	if( main_option_plugin ) {
 		if( !im_load_plugin( main_option_plugin ) )
-			vips_error_exit( NULL ); 
+			vips_error_exit( NULL );
 	}
 
-	if( main_option_version ) 
+	if( main_option_version )
 		printf( "vips-%s\n", vips_version_string() );
 
 	/* Reenable help and unknown option detection ready for the second
@@ -1161,13 +1178,13 @@ main( int argc, char **argv )
 
 	/* Should we try to run the thing we are named as?
 	 */
-	if( !isvips( g_get_prgname() ) ) 
+	if( !isvips( g_get_prgname() ) )
 		action = argv[0];
 
 	if( !action ) {
-		/* Look for the first non-option argument, if any, and make 
+		/* Look for the first non-option argument, if any, and make
 		 * that our action. The parse above will have removed most of
-		 * them, but --help (for example) could still remain. 
+		 * them, but --help (for example) could still remain.
 		 */
 		for( i = 1; i < argc; i++ )
 			if( argv[i][0] != '-' ) {
@@ -1185,15 +1202,15 @@ main( int argc, char **argv )
 
 	/* Could be one of our built-in actions.
 	 */
-	if( action ) 
+	if( action )
 		for( i = 0; i < VIPS_NUMBER( actions ); i++ )
 			if( strcmp( action, actions[i].name ) == 0 ) {
 				group = add_operation_group( context, NULL );
-				g_option_group_add_entries( group, 
+				g_option_group_add_entries( group,
 					actions[i].group );
 				parse_options( context, &argc, argv );
 
-				if( actions[i].action( argc - 1, argv + 1 ) ) 
+				if( actions[i].action( argc - 1, argv + 1 ) )
 					vips_error_exit( "%s", action );
 
 				handled = TRUE;
@@ -1204,11 +1221,11 @@ main( int argc, char **argv )
 	 * since we don't want to use the vips7 compat wrappers in vips8
 	 * unless we have to. They don't support all args types.
 	 */
-	if( action && 
-		!handled && 
+	if( action &&
+		!handled &&
 		(fn = im_find_function( action )) ) {
 		if( im_run_command( action, argc - 1, argv + 1 ) ) {
-			if( argc == 1 ) 
+			if( argc == 1 )
 				usage( fn );
 			else
 				vips_error_exit( NULL );
@@ -1225,16 +1242,16 @@ main( int argc, char **argv )
 
 	/* Could be a vips8 VipsOperation.
 	 */
-	if( action && 
-		!handled && 
+	if( action &&
+		!handled &&
 		(operation = vips_operation_new( action )) ) {
 		group = add_operation_group( context, operation );
 		vips_call_options( group, operation );
 		parse_options( context, &argc, argv );
 
 		if( vips_call_argv( operation, argc - 1, argv + 1 ) ) {
-			if( argc == 1 ) 
-				vips_operation_class_print_usage( 
+			if( argc == 1 )
+				vips_operation_class_print_usage(
 					VIPS_OPERATION_GET_CLASS( operation ) );
 
 			vips_object_unref_outputs( VIPS_OBJECT( operation ) );
@@ -1266,7 +1283,7 @@ main( int argc, char **argv )
 		!handled )
 		vips_error_clear();
 
-	if( action && 
+	if( action &&
 		!handled ) {
 		vips_error_exit( _( "unknown action \"%s\"" ), action );
 	}
@@ -1280,6 +1297,10 @@ main( int argc, char **argv )
 	g_option_context_free( context );
 
 	vips_shutdown();
+
+#ifdef ENABLE_PARSEC_HOOKS
+        __parsec_bench_end();
+#endif
 
 	return( 0 );
 }

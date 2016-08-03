@@ -1,6 +1,6 @@
 /* affine transform with a supplied interpolator.
  *
- * 
+ *
  * Copyright N. Dessipris
  * Written on: 01/11/1991
  * Modified on: 12/3/92 JC
@@ -46,11 +46,11 @@
  *	- pre-calculate interpolation matricies
  *	- integer interpolation for int8/16 types, double for
  *	  int32/float/double
- *	- faster transformation 
+ *	- faster transformation
  * 15/8/02 JC
  *	- records Xoffset/Yoffset
  * 14/4/04
- *	- rounding, clipping and transforming revised, now pixel-perfect (or 
+ *	- rounding, clipping and transforming revised, now pixel-perfect (or
  *	  better than gimp, anyway)
  * 22/6/05
  *	- all revised again, simpler and more reliable now
@@ -86,10 +86,12 @@
  * 	- see new stress test in nip2/test/extras
  */
 
+// SIMD Version by Juan M. Cebrian, NTNU - 2013. (modifications under JMCG tag)
+
 /*
 
     This file is part of VIPS.
-    
+
     VIPS is free software; you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
@@ -136,6 +138,9 @@
 
 #include "presample.h"
 
+// JMCG
+#include "simd_defines.h"
+
 typedef struct _VipsAffine {
 	VipsResample parent_instance;
 
@@ -158,31 +163,31 @@ G_DEFINE_TYPE( VipsAffine, vips_affine, VIPS_TYPE_RESAMPLE );
 /* We have five (!!) coordinate systems. Working forward through them, these
  * are:
  *
- * 1. The original input image. iarea is defined on this image. 
+ * 1. The original input image. iarea is defined on this image.
  *
  * 2. This is embedded in a larger image to provide borders for the
- * interpolator. window_offset and window_size control the embedding. 
+ * interpolator. window_offset and window_size control the embedding.
  * These are the coordinates we pass to VIPS_REGION_ADDR()/
  * vips_region_prepare() and the interpolator.
  *
- * The borders are sized by the interpolator's window_size property and offset 
+ * The borders are sized by the interpolator's window_size property and offset
  * by the interpolator's window_offset property. For example,
- * for bilinear (window_size 2, window_offset 0) we add a single line 
- * of extra pixels along the bottom and right (window_size - 1). For 
- * bicubic (window_size 4, window_offset 1) we add a single line top and left 
+ * for bilinear (window_size 2, window_offset 0) we add a single line
+ * of extra pixels along the bottom and right (window_size - 1). For
+ * bicubic (window_size 4, window_offset 1) we add a single line top and left
  * (window_offset), and two lines bottom and right (window_size - 1 -
  * window_offset).
  *
  * 3. We need point (0, 0) in (1) to be at (0, 0) for the transformation. So
  * shift everything up and left to make the displaced input image. This is the
- * space that the transformation maps from, and can have negative pixels 
+ * space that the transformation maps from, and can have negative pixels
  * (up and left of the image, for interpolation). iarea works here too.
  *
  * 4. Output transform space. This is the where the transform maps to. Pixels
  * can be negative, since a rotated image can go up and left of the origin.
  *
  * 5. Output image space. This is the wh of the xywh passed to vips_affine()
- * below. These are the coordinates we pass to VIPS_REGION_ADDR() for the 
+ * below. These are the coordinates we pass to VIPS_REGION_ADDR() for the
  * output image, and that affinei_gen() is asked for.
  */
 
@@ -192,11 +197,11 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 	VipsRegion *ir = (VipsRegion *) seq;
 	const VipsAffine *affine = (VipsAffine *) b;
 	const VipsImage *in = (VipsImage *) a;
-	const int window_size = 
+	const int window_size =
 		vips_interpolate_get_window_size( affine->interpolate );
-	const int window_offset = 
+	const int window_offset =
 		vips_interpolate_get_window_offset( affine->interpolate );
-	const VipsInterpolateMethod interpolate = 
+	const VipsInterpolateMethod interpolate =
 		vips_interpolate_get_method( affine->interpolate );
 
 	/* Area we generate in the output image.
@@ -212,12 +217,12 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 
 	int ps = VIPS_IMAGE_SIZEOF_PEL( in );
 	int x, y, z;
-	
+
 	VipsRect image, want, need, clipped;
 
 #ifdef DEBUG_VERBOSE
 	printf( "vips_affine_gen: "
-		"generating left=%d, top=%d, width=%d, height=%d\n", 
+		"generating left=%d, top=%d, width=%d, height=%d\n",
 		r->left,
 		r->top,
 		r->width,
@@ -231,14 +236,14 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 	want.left += oarea->left;
 	want.top += oarea->top;
 
-	/* Find the area of the input image we need. This takes us to space 3. 
+	/* Find the area of the input image we need. This takes us to space 3.
 	 */
 	vips__transform_invert_rect( &affine->trn, &want, &need );
 
 	/* That does round-to-nearest, because it has to stop rounding errors
 	 * growing images unexpectedly. We need round-down, so we must
 	 * add half a pixel along the left and top. But we are int :( so add 1
-	 * pixel. 
+	 * pixel.
 	 *
 	 * Add an extra line along the right and bottom as well, for rounding.
 	 */
@@ -252,7 +257,7 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 	need.height += window_size - 1;
 
 	/* Now go to space 2, the expanded input image. This is the one we
-	 * read pixels from. 
+	 * read pixels from.
 	 */
 	need.left += window_offset;
 	need.top += window_offset;
@@ -267,7 +272,7 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 
 #ifdef DEBUG_VERBOSE
 	printf( "vips_affine_gen: "
-		"preparing left=%d, top=%d, width=%d, height=%d\n", 
+		"preparing left=%d, top=%d, width=%d, height=%d\n",
 		clipped.left,
 		clipped.top,
 		clipped.width,
@@ -281,13 +286,13 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 	if( vips_region_prepare( ir, &clipped ) )
 		return( -1 );
 
-	VIPS_GATE_START( "vips_affine_gen: work" ); 
+	VIPS_GATE_START( "vips_affine_gen: work" );
 
 	/* Resample! x/y loop over pixels in the output image (5).
 	 */
 	for( y = to; y < bo; y++ ) {
 		/* Input clipping rectangle. We offset this so we can clip in
-		 * space 2. 
+		 * space 2.
 		 */
 		const int ile = iarea->left + window_offset;
 		const int ito = iarea->top + window_offset;
@@ -315,12 +320,12 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 		ix = affine->trn.ia * ox + affine->trn.ib * oy;
 		iy = affine->trn.ic * ox + affine->trn.id * oy;
 
-		/* And the input offset in (3). 
+		/* And the input offset in (3).
 		 */
 		ix -= affine->trn.idx;
 		iy -= affine->trn.idy;
 
-		/* Finally to 2. 
+		/* Finally to 2.
 		 */
 		ix += window_offset;
 		iy += window_offset;
@@ -328,7 +333,7 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 		q = VIPS_REGION_ADDR( or, le, y );
 
 		for( x = le; x < ri; x++ ) {
-			int fx, fy; 	
+			int fx, fy;
 
 			fx = VIPS_FLOOR( ix );
 			fy = VIPS_FLOOR( iy );
@@ -342,20 +347,22 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 				/* Verify that we can read the whole stencil.
 				 * With DEBUG on this will range-check.
 				 */
-				g_assert( VIPS_REGION_ADDR( ir, 
+				g_assert( VIPS_REGION_ADDR( ir,
 					(int) ix - window_offset,
 					(int) iy - window_offset ) );
-				g_assert( VIPS_REGION_ADDR( ir, 
-					(int) ix - window_offset + 
+				g_assert( VIPS_REGION_ADDR( ir,
+					(int) ix - window_offset +
 						window_size - 1,
-					(int) iy - window_offset + 
+					(int) iy - window_offset +
 						window_size - 1 ) );
 
-				interpolate( affine->interpolate, 
+				// JMCG Interpolate call
+//				printf("Call interpolate (Limits to:%d, bo:%d, le:%d, ri:%d) | ix:%f (%d) iy%f (%d):\n",to,bo,le,ri,ix,(int)ix,iy,(int)iy);fflush(stdout);
+				interpolate( affine->interpolate,
 					q, ir, ix, iy );
 			}
 			else {
-				for( z = 0; z < ps; z++ ) 
+				for( z = 0; z < ps; z++ )
 					q[z] = 0;
 			}
 
@@ -365,9 +372,9 @@ vips_affine_gen( VipsRegion *or, void *seq, void *a, void *b, gboolean *stop )
 		}
 	}
 
-	VIPS_GATE_STOP( "vips_affine_gen: work" ); 
+	VIPS_GATE_STOP( "vips_affine_gen: work" );
 
-	VIPS_COUNT_PIXELS( or, "vips_affine_gen" ); 
+	VIPS_COUNT_PIXELS( or, "vips_affine_gen" );
 
 	return( 0 );
 }
@@ -381,7 +388,7 @@ vips_affine_build( VipsObject *object )
 	VipsImage **t = (VipsImage **) vips_object_local_array( object, 4 );
 
 	VipsImage *in;
-	VipsDemandStyle hint; 
+	VipsDemandStyle hint;
 	int window_size;
 	int window_offset;
 	double edge;
@@ -391,11 +398,11 @@ vips_affine_build( VipsObject *object )
 
 	if( vips_check_coding_known( class->nickname, resample->in ) )
 		return( -1 );
-	if( vips_check_vector_length( class->nickname, 
+	if( vips_check_vector_length( class->nickname,
 		affine->matrix->n, 4 ) )
 		return( -1 );
 	if( vips_object_argument_isset( object, "oarea" ) &&
-		vips_check_vector_length( class->nickname, 
+		vips_check_vector_length( class->nickname,
 			affine->oarea->n, 4 ) )
 		return( -1 );
 	/* We can't use vips_object_argument_isset(), since it may have been
@@ -405,9 +412,9 @@ vips_affine_build( VipsObject *object )
 		VipsInterpolate *interpolate;
 
 		interpolate = vips_interpolate_new( "bilinear" );
-		g_object_set( object, 
+		g_object_set( object,
 			"interpolate", interpolate,
-			NULL ); 
+			NULL );
 		g_object_unref( interpolate );
 
 		/* coverity gets confused by this, it thinks
@@ -423,7 +430,7 @@ vips_affine_build( VipsObject *object )
 	 */
 
 	window_size = vips_interpolate_get_window_size( affine->interpolate );
-	window_offset = 
+	window_offset =
 		vips_interpolate_get_window_offset( affine->interpolate );
 
 	affine->trn.iarea.left = 0;
@@ -470,7 +477,7 @@ vips_affine_build( VipsObject *object )
 		affine->trn.oarea.left == 0 &&
 		affine->trn.oarea.top == 0 &&
 		affine->trn.oarea.width == in->Xsize &&
-		affine->trn.oarea.height == in->Ysize ) 
+		affine->trn.oarea.height == in->Ysize )
 		return( vips_image_write( in, resample->out ) );
 #endif /*!DEBUG*/
 
@@ -478,9 +485,9 @@ vips_affine_build( VipsObject *object )
 	 * output space inside INT_MAX / TRANSFORM_SCALE.
 	 */
 	edge = (int) (INT_MAX / VIPS_TRANSFORM_SCALE);
-	if( affine->trn.oarea.left < -edge || 
+	if( affine->trn.oarea.left < -edge ||
 		affine->trn.oarea.top < -edge ||
-		VIPS_RECT_RIGHT( &affine->trn.oarea ) > edge || 
+		VIPS_RECT_RIGHT( &affine->trn.oarea ) > edge ||
 		VIPS_RECT_BOTTOM( &affine->trn.oarea ) > edge ) {
 		vips_error( class->nickname,
 			"%s", _( "output coordinates out of range" ) );
@@ -493,21 +500,21 @@ vips_affine_build( VipsObject *object )
 
 	/* Add new pixels around the input so we can interpolate at the edges.
 	 */
-	if( vips_embed( in, &t[2], 
-		window_offset, window_offset, 
+	if( vips_embed( in, &t[2],
+		window_offset, window_offset,
 		in->Xsize + window_size - 1, in->Ysize + window_size - 1,
 		"extend", VIPS_EXTEND_COPY,
 		NULL ) )
 		return( -1 );
 	in = t[2];
 
-	/* Normally SMALLTILE ... except if this is strictly a size 
+	/* Normally SMALLTILE ... except if this is strictly a size
 	 * up/down affine.
 	 */
-	if( affine->trn.b == 0.0 && 
-		affine->trn.c == 0.0 ) 
-		hint = VIPS_DEMAND_STYLE_FATSTRIP; 
-	else 
+	if( affine->trn.b == 0.0 &&
+		affine->trn.c == 0.0 )
+		hint = VIPS_DEMAND_STYLE_FATSTRIP;
+	else
 		hint = VIPS_DEMAND_STYLE_SMALLTILE;
 
 	if( vips_image_pipelinev( resample->out, hint, in, NULL ) )
@@ -517,20 +524,20 @@ vips_affine_build( VipsObject *object )
 	resample->out->Ysize = affine->trn.oarea.height;
 
 #ifdef DEBUG
-	printf( "vips_affine_build: transform: " ); 
-	vips__transform_print( &affine->trn ); 
-	printf( " window_offset = %d, window_size = %d\n", 
-		window_offset, window_size ); 
-	printf( " input image width = %d, height = %d\n", 
-		in->Xsize, in->Ysize ); 
-	printf( " output image width = %d, height = %d\n", 
-		resample->out->Xsize, resample->out->Ysize ); 
+	printf( "vips_affine_build: transform: " );
+	vips__transform_print( &affine->trn );
+	printf( " window_offset = %d, window_size = %d\n",
+		window_offset, window_size );
+	printf( " input image width = %d, height = %d\n",
+		in->Xsize, in->Ysize );
+	printf( " output image width = %d, height = %d\n",
+		resample->out->Xsize, resample->out->Ysize );
 #endif /*DEBUG*/
 
 	/* Generate!
 	 */
-	if( vips_image_generate( resample->out, 
-		vips_start_one, vips_affine_gen, vips_stop_one, 
+	if( vips_image_generate( resample->out,
+		vips_start_one, vips_affine_gen, vips_stop_one,
 		in, affine ) )
 		return( -1 );
 
@@ -557,49 +564,49 @@ vips_affine_class_init( VipsAffineClass *class )
 	vobject_class->description = _( "affine transform of an image" );
 	vobject_class->build = vips_affine_build;
 
-	VIPS_ARG_BOXED( class, "matrix", 110, 
-		_( "Matrix" ), 
+	VIPS_ARG_BOXED( class, "matrix", 110,
+		_( "Matrix" ),
 		_( "Transformation matrix" ),
 		VIPS_ARGUMENT_REQUIRED_INPUT,
 		G_STRUCT_OFFSET( VipsAffine, matrix ),
 		VIPS_TYPE_ARRAY_DOUBLE );
 
-	VIPS_ARG_INTERPOLATE( class, "interpolate", 2, 
-		_( "Interpolate" ), 
+	VIPS_ARG_INTERPOLATE( class, "interpolate", 2,
+		_( "Interpolate" ),
 		_( "Interpolate pixels with this" ),
-		VIPS_ARGUMENT_OPTIONAL_INPUT, 
+		VIPS_ARGUMENT_OPTIONAL_INPUT,
 		G_STRUCT_OFFSET( VipsAffine, interpolate ) );
 
-	VIPS_ARG_BOXED( class, "oarea", 111, 
-		_( "Output rect" ), 
+	VIPS_ARG_BOXED( class, "oarea", 111,
+		_( "Output rect" ),
 		_( "Area of output to generate" ),
 		VIPS_ARGUMENT_OPTIONAL_INPUT,
 		G_STRUCT_OFFSET( VipsAffine, oarea ),
 		VIPS_TYPE_ARRAY_INT );
 
-	VIPS_ARG_DOUBLE( class, "odx", 112, 
-		_( "Output offset" ), 
+	VIPS_ARG_DOUBLE( class, "odx", 112,
+		_( "Output offset" ),
 		_( "Horizontal output displacement" ),
 		VIPS_ARGUMENT_OPTIONAL_INPUT,
 		G_STRUCT_OFFSET( VipsAffine, odx ),
 		-10000000, 10000000, 0 );
 
-	VIPS_ARG_DOUBLE( class, "ody", 113, 
-		_( "Output offset" ), 
+	VIPS_ARG_DOUBLE( class, "ody", 113,
+		_( "Output offset" ),
 		_( "Vertical output displacement" ),
 		VIPS_ARGUMENT_OPTIONAL_INPUT,
 		G_STRUCT_OFFSET( VipsAffine, ody ),
 		-10000000, 10000000, 0 );
 
-	VIPS_ARG_DOUBLE( class, "idx", 114, 
-		_( "Input offset" ), 
+	VIPS_ARG_DOUBLE( class, "idx", 114,
+		_( "Input offset" ),
 		_( "Horizontal input displacement" ),
 		VIPS_ARGUMENT_OPTIONAL_INPUT,
 		G_STRUCT_OFFSET( VipsAffine, idx ),
 		-10000000, 10000000, 0 );
 
-	VIPS_ARG_DOUBLE( class, "idy", 115, 
-		_( "Input offset" ), 
+	VIPS_ARG_DOUBLE( class, "idy", 115,
+		_( "Input offset" ),
 		_( "Vertical input displacement" ),
 		VIPS_ARGUMENT_OPTIONAL_INPUT,
 		G_STRUCT_OFFSET( VipsAffine, idy ),
@@ -636,29 +643,29 @@ vips_affine_init( VipsAffine *affine )
  *
  *   X = @a * (x + @idx) + @b * (y + @idy) + @odx
  *   Y = @c * (x + @idx) + @d * (y + @idy) + @doy
- * 
- *   x and y are the coordinates in input image.  
+ *
+ *   x and y are the coordinates in input image.
  *   X and Y are the coordinates in output image.
  *   (0,0) is the upper left corner.
  *
  * The section of the output space defined by @oarea is written to
- * @out. @oarea is a four-element int array of left, top, width, height. 
- * By default @oarea is just large enough to cover the whole of the 
+ * @out. @oarea is a four-element int array of left, top, width, height.
+ * By default @oarea is just large enough to cover the whole of the
  * transformed input image.
  *
- * @interpolate defaults to bilinear. 
+ * @interpolate defaults to bilinear.
  *
  * @idx, @idy, @odx, @ody default to zero.
  *
  * This operation does not change xres or yres. The image resolution needs to
- * be updated by the application. 
+ * be updated by the application.
  *
  * See also: vips_shrink(), vips_resize(), #VipsInterpolate.
  *
  * Returns: 0 on success, -1 on error
  */
 int
-vips_affine( VipsImage *in, VipsImage **out, 
+vips_affine( VipsImage *in, VipsImage **out,
 	double a, double b, double c, double d, ... )
 {
 	va_list ap;
