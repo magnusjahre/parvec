@@ -1,0 +1,3 @@
+#!/bin/bash
+
+source ${PARSECDIR}/pkgs/apps_simd/swaptions/parsec/icc-mic-hooks.bldconf

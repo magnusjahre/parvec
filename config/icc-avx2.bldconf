@@ -1,0 +1,29 @@
+#!/bin/bash
+#
+# icc-avx2-hooks.bldconf - file containing global information necessary to build
+#                     PARSEC with AVX2
+#
+# Copyright (C) 2006-2007 Princeton University
+# Written by Christian Bienia
+# SIMD Version by Juan M. Cebrian, NTNU - 2013. BSC - 2016
+#
+source ${PARSECDIR}/config/icc-pthreads.bldconf
+
+PROTABILITY_FLAGS="-DPARSEC_USE_AVX ${PORTABILITY_FLAGS}"
+
+
+EXTRA_CFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+EXTRA_CXXFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
+
+#EXTRA_LDFLAGS="-L${PARSECDIR}/pkgs/libs/energy_lib/lib -L/home/juanmc/extras/likwid/lib"
+#EXTRA_SOURCES=$(SPEC)/benchspec/CPU2006/common/src/energy_config.c
+#EXTRA_FFLAGS=-I$(SPEC)/benchspec/CPU2006/common/src -I/home/juanmc/extras/likwid/include
+
+
+# Enable PARSEC hooks
+CFLAGS="-mavx2 ${CFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CFLAGS}"
+CXXFLAGS="-mavx2 ${CXXFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CXXFLAGS}"
+LDFLAGS="${LDFLAGS} ${EXTRA_LDFLAGS}"
+LIBS="${LIBS} -pthread -lm"
+
+#LIBS="${LIBS} -lprofiler"

@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# gcc-avx.bldconf - configuration file for PARSEC
+
+source ${PARSECDIR}/pkgs/tools/automake/parsec/gcc-pthreads.bldconf

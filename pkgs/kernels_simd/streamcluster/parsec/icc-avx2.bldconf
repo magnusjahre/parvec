@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source ${PARSECDIR}/pkgs/kernels_simd/streamcluster/parsec/icc.bldconf
+
+# Package dependencies

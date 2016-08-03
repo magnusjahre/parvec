@@ -1,0 +1,5 @@
+#!/bin/bash
+
+# gcc-avx2-hooks.bldconf - configuration file for PARSEC
+
+source ${PARSECDIR}/pkgs/libs/hooks/parsec/gcc-hooks.bldconf
