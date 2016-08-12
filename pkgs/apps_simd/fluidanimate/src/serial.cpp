@@ -112,7 +112,7 @@ void InitSim(char const *fileName)
   cnumPars = (int*)_aligned_malloc(sizeof(int) * numCells, CACHELINE_SIZE);
   cnumPars2 = (int*)_aligned_malloc(sizeof(int) * numCells, CACHELINE_SIZE);
   last_cells = (struct Cell **)_aligned_malloc(sizeof(struct Cell *) * numCells, CACHELINE_SIZE);
-  assert((cells!=NULL) && (cells2!=NULL) && (cnumPars!=NULL) && (cnumPars2!=NULL) && (last_cells!=NULL)); 
+  assert((cells!=NULL) && (cells2!=NULL) && (cnumPars!=NULL) && (cnumPars2!=NULL) && (last_cells!=NULL));
 #else
   int rv0 = posix_memalign((void **)(&cells), CACHELINE_SIZE, sizeof(struct Cell) * numCells);
   int rv1 = posix_memalign((void **)(&cells2), CACHELINE_SIZE, sizeof(struct Cell) * numCells);
@@ -645,7 +645,7 @@ void ProcessCollisions()
 // as artifacts. The proper place for USE_ImpeneratableWall is after AdvanceParticles.
 // This would entail a 2nd pass on the perimiters after AdvanceParticles (as opposed
 // to inside AdvanceParticles). Your fluid dynamisist should properly devise the
-// equasions. 
+// equasions.
 void ProcessCollisions()
 {
 	int x,y,z, index;
@@ -995,7 +995,7 @@ int main(int argc, char *argv[])
 #ifdef PARSEC_VERSION
 #define __PARSEC_STRING(x) #x
 #define __PARSEC_XSTRING(x) __PARSEC_STRING(x)
-        std::cout << "PARSEC Benchmark Suite Version "__PARSEC_XSTRING(PARSEC_VERSION) << std::endl << std::flush;
+        std::cout << "PARSEC Benchmark Suite Version " __PARSEC_XSTRING(PARSEC_VERSION) << std::endl << std::flush;
 #else
         std::cout << "PARSEC Benchmark Suite" << std::endl << std::flush;
 #endif //PARSEC_VERSION
@@ -1059,4 +1059,3 @@ int main(int argc, char *argv[])
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
