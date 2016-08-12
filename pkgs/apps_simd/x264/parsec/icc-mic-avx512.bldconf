@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source ${PARSECDIR}/pkgs/apps_simd/x264/parsec/icc-mic.bldconf
+
+build_conf="--disable-opencl --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
