@@ -4,4 +4,4 @@
 
 source ${PARSECDIR}/pkgs/apps_simd/x264/parsec/gcc-hooks.bldconf
 
-build_conf="--disable-opencl --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-DDISABLE_AVX ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
+build_conf="--disable-opencl --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable -DDISABLE_AVX ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""

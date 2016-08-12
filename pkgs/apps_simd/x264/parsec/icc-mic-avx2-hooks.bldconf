@@ -2,4 +2,4 @@
 
 source ${PARSECDIR}/pkgs/apps_simd/x264/parsec/icc-mic-hooks.bldconf
 
-build_conf="--disable-opencl --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
+build_conf="--disable-opencl --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""

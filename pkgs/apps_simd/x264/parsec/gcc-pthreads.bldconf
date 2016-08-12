@@ -27,7 +27,6 @@ esac
 
 # Environment to use for configure script and Makefile
 build_env="PATH=\"${PARSECDIR}/pkgs/tools/yasm/inst/${PARSECPLAT}/bin:${PATH}\""
-#build_env="PATH=\"${PARSECDIR}/pkgs/apps_simd/x264/src/yasm/yasm-1.2.0:${PATH}\""
 
 # Whether the build system supports only in-place compilation.
 # If TRUE, then all sources will be copied to the build directory before we
@@ -36,9 +35,5 @@ build_env="PATH=\"${PARSECDIR}/pkgs/tools/yasm/inst/${PARSECPLAT}/bin:${PATH}\""
 build_inplace="TRUE"
 
 # Arguments to pass to the configure script, if it exists
-#build_conf="--enable-pthread --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
-#build_conf="--enable-pthread --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
-
-build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
-#build_conf="--extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
-
+build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
+#build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""

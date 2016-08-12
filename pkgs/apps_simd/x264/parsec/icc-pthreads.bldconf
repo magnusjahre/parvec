@@ -37,5 +37,5 @@ build_inplace="TRUE"
 #build_conf="--enable-pthread --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
 #build_conf="--enable-pthread --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
 
-build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
+build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
 #build_conf="--extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
