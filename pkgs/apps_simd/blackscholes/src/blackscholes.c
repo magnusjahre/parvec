@@ -91,13 +91,6 @@ using namespace tbb;
 #include <windows.h>
 #endif
 
-#ifdef __GNUC__
-//#define _MM_ALIGN __attribute__((aligned (16))) // JMCG We don't use this
-#define MUSTINLINE __attribute__((always_inline))
-#else
-#define MUSTINLINE __forceinline
-#endif
-
 #define NUM_RUNS 100
 
 typedef struct OptionData_ {
@@ -578,7 +571,7 @@ int main (int argc, char **argv)
 #ifdef PARSEC_VERSION
 #define __PARSEC_STRING(x) #x
 #define __PARSEC_XSTRING(x) __PARSEC_STRING(x)
-        printf("PARSEC Benchmark Suite Version "__PARSEC_XSTRING(PARSEC_VERSION)"\n");
+        printf("PARSEC Benchmark Suite Version " __PARSEC_XSTRING(PARSEC_VERSION)"\n");
 	fflush(NULL);
 #else
         printf("PARSEC Benchmark Suite\n");
@@ -675,7 +668,7 @@ int main (int argc, char **argv)
         otime[i]      = data[i].t;
     }
 
-    printf("Size of data: %d\n", numOptions * (sizeof(OptionData) + sizeof(int)));
+    printf("Size of data: %d\n", (int)(numOptions * (sizeof(OptionData) + sizeof(int))));
 
 #ifdef ENABLE_PARSEC_HOOKS
     __parsec_roi_begin();
@@ -769,4 +762,3 @@ int main (int argc, char **argv)
 
     return 0;
 }
-
