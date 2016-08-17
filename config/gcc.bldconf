@@ -42,10 +42,10 @@ case "${OSTYPE}" in
   # Linux + default case
 
   # CC_HOME is installation root of the C compiler
-#  export CC_HOME="/usr"
+#    export CC_HOME="/usr"
 #JMCG BEIN
-#  export CC_HOME="${HOME}/extras/gcc-6.1.0"
-  export CC_HOME="${HOME}/extras/gcc-5.4.0"
+  export CC_HOME="${HOME}/extras/gcc-6.1.0"
+#  export CC_HOME="${HOME}/extras/gcc-5.4.0"
 #  export CC_HOME="${HOME}/extras/gcc-4.8.2"
 #JMCG END
   # BINUTIL_HOME is installation root of the GNU binutils
