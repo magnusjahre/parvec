@@ -50,7 +50,7 @@ static inline __m128i _mm_div_epi64(__m128i A, __m128i B) {
   a0 = _mm_extract_epi64(A,0);
   b1 = _mm_extract_epi64(B,1);
   b0 = _mm_extract_epi64(B,0);
-  return _MM_SETM_I((int64_t)(a1/b1),(int64_t)(a0/b0));
+  return _mm_set_epi64x((int64_t)(a1/b1),(int64_t)(a0/b0));
 }
 
 static inline __m128d _custom_mm_cvtepi64_pd(__m128i A) {
@@ -132,7 +132,7 @@ static inline __m256i _mm256_div_epi64(__m256i A, __m256i B) {
   b1 = _mm256_extract_epi64(B,1);
   b0 = _mm256_extract_epi64(B,0);
 
-  return _MM_SETM_I((int64_t)(a3/b3),(int64_t)(a2/b2),(int64_t)(a1/b1),(int64_t)(a0/b0));
+  return _mm256_set_epi64x((int64_t)(a3/b3),(int64_t)(a2/b2),(int64_t)(a1/b1),(int64_t)(a0/b0));
 }
 
 static inline __m256d _custom_mm256_cvtepi64_pd(__m256i x) {
@@ -274,8 +274,8 @@ static inline double _mm256_cvtsd_f64(__m256d A) {
 
 static inline __m512i _mm512_div_epi64(__m512i A, __m512i B) {
   __m512i output;
-  output = _mm512_inserti64x4(output,_mm256_div_epi64(_mm512_extracti64x4_epi64(A,0),_mm512_extracti64x4_epi64((B,0)),0);
-  output = _mm512_inserti64x4(output,_mm256_div_epi64(_mm512_extracti64x4_epi64(A,1),_mm512_extracti64x4_epi64((B,1)),1);
+  output = _mm512_inserti64x4(output,_mm256_div_epi64(_mm512_extracti64x4_epi64(A,0),_mm512_extracti64x4_epi64(B,0)),0);
+  output = _mm512_inserti64x4(output,_mm256_div_epi64(_mm512_extracti64x4_epi64(A,1),_mm512_extracti64x4_epi64(B,1)),1);
   return output;
 }
 
@@ -647,7 +647,7 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #define _MM_SET_I(A)  _mm256_set1_epi64x(A)
 #define _MM_SETM_I(A,B,C,D)  _mm256_set_epi64x(A,B,C,D)
 #define _MM_SETR  _mm256_setr_pd
-#define _MM_BROADCAST  _mm256_broadcast_pd
+#define _MM_BROADCAST_128(A)  _mm256_broadcast_pd((__m128d *)(A))
 #define _MM_MOVEMASK _mm256_movemask_pd
 #define _MM_MASK_TRUE 15 // 4 bits at 1
 #define _MM_MAX _mm256_max_pd
@@ -997,7 +997,7 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #define _MM_SET_I(A)  _mm512_set1_epi64(A)
 #define _MM_SETM_I(A,B,C,D)  _mm512_set_epi64(A,B,C,D)
 #define _MM_SETR  _mm512_setr_pd
-#define _MM_BROADCAST  _mm512_broadcast_pd // REDO THIS
+#define _MM_BROADCAST_128(A)  _mm512_castsi512_pd(_mm512_broadcast_i32x4(_mm_loadu_si128(A)))
 #define _MM_MOVEMASK _mm512_movemask_pd // Not available, need to rework masks and mask registers
 #define _MM_MASK_TRUE 255 // 8 bits at 1 //
 #define _MM_MAX _mm512_max_pd
@@ -1494,7 +1494,7 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #define _MM_SET_I(A)  _mm256_set1_epi32(A)
 #define _MM_SETM_I(A,B,C,D,E,F,G,H)  _mm256_set_epi32(A,B,C,D,E,F,G,H)
 #define _MM_SETR  _mm256_setr_ps
-#define _MM_BROADCAST  _mm256_broadcast_ps
+#define _MM_BROADCAST_128(A)  _mm256_broadcast_ps((__m128 *)(A))
 #define _MM_MOVEMASK _mm256_movemask_ps
 #define _MM_MASK_TRUE 255 // 8 Bits at 1
 #define _MM_MAX _mm256_max_ps
@@ -1799,8 +1799,7 @@ static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
 #define _MM_SET_I(A)  _mm512_set1_epi32(A)
 #define _MM_SETM_I(A,B,C,D,E,F,G,H)  _mm512_set_epi32(A,B,C,D,E,F,G,H)
 #define _MM_SETR  _mm512_setr_ps
-
-#define _MM_BROADCAST  _mm512_broadcast_ps  // REDO THIS
+#define _MM_BROADCAST_128(A) _mm512_castsi512_ps(_mm512_broadcast_i32x4(_mm_loadu_si128(A)))
 #define _MM_MOVEMASK _mm512_movemask_ps // Not available, need to rework masks and mask registers
 #define _MM_MASK_TRUE 65535 // 16 Bits at 1
 
