@@ -72,7 +72,11 @@ void annealer_thread::Run()
 #ifdef PARSEC_USE_AVX
         __attribute__((aligned (32))) float netelement_loc_array[CLUSTER_ITEMS * (SIMD_WIDTH/2)];
 #else
+#ifdef PARSEC_USE_AVX512
+        __attribute__((aligned (64))) float netelement_loc_array[CLUSTER_ITEMS * (SIMD_WIDTH/2)];
+#else
 	float netelement_loc_array[1];
+#endif
 #endif
 #endif
 
@@ -462,13 +466,13 @@ routing_cost_t annealer_thread::calculate_delta_routing_cost(netlist_elem* a, ne
     for(int j = (i+1); j<CLUSTER_ITEMS; j++) {
       //cout << "Operation " << cost_matrix[i][j] << " - " << cost_matrix[i][i] << " + " << cost_matrix[j][i] << " - " << cost_matrix[j][j] << endl;
       delta_cost_matrix_complete[i][j] = (cost_matrix[i][j] - cost_matrix[i][i]) + (cost_matrix[j][i] - cost_matrix[j][j]); // JMCG this produces the same yes_swap and no_swap as the original swap_cost code
-#if DEBUG_SIMD
+#ifdef DEBUG_SIMD
       delta_index++;
 #endif
     }
   }
 
-#if DEBUG_SIMD
+#ifdef DEBUG_SIMD
   cout << "Max Delta Index: " << delta_index << endl;
   cout << "Cost Matrix :" << endl;
   for (int i = 0;i<CLUSTER_ITEMS;i++) {
@@ -512,4 +516,3 @@ bool annealer_thread::keep_going(int temp_steps_completed, int accepted_good_mov
 
 	return rv;
 }
-

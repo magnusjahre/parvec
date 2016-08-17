@@ -218,7 +218,7 @@ void netlist_elem::swap_cost_block_simd(location_t** location_cluster, routing_c
     location_t* fanin_loc = fanin[i]->present_loc.Get();
 #if (SIMD_WIDTH > 4)
     // AVX only at this point
-    present_loc = _MM_BROADCAST((__m128 *)(&fanin_loc->x_y[0]));
+    present_loc = _MM_BROADCAST_128((__m128i *)(&fanin_loc->x_y[0]));
     // Alternative
     // __m128 temp_load = _mm_load_ps(&(fanin_loc->x_y[0]));
     // present_loc = _mm256_insertf128_ps(_mm256_insertf128_ps(present_loc,temp_load,0),temp_load,1);
@@ -238,7 +238,7 @@ void netlist_elem::swap_cost_block_simd(location_t** location_cluster, routing_c
 
 #if (SIMD_WIDTH > 4)
     // AVX only at this point
-    present_loc = _MM_BROADCAST((__m128 *)(&fanout_loc->x_y[0]));
+    present_loc = _MM_BROADCAST_128((__m128i *)(&fanout_loc->x_y[0]));
     // Alternative
     //    __m128 temp_load = _mm_load_ps(&(fanout_loc->x_y[0]));
     //    present_loc = _mm256_insertf128_ps(_mm256_insertf128_ps(present_loc,temp_load,0),temp_load,1);
