@@ -21,19 +21,21 @@
 
 /* JMCG BEGIN */
 #ifdef PARSEC_USE_SSE
-#include "sse_mathfun.h"
 #include "simd_defines.h"
 #endif
 
 #ifdef PARSEC_USE_AVX
-#include "avx_mathfun.h"
 #include "simd_defines.h"
 #endif
 
 #ifdef PARSEC_USE_NEON
-#include "neon_mathfun.h"
 #include "simd_defines.h"
 #endif
+
+#ifdef PARSEC_USE_AVX512
+#include "simd_defines.h"
+#endif
+
 /* JMCG END */
 
 #else
@@ -233,7 +235,7 @@ void BlkSchlsEqEuroNoDiv_SIMD (fptype * OptionPrice, int numOptions, fptype * sp
   // Runfast mode. In this mode Subnormal numbers are being flushed to zero (that is, the 0x0...1 stored in otype)
   // Casting everything to integer and using integer comparations seems to work
   // minimum positive subnormal number 00000001 1.40129846e-45
-  _tmp1 = (_MM_TYPE)_MM_CMPEQ_SIG((_MM_TYPE_I)_MM_LOADU((fptype*)otype), (_MM_TYPE_I)_MM_SETZERO()); // otype ? // FIXME FOR DOUBLE fptype
+  _tmp1 =  _MM_CAST_I_TO_FP(_MM_CMPEQ_SIG(_MM_CAST_FP_TO_I(_MM_LOADU((fptype*)otype)), _MM_SETZERO_I()));
   _answer = _MM_OR(_MM_AND(_tmp1, _c), _MM_ANDNOT(_tmp1, _p));
 
   _MM_STORE(OptionPrice, _answer);
