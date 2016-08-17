@@ -1059,16 +1059,14 @@ inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numN
 #endif
 #endif // SIMD_WIDTH == 8
 
-
-      //      _mask = _MM_CMPEQ(_mask,_MM_SET(1)); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
       // This looks weird but our ARM evaluation system seems to be running in
       // Runfast mode. In this mode Subnormal numbers are being flushed to zero (that is, the 0x0...1 stored in otype)
       // Casting everything to integer and using integer comparations seems to work
       // minimum positive subnormal number 00000001 1.40129846e-45
       _mask = (_MM_TYPE)_MM_CMPEQ_SIG((_MM_TYPE_I)_mask, (_MM_TYPE_I)_MM_SET(1)); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
 
-      *x_most_sig_bits = _MM_MOVEMASK(_mask); /* high bits of each of our bools */
-      if(*x_most_sig_bits != 0) { // If all items have been already computed, we dont enter this section
+      //    *x_most_sig_bits = _MM_MOVEMASK(_mask); /* high bits of each of our bools */
+//      if(*x_most_sig_bits != 0) { // If all items have been already computed, we dont enter this section
 
 	// ORIGINAL CODE
 	//      fptype distSq = (cell->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL]).GetLengthSq();
@@ -1147,7 +1145,7 @@ inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numN
 	/*else {
 	  iparNeigh = numNeighPars; // JMCG Adding this we can Stop iteration on internal loop. Slightly faster than original code, but I'm not completely sure that is the same.
 	  } */
-      }
+//      } // x_most_sig_bits
 
       if(ipar % PARTICLES_PER_CELL == PARTICLES_PER_CELL-1) {
         cell_ipar = cell_ipar->next;
@@ -1389,9 +1387,8 @@ inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighP
       // minimum positive subnormal number 00000001 1.40129846e-45
       _mask = (_MM_TYPE)_MM_CMPEQ_SIG((_MM_TYPE_I)_mask, (_MM_TYPE_I)_MM_SET(1)); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
 
-      *x_most_sig_bits = _MM_MOVEMASK(_mask); /* high bits of each of our bools */
-
-      if(*x_most_sig_bits != 0) {
+//      *x_most_sig_bits = _MM_MOVEMASK(_mask); /* high bits of each of our bools */
+//      if(*x_most_sig_bits != 0) {
 
 #ifdef SIMD_SINGLE // JMCG
 	_MM_TYPE dist_x = _MM_SUB(_MM_SET(cell_ipar->p_coord[(ipar% PARTICLES_PER_CELL)*3]),data_x);
@@ -1485,9 +1482,8 @@ inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighP
 	_flag = (_MM_TYPE)_MM_CMPLT(_t, _MM_SET(0)); // Use flag later
 
 	// Extrack bits from flag to speed up, dont run the code if all 0
-	int flag_most_sig_bits = _MM_MOVEMASK(_flag); /* high bits of each of our bools */
-
-	if (flag_most_sig_bits != _MM_MASK_TRUE) { // at least one item to process
+//	int flag_most_sig_bits = _MM_MOVEMASK(_flag); /* high bits of each of our bools */
+//	if (flag_most_sig_bits != _MM_MASK_TRUE) { // at least one item to process
 	  /*
 	    // Original code
 	    #ifndef ENABLE_DOUBLE_PRECISION
@@ -1558,8 +1554,8 @@ inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighP
 	    cell_ipar->a[ipar % PARTICLES_PER_CELL].y += combined_y;
 	    cell_ipar->a[ipar % PARTICLES_PER_CELL].z += combined_z;
 	  }
-	}
-      }
+//	} // flag_most_sig_bits
+//      } // x_most_sig_bits
 
       if(ipar % PARTICLES_PER_CELL == PARTICLES_PER_CELL-1) {
         cell_ipar = cell_ipar->next;

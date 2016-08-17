@@ -49,7 +49,9 @@ typedef double fptype;
 #ifdef PARSEC_USE_NEON
 #include "simd_defines.h" // JMCG Vectorization
 #endif
-
+#ifdef PARSEC_USE_AVX512
+#include "simd_defines.h" // JMCG Vectorization
+#endif
 
 #define VEC_COMP_FORCES
 
