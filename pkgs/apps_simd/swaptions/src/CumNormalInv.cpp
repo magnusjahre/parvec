@@ -10,18 +10,6 @@
 #include "HJM_type.h"
 
 // JMCG
-#ifdef PARSEC_USE_SSE
-#include "sse_mathfun.h"
-#endif
-
-#ifdef PARSEC_USE_AVX
-#include "avx_mathfun.h"
-#endif
-
-#ifdef PARSEC_USE_NEON
-#include "neon_mathfun.h"
-#endif
-
 #include <iostream>
 #include <string.h>
 

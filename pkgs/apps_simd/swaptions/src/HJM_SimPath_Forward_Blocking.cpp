@@ -8,14 +8,6 @@
 #include "nr_routines.h"
 
 // JMCG
-/*
-#ifdef PARSEC_USE_SSE
-#include <xmmintrin.h>
-#endif
-#ifdef PARSEC_USE_AVX
-#include <immintrin.h>
-#endif
-*/
 
 #ifdef TBB_VERSION
 #include <pthread.h>
@@ -264,6 +256,3 @@ int HJM_SimPath_Forward_Blocking(FTYPE **ppdHJMPath,	//Matrix that stores genera
 	iSuccess = 1;
 	return iSuccess;
 }
-
-
-
