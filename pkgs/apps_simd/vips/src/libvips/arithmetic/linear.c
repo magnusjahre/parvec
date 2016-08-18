@@ -374,11 +374,8 @@ static void inline loopn_avx_float(double *a, double *b, int width, PEL *in, PEL
   while ((x + 4) < width) {
     // Most likely (for parsec native width is 79, 68 and 25)
     p_1 = _mm256_cvtps_pd(_mm_loadu_ps(&p[i])); // R2B1G1R1
-    temp = _mm_loadu_ps(&p[i]);
     p_2 = _mm256_cvtps_pd(_mm_loadu_ps(&p[i+4])); // G3R3B2G2
-    temp = _mm_loadu_ps(&p[i+4]);
     p_3 = _mm256_cvtps_pd(_mm_loadu_ps(&p[i+8])); // B4G4R4B3
-    temp = _mm_loadu_ps(&p[i+8]);
 
     p_1 = _mm256_add_pd(_mm256_mul_pd(p_1,a_0210),b_0210); // (R2B1G1R1 * A0A2A1A0) + B0B2B1B0
     p_2 = _mm256_add_pd(_mm256_mul_pd(p_2,a_1021),b_1021); // (G3R3B2G2 * A1A0A2A1) + B1B0B2B1
@@ -416,6 +413,155 @@ static void inline loopn_avx_float(double *a, double *b, int width, PEL *in, PEL
 #endif
 }
 #endif // PARSEC_USE_AVX
+
+
+#ifdef PARSEC_USE_AVX512
+
+// JMCG Vectorization - LOOPN for UCHAR (IN = unsigned char, OUT = float)
+// We use inline functions instead of macros for debugging purposes
+static void inline loopn_avx512_uchar(double *a, double *b, int width, PEL *in, PEL *out) {
+  unsigned char *p = (unsigned char *) in;
+  float *q = (float *) out;
+
+  // a and b are doubles, so all calculations are done over doubles as GCC would do with single data
+  __m512d _a, _b;
+  __m512d a_1, a_2, a_3, b_1, b_2, b_3;
+  __m512d p_1,p_2,p_3;
+  __m256i temp_l;
+  int i, x;
+
+  // We are only vectorizing for NB = 3, we are using a different approach for AVX512, with less instructions but I'm not sure about the latency
+  _a = _mm512_mask_loadu_pd(_a,0b00000111, &a[0]); // TRASH + BGR
+  _b = _mm512_mask_loadu_pd(_b,0b00000111, &b[0]); // TRASH + BGR
+
+  a_1 = _mm512_permutexvar_pd(_mm512_set_epi64(1,0,2,1,0,2,1,0), _a); // a_1 = GRBGRBGR
+  a_2 = _mm512_permutexvar_pd(_mm512_set_epi64(0,2,1,0,2,1,0,2), _a); // a_2 = RGBRGBRB
+  a_3 = _mm512_permutexvar_pd(_mm512_set_epi64(2,1,0,2,1,0,2,1), _a); // a_3 = BGRBGRBG
+
+  b_1 = _mm512_permutexvar_pd(_mm512_set_epi64(1,0,2,1,0,2,1,0), _b); // b_1 = GRBGRBGR
+  b_2 = _mm512_permutexvar_pd(_mm512_set_epi64(0,2,1,0,2,1,0,2), _b); // b_2 = RGBRGBRB
+  b_3 = _mm512_permutexvar_pd(_mm512_set_epi64(2,1,0,2,1,0,2,1), _b); // b_3 = BGRBGRBG
+
+  i = 0;
+  x = 0;
+
+  while ((x + 8) < width) {
+    // Most likely (for parsec native width is 79, 68 and 25)
+
+    temp_l = _mm256_cvtepu8_epi32(*(__m128i *) (&p[i]));
+    p_1 = _mm512_cvtepi32_pd(temp_l); // G3R3B2G2 R2B1G1R1
+
+    temp_l = _mm256_cvtepu8_epi32(*(__m128i *) (&p[i+8]));
+    p_2 = _mm512_cvtepi32_pd(temp_l); // R6B5G5R5 B4G4R4B3
+
+    temp_l = _mm256_cvtepu8_epi32(*(__m128i *) (&p[i+16]));
+    p_3 = _mm512_cvtepi32_pd(temp_l); // B8G8R8B7 G7R7B6G6
+
+    p_1 = _mm512_add_pd(_mm512_mul_pd(p_1,a_1),b_1);
+    p_2 = _mm512_add_pd(_mm512_mul_pd(p_2,a_2),b_2);
+    p_3 = _mm512_add_pd(_mm512_mul_pd(p_3,a_3),b_3);
+
+    _mm256_storeu_ps(&q[i],_mm512_cvtpd_ps(p_1));
+    _mm256_storeu_ps(&q[i+4],_mm512_cvtpd_ps(p_2));
+    _mm256_storeu_ps(&q[i+8],_mm512_cvtpd_ps(p_3));
+
+    i += 24;
+    x += 8;
+  }
+
+  // Compute leftovers
+  for( ; x < width; x++ ) {
+    q[i] = (a[0] * (unsigned char) p[i]) + b[0];
+    q[i+1] = (a[1] * (unsigned char) p[i+1]) + b[1];
+    q[i+2] = (a[2] * (unsigned char) p[i+2]) + b[2];
+    i+=3;
+  }
+#ifdef DEBUG_SIMD
+  float test_out[width*3];
+  validate_loopn_uchar(a, b, width, p, &test_out[0]);
+  i = 0;
+  for(x = 0 ; x < width; x++ ) {
+    //    printf("Uchar Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
+    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff > max_diff) {
+      max_diff = diff;
+      printf("Maxdiff UChar = %f\n",max_diff);
+      fflush(stdout);
+    }
+    i += 3;
+  }
+#endif
+}
+
+// JMCG Vectorization - LOOPN for FLOAT (IN = float, OUT = float)
+// We use inline functions instead of macros for debugging purposes
+static void inline loopn_avx512_float(double *a, double *b, int width, PEL *in, PEL *out) {
+  float *p = (float *) in;
+  float *q = (float *) out;
+
+  // a and b are doubles, so all calculations are done over doubles as GCC would do with single data
+  __m512d _a, _b;
+  __m512d a_1, a_2, a_3, b_1, b_2, b_3;
+  __m512d p_1,p_2,p_3;
+  int i, x;
+
+  // We are only vectorizing for NB = 3, we are using a different approach for AVX512, with less instructions but I'm not sure about the latency
+  _a = _mm512_mask_loadu_pd(_a,0b00000111, &a[0]); // TRASH + BGR
+  _b = _mm512_mask_loadu_pd(_b,0b00000111, &b[0]); // TRASH + BGR
+
+  a_1 = _mm512_permutexvar_pd(_mm512_set_epi64(1,0,2,1,0,2,1,0), _a); // a_1 = GRBGRBGR
+  a_2 = _mm512_permutexvar_pd(_mm512_set_epi64(0,2,1,0,2,1,0,2), _a); // a_2 = RGBRGBRB
+  a_3 = _mm512_permutexvar_pd(_mm512_set_epi64(2,1,0,2,1,0,2,1), _a); // a_3 = BGRBGRBG
+
+  b_1 = _mm512_permutexvar_pd(_mm512_set_epi64(1,0,2,1,0,2,1,0), _b); // b_1 = GRBGRBGR
+  b_2 = _mm512_permutexvar_pd(_mm512_set_epi64(0,2,1,0,2,1,0,2), _b); // b_2 = RGBRGBRB
+  b_3 = _mm512_permutexvar_pd(_mm512_set_epi64(2,1,0,2,1,0,2,1), _b); // b_3 = BGRBGRBG
+
+  i = 0;
+  x = 0;
+
+  while ((x + 8) < width) {
+    // Most likely (for parsec native width is 79, 68 and 25)
+    p_1 = _mm512_cvtps_pd(_mm256_loadu_ps(&p[i])); // G3R3B2G2 R2B1G1R1
+    p_2 = _mm512_cvtps_pd(_mm256_loadu_ps(&p[i+8])); // R6B5G5R5 B4G4R4B3
+    p_3 = _mm512_cvtps_pd(_mm256_loadu_ps(&p[i+16])); // B8G8R8B7 G7R7B6G6
+
+    p_1 = _mm512_add_pd(_mm512_mul_pd(p_1,a_1),b_1);
+    p_2 = _mm512_add_pd(_mm512_mul_pd(p_2,a_2),b_2);
+    p_3 = _mm512_add_pd(_mm512_mul_pd(p_3,a_3),b_3);
+
+    _mm256_storeu_ps(&q[i],_mm512_cvtpd_ps(p_1));
+    _mm256_storeu_ps(&q[i+8],_mm512_cvtpd_ps(p_2));
+    _mm256_storeu_ps(&q[i+16],_mm512_cvtpd_ps(p_3));
+
+    i += 24;
+    x += 8;
+  }
+
+  // Compute leftovers
+  for( ; x < width; x++ ) {
+    q[i] = (a[0] * (float) p[i]) + b[0];
+    q[i+1] = (a[1] * (float) p[i+1]) + b[1];
+    q[i+2] = (a[2] * (float) p[i+2]) + b[2];
+    i+=3;
+  }
+#ifdef DEBUG_SIMD
+  float test_out[width*3];
+  validate_loopn_float(a, b, width, p, &test_out[0]);
+  i = 0;
+  for(x = 0 ; x < width; x++ ) {
+    //    printf("Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
+    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff > max_diff) {
+      max_diff = diff;
+      printf("Maxdiff = %f\n",max_diff);
+      fflush(stdout);
+    }
+    i += 3;
+  }
+#endif
+}
+#endif // PARSEC_USE_AVX512
 
 
 #ifdef PARSEC_USE_SSE
@@ -873,6 +1019,9 @@ vips_linear_buffer( VipsArithmetic *arithmetic,
 #ifdef PARSEC_USE_AVX
 	    case VIPS_FORMAT_UCHAR:           loopn_avx_uchar(a, b, width, in[0], out); break;
 #endif
+#ifdef PARSEC_USE_AVX512
+	    case VIPS_FORMAT_UCHAR:           loopn_avx512_uchar(a, b, width, in[0], out); break;
+#endif
 #ifdef PARSEC_USE_NEON
 	    case VIPS_FORMAT_UCHAR:           loopn_neon_uchar(a, b, width, in[0], out); break;
 #endif
@@ -892,6 +1041,9 @@ vips_linear_buffer( VipsArithmetic *arithmetic,
 #endif
 #ifdef PARSEC_USE_AVX
 	    case VIPS_FORMAT_FLOAT:           loopn_avx_float(a, b, width, in[0], out); break;
+#endif
+#ifdef PARSEC_USE_AVX512
+	    case VIPS_FORMAT_FLOAT:           loopn_avx512_float(a, b, width, in[0], out); break;
 #endif
 #ifdef PARSEC_USE_NEON
 	    case VIPS_FORMAT_FLOAT:	      loopn_neon_float(a, b, width, in[0], out); break;
