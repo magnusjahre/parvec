@@ -1,0 +1,28 @@
+[PARSEC] [========== PARSEC 3.0-beta-20120904 BUILD LOGFILE ==========]
+
+[PARSEC] Build amd64-linux.gcc-sse-hooks started on Thu Aug 18 14:28:52 CEST 2016.
+[PARSEC] Packages to build:  parsec.simd.fluidanimate
+
+[PARSEC] [========== Building package parsec.simd.fluidanimate [1] ==========]
+[PARSEC] [---------- Analyzing package parsec.simd.fluidanimate ----------]
+[PARSEC] parsec.simd.fluidanimate depends on: hooks
+[PARSEC] [---------- Analyzing package parsec.hooks ----------]
+[PARSEC] Package parsec.hooks already exists, proceeding.
+[PARSEC] [---------- Building package parsec.simd.fluidanimate ----------]
+[PARSEC] Removing old build directory.
+[PARSEC] Copying source code of package parsec.simd.fluidanimate.
+[PARSEC] Running 'env version=pthreads /usr/bin/make -j4':
+/usr/bin/make -j4 -f Makefile.pthreads all
+make[1]: Entering directory `/home/jcebrian/parvec-3.0_bitbucket/pkgs/apps_simd/fluidanimate/obj/amd64-linux.gcc-sse-hooks'
+/home/jcebrian/extras/gcc-6.1.0/bin/g++ -msse4.2 -Werror -O2 -g3 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions -static-libgcc -Wl,--hash-style=both,--as-needed -DPARSEC_VERSION=3.0-beta-20120904 -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -static-libgcc -Wl,--hash-style=both,--as-needed -DENABLE_PARSEC_HOOKS -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/hooks/inst/amd64-linux.gcc-sse-hooks/include -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -DPARSEC_USE_SSE -static-libgcc -Wl,--hash-style=both,--as-needed -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -Wno-invalid-offsetof -pthread -D_GNU_SOURCE -D__XOPEN_SOURCE=600 -c pthreads.cpp
+/home/jcebrian/extras/gcc-6.1.0/bin/g++ -msse4.2 -Werror -O2 -g3 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions -static-libgcc -Wl,--hash-style=both,--as-needed -DPARSEC_VERSION=3.0-beta-20120904 -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -static-libgcc -Wl,--hash-style=both,--as-needed -DENABLE_PARSEC_HOOKS -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/hooks/inst/amd64-linux.gcc-sse-hooks/include -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -DPARSEC_USE_SSE -static-libgcc -Wl,--hash-style=both,--as-needed -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -Wno-invalid-offsetof -pthread -D_GNU_SOURCE -D__XOPEN_SOURCE=600 -c cellpool.cpp
+/home/jcebrian/extras/gcc-6.1.0/bin/g++ -msse4.2 -Werror -O2 -g3 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions -static-libgcc -Wl,--hash-style=both,--as-needed -DPARSEC_VERSION=3.0-beta-20120904 -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -static-libgcc -Wl,--hash-style=both,--as-needed -DENABLE_PARSEC_HOOKS -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/hooks/inst/amd64-linux.gcc-sse-hooks/include -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -DPARSEC_USE_SSE -static-libgcc -Wl,--hash-style=both,--as-needed -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -Wno-invalid-offsetof -pthread -D_GNU_SOURCE -D__XOPEN_SOURCE=600 -c parsec_barrier.cpp
+rm -rf fluidcmp
+/home/jcebrian/extras/gcc-6.1.0/bin/g++ -msse4.2 -Werror -O2 -g3 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions -static-libgcc -Wl,--hash-style=both,--as-needed -DPARSEC_VERSION=3.0-beta-20120904 -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -static-libgcc -Wl,--hash-style=both,--as-needed -DENABLE_PARSEC_HOOKS -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/hooks/inst/amd64-linux.gcc-sse-hooks/include -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -DPARSEC_USE_SSE -static-libgcc -Wl,--hash-style=both,--as-needed -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -Wno-invalid-offsetof -pthread -D_GNU_SOURCE -D__XOPEN_SOURCE=600 fluidcmp.cpp -o fluidcmp
+/home/jcebrian/extras/gcc-6.1.0/bin/g++ -msse4.2 -Werror -O2 -g3 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions -static-libgcc -Wl,--hash-style=both,--as-needed -DPARSEC_VERSION=3.0-beta-20120904 -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -static-libgcc -Wl,--hash-style=both,--as-needed -DENABLE_PARSEC_HOOKS -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/hooks/inst/amd64-linux.gcc-sse-hooks/include -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -DPARSEC_USE_SSE -static-libgcc -Wl,--hash-style=both,--as-needed -I/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/simd_libs -Wno-invalid-offsetof -pthread -D_GNU_SOURCE -D__XOPEN_SOURCE=600 pthreads.o cellpool.o parsec_barrier.o -L/home/jcebrian/extras/gcc-6.1.0/lib64 -L/home/jcebrian/extras/gcc-6.1.0/lib -L/home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/libs/hooks/inst/amd64-linux.gcc-sse-hooks/lib    -pthread -lhooks -lm -pthread -lm -o fluidanimate
+make[1]: Leaving directory `/home/jcebrian/parvec-3.0_bitbucket/pkgs/apps_simd/fluidanimate/obj/amd64-linux.gcc-sse-hooks'
+[PARSEC] Running 'env version=pthreads /usr/bin/make -j4 install':
+mkdir -p /home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/apps_simd/fluidanimate/inst/amd64-linux.gcc-sse-hooks/bin
+cp -f fluidanimate /home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/apps_simd/fluidanimate/inst/amd64-linux.gcc-sse-hooks/bin
+cp -f fluidcmp /home/jcebrian/parvec-3.0_bitbucket/bin/../pkgs/apps_simd/fluidanimate/inst/amd64-linux.gcc-sse-hooks/bin
+[PARSEC] Done.

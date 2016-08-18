@@ -1,0 +1,9 @@
+[PARSEC] [========== PARSEC 3.0-beta-20120904 BUILD LOGFILE ==========]
+
+[PARSEC] Build amd64-linux.gcc-sse-hooks started on Thu Aug 18 14:29:22 CEST 2016.
+[PARSEC] Packages to build:  parsec.simd.fluidanimate
+
+[PARSEC] [========== Building package parsec.simd.fluidanimate [1] ==========]
+[PARSEC] [---------- Analyzing package parsec.simd.fluidanimate ----------]
+[PARSEC] Package parsec.simd.fluidanimate already exists, proceeding.
+[PARSEC] Done.
