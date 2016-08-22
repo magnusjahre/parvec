@@ -143,8 +143,8 @@
 //#define DEBUG_SIMD
 #ifdef DEBUG_SIMD
 #include <math.h>
-int diff = 0;
-int max_diff = 0;
+int diff_c = 0;
+int max_diff_c = 0;
 #endif
 
 /* We can't run more than this many passes. Larger than this and we
@@ -726,7 +726,6 @@ static void inline conv_int_short_simd(signed short *output, ConvSequence *seq, 
 			   )
       );
 
-
 // JMCG We have removed the stat count for overflow and underflow for performance tests
     _sum = _MM_MAX_I(_MM_SET_I(SHRT_MIN), _sum);
     _sum = _MM_MIN_I(_MM_SET_I(SHRT_MAX), _sum);
@@ -755,10 +754,10 @@ static void inline conv_int_short_simd(signed short *output, ConvSequence *seq, 
 
 #ifdef DEBUG_SIMD
   for(x = 0 ; x < sz; x++ ) {
-    diff = abs(q_test[x] - output[x]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff Conv Sum = %d\n",max_diff);
+    diff_c = abs(q_test[x] - output[x]);
+    if (diff_c > max_diff_c) {
+      max_diff_c = diff_c;
+      printf("Maxdiff Conv Sum = %d\n",max_diff_c);
       fflush(stdout);
     }
   }

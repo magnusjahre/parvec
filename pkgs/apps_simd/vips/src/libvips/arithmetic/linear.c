@@ -100,8 +100,8 @@
 //#define DEBUG_SIMD
 #ifdef DEBUG_SIMD
 #include <math.h>
-float diff = 0.0f;
-float max_diff = 0.0f;
+float diff_l = 0.0f;
+float max_diff_l = 0.0f;
 #endif
 /* JMCG END */
 
@@ -314,10 +314,10 @@ static void inline loopn_avx_uchar(double *a, double *b, int width, PEL *in, PEL
   i = 0;
   for(x = 0 ; x < width; x++ ) {
     //    printf("Uchar Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
-    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff UChar = %f\n",max_diff);
+    diff_l = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff_l > max_diff_l) {
+      max_diff_l = diff_l;
+      printf("Maxdiff UChar = %f\n",max_diff_l);
       fflush(stdout);
     }
     i += 3;
@@ -402,10 +402,10 @@ static void inline loopn_avx_float(double *a, double *b, int width, PEL *in, PEL
   i = 0;
   for(x = 0 ; x < width; x++ ) {
     //    printf("Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
-    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff = %f\n",max_diff);
+    diff_l = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff_l > max_diff_l) {
+      max_diff_l = diff_l;
+      printf("Maxdiff = %f\n",max_diff_l);
       fflush(stdout);
     }
     i += 3;
@@ -435,7 +435,7 @@ static void inline loopn_avx512_uchar(double *a, double *b, int width, PEL *in, 
   _b = _mm512_mask_loadu_pd(_b,0b00000111, &b[0]); // TRASH + BGR
 
   a_1 = _mm512_permutexvar_pd(_mm512_set_epi64(1,0,2,1,0,2,1,0), _a); // a_1 = GRBGRBGR
-  a_2 = _mm512_permutexvar_pd(_mm512_set_epi64(0,2,1,0,2,1,0,2), _a); // a_2 = RGBRGBRB
+  a_2 = _mm512_permutexvar_pd(_mm512_set_epi64(0,2,1,0,2,1,0,2), _a); // a_2 = RGBRBGRB
   a_3 = _mm512_permutexvar_pd(_mm512_set_epi64(2,1,0,2,1,0,2,1), _a); // a_3 = BGRBGRBG
 
   b_1 = _mm512_permutexvar_pd(_mm512_set_epi64(1,0,2,1,0,2,1,0), _b); // b_1 = GRBGRBGR
@@ -462,8 +462,8 @@ static void inline loopn_avx512_uchar(double *a, double *b, int width, PEL *in, 
     p_3 = _mm512_add_pd(_mm512_mul_pd(p_3,a_3),b_3);
 
     _mm256_storeu_ps(&q[i],_mm512_cvtpd_ps(p_1));
-    _mm256_storeu_ps(&q[i+4],_mm512_cvtpd_ps(p_2));
-    _mm256_storeu_ps(&q[i+8],_mm512_cvtpd_ps(p_3));
+    _mm256_storeu_ps(&q[i+8],_mm512_cvtpd_ps(p_2));
+    _mm256_storeu_ps(&q[i+16],_mm512_cvtpd_ps(p_3));
 
     i += 24;
     x += 8;
@@ -482,10 +482,10 @@ static void inline loopn_avx512_uchar(double *a, double *b, int width, PEL *in, 
   i = 0;
   for(x = 0 ; x < width; x++ ) {
     //    printf("Uchar Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
-    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff UChar = %f\n",max_diff);
+    diff_l = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff_l > max_diff_l) {
+      max_diff_l = diff_l;
+      printf("Maxdiff UChar = %f\n",max_diff_l);
       fflush(stdout);
     }
     i += 3;
@@ -510,7 +510,7 @@ static void inline loopn_avx512_float(double *a, double *b, int width, PEL *in, 
   _b = _mm512_mask_loadu_pd(_b,0b00000111, &b[0]); // TRASH + BGR
 
   a_1 = _mm512_permutexvar_pd(_mm512_set_epi64(1,0,2,1,0,2,1,0), _a); // a_1 = GRBGRBGR
-  a_2 = _mm512_permutexvar_pd(_mm512_set_epi64(0,2,1,0,2,1,0,2), _a); // a_2 = RGBRGBRB
+  a_2 = _mm512_permutexvar_pd(_mm512_set_epi64(0,2,1,0,2,1,0,2), _a); // a_2 = RGBRBGRB
   a_3 = _mm512_permutexvar_pd(_mm512_set_epi64(2,1,0,2,1,0,2,1), _a); // a_3 = BGRBGRBG
 
   b_1 = _mm512_permutexvar_pd(_mm512_set_epi64(1,0,2,1,0,2,1,0), _b); // b_1 = GRBGRBGR
@@ -551,10 +551,10 @@ static void inline loopn_avx512_float(double *a, double *b, int width, PEL *in, 
   i = 0;
   for(x = 0 ; x < width; x++ ) {
     //    printf("Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
-    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff = %f\n",max_diff);
+    diff_l = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff_l > max_diff_l) {
+      max_diff_l = diff_l;
+      printf("Maxdiff = %f\n",max_diff_l);
       fflush(stdout);
     }
     i += 3;
@@ -645,10 +645,10 @@ static void inline loopn_sse_uchar(double *a, double *b, int width, PEL *in, PEL
   i = 0;
   for(x = 0 ; x < width; x++ ) {
     //    printf("Uchar Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
-    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff UChar = %f\n",max_diff);
+    diff_l = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff_l > max_diff_l) {
+      max_diff_l = diff_l;
+      printf("Maxdiff UChar = %f\n",max_diff_l);
       fflush(stdout);
     }
     i += 3;
@@ -712,10 +712,10 @@ static void inline loopn_sse_float(double *a, double *b, int width, PEL *in, PEL
   i = 0;
   for(x = 0 ; x < width; x++ ) {
     //    printf("Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
-    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff = %f\n",max_diff);
+    diff_l = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff_l > max_diff_l) {
+      max_diff_l = diff_l;
+      printf("Maxdiff = %f\n",max_diff_l);
       fflush(stdout);
     }
     i += 3;
@@ -790,10 +790,10 @@ static void inline loopn_neon_uchar(double *a, double *b, int width, PEL *in, PE
   i = 0;
   for(x = 0 ; x < width; x++ ) {
     //printf("Uchar Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
-    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff UChar = %f\n",max_diff);
+    diff_l = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff_l > max_diff_l) {
+      max_diff_l = diff_l;
+      printf("Maxdiff UChar = %f\n",max_diff_l);
       fflush(stdout);
     }
     i += 3;
@@ -859,10 +859,10 @@ static void inline loopn_neon_float(double *a, double *b, int width, PEL *in, PE
   i = 0;
   for(x = 0 ; x < width; x++ ) {
     //    printf("Q[0] %f Test[0] %f Q[1] %f Test[1] %f Q[2] %f Test[2] %f\n",q[i],test_out[i],q[i+1],test_out[i+1],q[i+2],test_out[i+2]); fflush(stdout);
-    diff = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
-    if (diff > max_diff) {
-      max_diff = diff;
-      printf("Maxdiff = %f\n",max_diff);
+    diff_l = fabs(q[i] - test_out[i]) + fabs(q[i+1] - test_out[i+1]) + fabs(q[i+2] - test_out[i+2]);
+    if (diff_l > max_diff_l) {
+      max_diff_l = diff_l;
+      printf("Maxdiff = %f\n",max_diff_l);
       fflush(stdout);
     }
     i += 3;
