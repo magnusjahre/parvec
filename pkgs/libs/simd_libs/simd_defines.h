@@ -1135,9 +1135,9 @@ static inline __m128d _mm512_fullhadd_f64(_MM_TYPE A, _MM_TYPE B) {
   __m128d hi_a,lo_a;
   __m128d hi_b,lo_b;
   __m256d temp,temp1;
-  temp = _mm256_hadd_pd(_mm512_extractf64x4_epi64(A,0),_mm512_extractf64x4_epi64(A,1)); // a7+a6 a3+a2 a5+a4 a1+a0
+  temp = _mm256_hadd_pd(_mm512_extractf64x4_pd(A,0),_mm512_extractf64x4_pd(A,1)); // a7+a6 a3+a2 a5+a4 a1+a0
   temp = _mm256_hadd_pd(temp, temp); // a7+a6+a3+a2 a7+a6+a3+a2 a5+a4+a1+a0 a5+a4+a1+a0
-  temp1 = _mm256_hadd_pd(_mm512_extractf64x4_epi64(B,0),_mm512_extractf64x4_epi64(B,1)); // b7+b6 b3+b2 b5+b4 b1+b0
+  temp1 = _mm256_hadd_pd(_mm512_extractf64x4_pd(B,0),_mm512_extractf64x4_pd(B,1)); // b7+b6 b3+b2 b5+b4 b1+b0
   temp1 = _mm256_hadd_pd(temp1, temp1); // b7+b6+b3+b2 b7+b6+b3+b2 b5+b4+b1+b0 b5+b4+b1+b0
 
   hi_a = _mm256_extractf128_pd(temp,1); // hi_a = a7+a6+a3+a2 a7+a6+a3+a2
@@ -1849,7 +1849,7 @@ static inline _MM_TYPE _mm512_copysign_ps(_MM_TYPE x, _MM_TYPE y) {
 
 // Assume we have y3,y2 x3,x2 y1,y0 x1,x0 and we want to extract deinterleave X and Y
 static inline _MM_TYPE_I _mm512_deinterleave_si512(_MM_TYPE_I A) {
-  return _mm512_permutexvar_epi32(_mm512_set_epi32(15,13,11,9,7,5,3,1,14,12,10,8,6,4,2,0), A);
+  return _mm512_permutexvar_epi32(_mm512_set_epi32(15,14,11,10,7,6,3,2,13,12,9,8,5,4,1,0), A);
 }
 
 // For debugging
