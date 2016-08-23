@@ -419,6 +419,8 @@ static inline __m512i _custom_mm512_packs_epi32(__m512i x, __m512i y) {
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_DEINTERLEAVE_I(A) A // Not needed for SSE
 
+#define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
+
 // Only for doubles, create code for floats
 #define _MM_SHIFT_LEFT _mm_shift_left_pd
 #define _MM_SHIFT2_LEFT _mm_shift2_left_pd
@@ -662,6 +664,8 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #define _MM_FMA _mm256_fmadd_pd
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
+
+#define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1),A(B+2),A(B+3)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
 // Only for doubles, create code for floats
 #define _MM_SHIFT_LEFT _mm256_shift_left_pd
@@ -993,9 +997,9 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #define _MM_PACKS_I _mm512_packs_epi64 // Not available ()
 #define _MM_PACKS_I_TO_H _custom_mm512_packs_epi64_epi16 // Ours ()
 #define _MM_SET(A)  _mm512_set1_pd(A)
-#define _MM_SETM(A,B,C,D)  _mm512_set_pd(A,B,C,D)
+#define _MM_SETM(A,B,C,D,E,F,G,H)  _mm512_set_pd(A,B,C,D,E,F,G,H)
 #define _MM_SET_I(A)  _mm512_set1_epi64(A)
-#define _MM_SETM_I(A,B,C,D)  _mm512_set_epi64(A,B,C,D)
+#define _MM_SETM_I(A,B,C,D,E,F,G,H)  _mm512_set_epi64(A,B,C,D,E,F,G,H)
 #define _MM_SETR  _mm512_setr_pd
 #define _MM_BROADCAST_128(A)  _mm512_castsi512_pd(_mm512_broadcast_i32x4(_mm_loadu_si128(A)))
 #define _MM_MOVEMASK _mm512_movemask_pd // Not available, need to rework masks and mask registers
@@ -1012,6 +1016,8 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #define _MM_FMA _mm512_fmadd_pd
 #define _MM_PRINT_XMM print_xmm // Ours, Debug: Print contents of Z FP register
 #define _MM_PRINT_XMM_I print_xmm_i // Ours, Debug: Print contents of Integer register
+
+#define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1),A(B+2),A(B+3),A(B+4),A(B+5),A(B+6),A(B+7)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
 // Only for doubles, create code for floats
 #define _MM_SHIFT_LEFT _mm512_shift_left_pd // Ours. New instruction
@@ -1301,6 +1307,8 @@ static inline _MM_TYPE _mm512_atan_pd(_MM_TYPE A) {
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
 
+#define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1),A(B+2),A(B+3)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
+
 #ifdef __GNUC__
 #define _MM_ALIGN __attribute__((aligned (16)))
 #define MUSTINLINE __attribute__((always_inline)) inline
@@ -1508,6 +1516,7 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
 
+#define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1),A(B+2),A(B+3),A(B+4),A(B+5),A(B+6),A(B+7)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
 #ifdef __GNUC__
 #define _MM_ALIGN __attribute__((aligned (32)))
@@ -1795,9 +1804,9 @@ static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
 #define _MM_CVT_I_TO_FP _mm512_cvtepi32_ps
 #define _MM_CVT_FP_TO_I _mm512_cvtps_epi32
 #define _MM_SET(A)  _mm512_set1_ps(A)
-#define _MM_SETM(A,B,C,D,E,F,G,H)  _mm512_set_ps(A,B,C,D,E,F,G,H)
+#define _MM_SETM(A,B,C,D,E,F,G,H,A2,B2,C2,D2,E2,F2,G2,H2)  _mm512_set_ps(A,B,C,D,E,F,G,H,A2,B2,C2,D2,E2,F2,G2,H2)
 #define _MM_SET_I(A)  _mm512_set1_epi32(A)
-#define _MM_SETM_I(A,B,C,D,E,F,G,H)  _mm512_set_epi32(A,B,C,D,E,F,G,H)
+#define _MM_SETM_I(A,B,C,D,E,F,G,H,A2,B2,C2,D2,E2,F2,G2,H2)  _mm512_set_epi32(A,B,C,D,E,F,G,H,A2,B2,C2,D2,E2,F2,G2,H2)
 #define _MM_SETR  _mm512_setr_ps
 #define _MM_BROADCAST_128(A) _mm512_castsi512_ps(_mm512_broadcast_i32x4(_mm_loadu_si128(A)))
 #define _MM_MOVEMASK _mm512_movemask_ps // Not available, need to rework masks and mask registers
@@ -1813,6 +1822,8 @@ static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
 #define _MM_FMA _mm512_fmadd_ps
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
+
+#define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1),A(B+2),A(B+3),A(B+4),A(B+5),A(B+6),A(B+7),A(B+8),A(B+9),A(B+10),A(B+11),A(B+12),A(B+13),A(B+14),A(B+15)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
 #ifdef __GNUC__
 #define _MM_ALIGN __attribute__((aligned (64)))
@@ -2070,6 +2081,7 @@ static inline _MM_TYPE _mm512_atan_ps(_MM_TYPE A) {
 #define _MM_PRINT_XMM_I print_xmm_i
 #define _MM_DEINTERLEAVE_I(A) A // Not needed for ARM NEON 128 bits
 
+#define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1),A(B+2),A(B+3)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
 #ifdef __GNUC__
 #define _MM_ALIGN __attribute__((aligned (16)))
