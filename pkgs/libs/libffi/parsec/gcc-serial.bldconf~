@@ -1,6 +1,0 @@
-#!/bin/bash
-
-source ${PARSECDIR}/pkgs/libs/libffi/parsec/gcc.bldconf
-
-# Override configuration flags
-build_conf="--without-python --disable-shared --without-threads"
