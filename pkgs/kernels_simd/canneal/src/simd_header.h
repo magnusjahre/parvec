@@ -21,6 +21,6 @@
 #endif
 /* JMCG END */
 
-#define DEBUG_SIMD
+//#define DEBUG_SIMD
 
 #endif // SIMD_HEADER_H
