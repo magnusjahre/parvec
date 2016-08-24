@@ -990,7 +990,7 @@ inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numN
 
 	temp_tc = _MM_ADD(temp_tc,_tc);
 
-	fptype tc = _MM_CVT_F(_MM_FULL_HADD(_tc,_tc));
+	fptype tc = _MM_REDUCE_ADD(_tc);
 
 #ifdef DEBUG_SIMD
 	total_tc += tc;
@@ -1273,9 +1273,9 @@ inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighP
 	  acc_z_ipar = _MM_ADD(acc_z_ipar,acc_z);
 
 	  // Combine all values
-	  fptype combined_x = _MM_CVT_F(_MM_FULL_HADD(acc_x,acc_x));
-	  fptype combined_y = _MM_CVT_F(_MM_FULL_HADD(acc_y,acc_y));
-	  fptype combined_z = _MM_CVT_F(_MM_FULL_HADD(acc_z,acc_z));
+	  fptype combined_x = _MM_REDUCE_ADD(acc_x);
+	  fptype combined_y = _MM_REDUCE_ADD(acc_y);
+	  fptype combined_z = _MM_REDUCE_ADD(acc_z);
 
 #ifdef DEBUG_SIMD
 	  return_vec.x += combined_x;

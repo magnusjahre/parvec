@@ -684,7 +684,7 @@ float dist(Point p1, Point p2, int dim) {
   }
 
   // Add all items of the vector (the addition will be placed on all items of the vector)
-  return(_MM_CVT_F(_MM_FULL_HADD(result, result)));
+  return((float)_MM_REDUCE_ADD(result));
 
 #endif // ifdef SIMD_WIDTH
 }

@@ -418,6 +418,7 @@ static inline __m512i _custom_mm512_packs_epi32(__m512i x, __m512i y) {
 #define _MM_COPYSIGN _mm_copysign_pd // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_DEINTERLEAVE_I(A) A // Not needed for SSE
+#define _MM_REDUCE_ADD(A) _MM_CVT_F(_MM_FULL_HADD(A,A))
 
 #define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
@@ -663,9 +664,11 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #define _MM_COPYSIGN _mm256_copysign_pd // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_DEINTERLEAVE_I(A) _mm256_deinterleave_si256(A) // New instruction, Intel specific | Return recomposed value in groups of SIMD_WIDHT/2 bits
+#define _MM_REDUCE_ADD(A) _MM_CVT_F(_MM_FULL_HADD(A,A))
 #define _MM_FMA _mm256_fmadd_pd
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
+
 
 #define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1),A(B+2),A(B+3)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
@@ -1017,6 +1020,7 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #define _MM_COPYSIGN _mm512_copysign_pd // Ours _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_DEINTERLEAVE_I(A) _mm512_deinterleave_si512(A) // Ours. New instruction, Intel specific | Return recomposed value in groups of SIMD_WIDHT/2 bits
+#define _MM_REDUCE_ADD(A) _MM_CVT_F(_MM_FULL_HADD(A,A)) // This does not actually exist, although intel says its on AVX512F -> _mm512_reduce_add_pd(A)
 #define _MM_FMA _mm512_fmadd_pd
 #define _MM_PRINT_XMM print_xmm // Ours, Debug: Print contents of Z FP register
 #define _MM_PRINT_XMM_I print_xmm_i // Ours, Debug: Print contents of Integer register
@@ -1308,6 +1312,8 @@ static inline _MM_TYPE _mm512_atan_pd(_MM_TYPE A) {
 #define _MM_COPYSIGN _mm_copysign_ps // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_DEINTERLEAVE_I(A) A // Not needed for SSE
+#define _MM_REDUCE_ADD(A) _MM_CVT_F(_MM_FULL_HADD(A,A))
+
 #define _MM_FMA _mm_fmadd_ps
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
@@ -1519,6 +1525,7 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #define _MM_COPYSIGN _mm256_copysign_ps // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_DEINTERLEAVE_I(A) _mm256_deinterleave_si256(A) // New instruction, Intel specific | Return recomposed value in groups of SIMD_WIDHT/2 bits
+#define _MM_REDUCE_ADD(A) _MM_CVT_F(_MM_FULL_HADD(A,A))
 #define _MM_FMA _mm256_fmadd_ps
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
@@ -1828,6 +1835,7 @@ static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
 #define _MM_COPYSIGN _mm512_copysign_ps // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_DEINTERLEAVE_I(A) _mm512_deinterleave_si512(A) // New instruction, Intel specific | Return recomposed value in groups of SIMD_WIDHT/2 bits
+#define _MM_REDUCE_ADD(A) _MM_CVT_F(_MM_FULL_HADD(A,A)) // This does not actually exist, although intel says its on AVX512F -> _mm512_reduce_add_ps
 #define _MM_FMA _mm512_fmadd_ps
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
@@ -2091,6 +2099,7 @@ static inline _MM_TYPE _mm512_atan_ps(_MM_TYPE A) {
 #define _MM_PRINT_XMM print_xmm
 #define _MM_PRINT_XMM_I print_xmm_i
 #define _MM_DEINTERLEAVE_I(A) A // Not needed for ARM NEON 128 bits
+#define _MM_REDUCE_ADD(A) _MM_CVT_F(_MM_FULL_HADD(A,A))
 
 #define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1),A(B+2),A(B+3)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
