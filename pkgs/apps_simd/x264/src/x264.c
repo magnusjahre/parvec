@@ -47,6 +47,10 @@
 
 #define FAIL_IF_ERROR( cond, ... ) FAIL_IF_ERR( cond, "x264", __VA_ARGS__ )
 
+#ifdef ENABLE_PARSEC_HOOKS
+#include <hooks.h>
+#endif
+
 #if HAVE_LAVF
 #undef DECLARE_ALIGNED
 #include <libavformat/avformat.h>
@@ -355,6 +359,19 @@ int main( int argc, char **argv )
     cli_opt_t opt = {0};
     int ret = 0;
 
+#ifdef PARSEC_VERSION
+#define __PARSEC_STRING(x) #x
+#define __PARSEC_XSTRING(x) __PARSEC_STRING(x)
+    printf("PARSEC Benchmark Suite Version " __PARSEC_XSTRING(PARSEC_VERSION)"\n");
+    fflush(NULL);
+#else
+    printf("PARSEC Benchmark Suite\n");
+    fflush(NULL);
+#endif //PARSEC_VERSION
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_bench_begin(__parsec_x264);
+#endif
+
     FAIL_IF_ERROR( x264_threading_init(), "unable to initialize threading\n" )
 
 #ifdef _WIN32
@@ -396,6 +413,10 @@ int main( int argc, char **argv )
 #ifdef _WIN32
     SetConsoleTitleW( org_console_title );
     free( argv );
+#endif
+
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_bench_end();
 #endif
 
     return ret;
@@ -1896,6 +1917,10 @@ static int encode( x264_param_t *param, cli_opt_t *opt )
 
     i_start = x264_mdate();
 
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_roi_begin();
+#endif
+
     /* ticks/frame = ticks/second / frames/second */
     ticks_per_frame = (int64_t)param->i_timebase_den * param->i_fps_den / param->i_timebase_num / param->i_fps_num;
     FAIL_IF_ERROR2( ticks_per_frame < 1 && !param->b_vfr_input, "ticks_per_frame invalid: %"PRId64"\n", ticks_per_frame )
@@ -2008,6 +2033,11 @@ fail:
         duration = (double)(2 * largest_pts - second_largest_pts) * param->i_timebase_num / param->i_timebase_den;
 
     i_end = x264_mdate();
+
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_roi_end();
+#endif
+
     /* Erase progress indicator before printing encoding stats. */
     if( opt->b_progress )
         fprintf( stderr, "                                                                               \r" );
