@@ -46,7 +46,7 @@ case "${OSTYPE}" in
 #JMCG BEIN
    export CC_HOME="${HOME}/extras/gcc-6.2.0"
 #  export CC_HOME="${HOME}/extras/gcc-5.4.0"
-#  export CC_HOME="${HOME}/extras/gcc-4.8.2"
+#  export CC_HOME="${HOME}/extras/gcc-4.9.4"
 #JMCG END
   # BINUTIL_HOME is installation root of the GNU binutils
   export BINUTIL_HOME="/usr"
