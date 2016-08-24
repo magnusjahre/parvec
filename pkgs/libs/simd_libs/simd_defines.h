@@ -1941,8 +1941,8 @@ static inline void _custom_mm_load_st3(_MM_TYPE* A, _MM_TYPE* B, _MM_TYPE* C, fl
   _MM_TYPE aa, bb, cc;
 
   a_temp = _MM_LOAD(address);     // a6,c5, b5, a5, c4,  b4, a4, c3, b3, a3, c2, b2, a2, c1, b1, a1
-  b_temp = _MM_LOAD(address+8);  // b11,a11,c10,b10,a10, c9, b9, a9, c8, b8, a8, c7, b7, a7, c6, b6
-  c_temp = _MM_LOAD(address+16); // c16,b16,a16,c15,b15,a15,c14,b14,a14,c13,b13,a13,c12,b12,a12,c11
+  b_temp = _MM_LOAD(address+16);  // b11,a11,c10,b10,a10, c9, b9, a9, c8, b8, a8, c7, b7, a7, c6, b6
+  c_temp = _MM_LOAD(address+32); // c16,b16,a16,c15,b15,a15,c14,b14,a14,c13,b13,a13,c12,b12,a12,c11
 
   // get all a
   aa = _mm512_mask_blend_ps((__mmask16)0b0110110110110110,a_temp,b_temp); // aa = a6,a11,c10,a5,a10,c9,a4,a9,c8,a3,a8,c7,a2,a7,c6,a1
