@@ -405,8 +405,7 @@ public:
 // This new structure benefits from cache hits from small number of particles per cell
 // but takes some additional time to load (Intel processors do not support Stride Loads at this point Jul-2013)
 
-#define SIMD_SINGLE
-#ifndef SIMD_WIDTH
+#ifndef SIMD_WIDTH // for Scalar case
 #ifdef __GNUC__
 #define _MM_ALIGN __attribute__((aligned (16)))
 #define MUSTINLINE __attribute__((always_inline))
@@ -419,17 +418,9 @@ public:
 struct Cell_aux {
   CELL_CONTENTS
 
-  //#ifdef SIMD_WIDTH // JMCG Vectorization
-#ifdef SIMD_SINGLE
   _MM_ALIGN fptype p_coord[PARTICLES_PER_CELL*3];
   _MM_ALIGN fptype v_coord[PARTICLES_PER_CELL*3];
-#endif
   _MM_ALIGN fptype density[PARTICLES_PER_CELL];
-  //#else // Original
-  //fptype density[PARTICLES_PER_CELL];
-  //Vec3 p[PARTICLES_PER_CELL];
-  //Vec3 v[PARTICLES_PER_CELL];
-  //#endif
   Cell_aux *next;
   //dummy variable so we can reference the end of the payload data
   char padding;
@@ -438,18 +429,9 @@ struct Cell_aux {
 //Real Cell structure
 struct Cell {
   CELL_CONTENTS
-
-  //#ifdef SIMD_WIDTH // JMCG Vectorization
-#ifdef SIMD_SINGLE
   _MM_ALIGN fptype p_coord[PARTICLES_PER_CELL*3];
   _MM_ALIGN fptype v_coord[PARTICLES_PER_CELL*3];
-#endif
   _MM_ALIGN fptype density[PARTICLES_PER_CELL];
-  //#else // Original
-  //fptype density[PARTICLES_PER_CELL];
-  //Vec3 p[PARTICLES_PER_CELL];
-  //Vec3 v[PARTICLES_PER_CELL];
-  //#endif
   Cell *next;
   //padding to force cell size to a multiple of estimated cache line size
 #pragma warning( disable : 1684) // warning #1684: conversion from pointer to same-sized integral type (potential portability problem)

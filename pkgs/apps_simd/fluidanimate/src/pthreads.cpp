@@ -63,9 +63,9 @@ float max_diff_forces = 0.0f;
 
 // JMCG Required for original code since we change loop order
 // Compute densities one by one starting at iparNeigh_in
-inline fptype ComputeDensitiesMTOriginal(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh, int *x_most_sig_bits );
+inline fptype ComputeDensitiesMTOriginal(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh );
 // Compute Forces one by one starting at iparNeigh_in
-inline Vec3 ComputeForcesMTOriginal(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh, int *x_most_sig_bits );
+inline Vec3 ComputeForcesMTOriginal(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh );
 
 #ifdef SIMD_WIDTH // JMCG Vectorization
 
@@ -89,14 +89,14 @@ long int sse_not_used = 0;
 long int sse_partially_used = 0;
 #endif
 // Compute densities one by one starting at iparNeigh_in. Used for debugging, does not store any density
-inline fptype ComputeDensitiesMTOriginal_test(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh, int *x_most_sig_bits );
+inline fptype ComputeDensitiesMTOriginal_test(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh );
 // Compute Forces one by one starting at iparNeigh_in. Used for debugging, does not store any value in a[].
-inline Vec3 ComputeForcesMTOriginal_test(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh, int *x_most_sig_bits );
+inline Vec3 ComputeForcesMTOriginal_test(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh );
 
 // Compute densities in groups of SIMD_WIDTH. Stores last possition multiple of SIMD_WIDTH in iparNeigh_in and modifies neigh pointer to the latest neigh analized
-inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell **neigh, int *x_most_sig_bits );
+inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell **neigh );
 // Compute Forces in groups of SIMD_WIDTH starting at iparNeigh_in. Stores last possition multiple of SIMD_WIDTH in iparNeigh_in and modifies neigh pointer to the latest neigh analized
-inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell **neigh, int *x_most_sig_bits );
+inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell **neigh );
 
 #endif
 
@@ -421,15 +421,6 @@ void InitSim(char const *fileName, unsigned int threadnum)
       np = np - PARTICLES_PER_CELL;
     }
 
-
-
-#ifdef SIMD_BOTH // JMCG
-    cell->p_x_coord[np] = px;
-    cell->p_y_coord[np] = py;
-    cell->p_z_coord[np] = pz;
-#endif
-
-#ifdef SIMD_SINGLE // JMCG
     cell->p_coord[np*3] = px;
     cell->p_coord[(np*3)+1] = py;
     cell->p_coord[(np*3)+2] = pz;
@@ -437,15 +428,6 @@ void InitSim(char const *fileName, unsigned int threadnum)
     cell->v_coord[np*3] = vx;
     cell->v_coord[(np*3)+1] = vy;
     cell->v_coord[(np*3)+2] = vz;
-#else
-    cell->p[np].x = px;
-    cell->p[np].y = py;
-    cell->p[np].z = pz;
-
-    cell->v[np].x = vx;
-    cell->v[np].y = vy;
-    cell->v[np].z = vz;
-#endif
 
     cell->hv[np].x = hvx;
     cell->hv[np].y = hvy;
@@ -498,8 +480,6 @@ void SaveFile(char const *fileName)
       //Always use single precision float variables b/c file format uses single precision
       float px, py, pz, hvx, hvy, hvz, vx,vy, vz;
       if(!isLittleEndian()) {
-
-#ifdef SIMD_SINGLE // JMCG
 	px  = bswap_float((float)(cell->p_coord[(j % PARTICLES_PER_CELL)*3]));
         py  = bswap_float((float)(cell->p_coord[((j % PARTICLES_PER_CELL)*3)+1]));
 	pz  = bswap_float((float)(cell->p_coord[((j % PARTICLES_PER_CELL)*3)+2]));
@@ -507,22 +487,11 @@ void SaveFile(char const *fileName)
         vx  = bswap_float((float)(cell->v_coord[(j % PARTICLES_PER_CELL)*3]));
         vy  = bswap_float((float)(cell->v_coord[((j % PARTICLES_PER_CELL)*3)+1]));
 	vz  = bswap_float((float)(cell->v_coord[((j % PARTICLES_PER_CELL)*3)+2]));
-#else
-        px  = bswap_float((float)(cell->p[j % PARTICLES_PER_CELL].x));
-        py  = bswap_float((float)(cell->p[j % PARTICLES_PER_CELL].y));
-        pz  = bswap_float((float)(cell->p[j % PARTICLES_PER_CELL].z));
-
-        vx  = bswap_float((float)(cell->v[j % PARTICLES_PER_CELL].x));
-        vy  = bswap_float((float)(cell->v[j % PARTICLES_PER_CELL].y));
-        vz  = bswap_float((float)(cell->v[j % PARTICLES_PER_CELL].z));
-#endif
 
         hvx = bswap_float((float)(cell->hv[j % PARTICLES_PER_CELL].x));
         hvy = bswap_float((float)(cell->hv[j % PARTICLES_PER_CELL].y));
         hvz = bswap_float((float)(cell->hv[j % PARTICLES_PER_CELL].z));
       } else {
-
-#ifdef SIMD_SINGLE // JMCG
         px  = (float)(cell->p_coord[(j % PARTICLES_PER_CELL)*3]);
 	py  = (float)(cell->p_coord[((j % PARTICLES_PER_CELL)*3)+1]);
 	pz  = (float)(cell->p_coord[((j % PARTICLES_PER_CELL)*3)+2]);
@@ -530,15 +499,6 @@ void SaveFile(char const *fileName)
 	vx  = (float)(cell->v_coord[(j % PARTICLES_PER_CELL)*3]);
 	vy  = (float)(cell->v_coord[((j % PARTICLES_PER_CELL)*3)+1]);
 	vz  = (float)(cell->v_coord[((j % PARTICLES_PER_CELL)*3)+2]);
-#else
-        px  = (float)(cell->p[j % PARTICLES_PER_CELL].x);
-        py  = (float)(cell->p[j % PARTICLES_PER_CELL].y);
-        pz  = (float)(cell->p[j % PARTICLES_PER_CELL].z);
-
-        vx  = (float)(cell->v[j % PARTICLES_PER_CELL].x);
-        vy  = (float)(cell->v[j % PARTICLES_PER_CELL].y);
-        vz  = (float)(cell->v[j % PARTICLES_PER_CELL].z);
-#endif
 
         hvx = (float)(cell->hv[j % PARTICLES_PER_CELL].x);
         hvy = (float)(cell->hv[j % PARTICLES_PER_CELL].y);
@@ -660,16 +620,9 @@ void RebuildGridMT(int tid)
         for(int j = 0; j < np2; ++j)
         {
           // get destination for source particle:
-
-#ifdef SIMD_SINGLE // JMCG
 	  int ci = (int)((cell2->p_coord[(j % PARTICLES_PER_CELL)*3] - domainMin.x) / delta.x);
           int cj = (int)((cell2->p_coord[((j % PARTICLES_PER_CELL)*3)+1] - domainMin.y) / delta.y);
 	  int ck = (int)((cell2->p_coord[((j % PARTICLES_PER_CELL)*3)+2] - domainMin.z) / delta.z);
-#else
-          int ci = (int)((cell2->p[j % PARTICLES_PER_CELL].x - domainMin.x) / delta.x);
-          int cj = (int)((cell2->p[j % PARTICLES_PER_CELL].y - domainMin.y) / delta.y);
-          int ck = (int)((cell2->p[j % PARTICLES_PER_CELL].z - domainMin.z) / delta.z);
-#endif
 
           if(ci < 0) ci = 0; else if(ci > (nx-1)) ci = nx-1;
           if(cj < 0) cj = 0; else if(cj > (ny-1)) cj = ny-1;
@@ -727,13 +680,6 @@ void RebuildGridMT(int tid)
             pthread_mutex_unlock(&mutex[index][CELL_MUTEX_ID]);
 
           //copy source to destination particle
-
-#ifdef SIMD_BOTH // JMCG
-	  cell->p_x_coord[np % PARTICLES_PER_CELL] = cell2->p_x_coord[j % PARTICLES_PER_CELL];
-          cell->p_y_coord[np % PARTICLES_PER_CELL] = cell2->p_y_coord[j % PARTICLES_PER_CELL];
-          cell->p_z_coord[np % PARTICLES_PER_CELL] = cell2->p_z_coord[j % PARTICLES_PER_CELL];
-#endif
-#ifdef SIMD_SINGLE // JMCG
 	  cell->p_coord[(np % PARTICLES_PER_CELL)*3] = cell2->p_coord[(j % PARTICLES_PER_CELL)*3]; // x
 	  cell->p_coord[((np % PARTICLES_PER_CELL)*3)+1] = cell2->p_coord[((j % PARTICLES_PER_CELL)*3)+1]; // y
 	  cell->p_coord[((np % PARTICLES_PER_CELL)*3)+2] = cell2->p_coord[((j % PARTICLES_PER_CELL)*3)+2]; // z
@@ -741,10 +687,6 @@ void RebuildGridMT(int tid)
 	  cell->v_coord[(np % PARTICLES_PER_CELL)*3] = cell2->v_coord[(j % PARTICLES_PER_CELL)*3]; // x
 	  cell->v_coord[((np % PARTICLES_PER_CELL)*3)+1] = cell2->v_coord[((j % PARTICLES_PER_CELL)*3)+1]; // y
 	  cell->v_coord[((np % PARTICLES_PER_CELL)*3)+2] = cell2->v_coord[((j % PARTICLES_PER_CELL)*3)+2]; // z
-#else
-          cell->p[np % PARTICLES_PER_CELL] = cell2->p[j % PARTICLES_PER_CELL];
-	  cell->v[np % PARTICLES_PER_CELL] = cell2->v[j % PARTICLES_PER_CELL];
-#endif
 
           cell->hv[np % PARTICLES_PER_CELL] = cell2->hv[j % PARTICLES_PER_CELL];
 
@@ -851,18 +793,16 @@ void ComputeDensitiesMT(int tid)
 
 #ifdef SIMD_WIDTH  // JMCG Vectorization: SIMD Version
 	    fptype tc = 0;
-	    int x_most_sig_bits = _MM_MASK_TRUE;
 	    int leftovers = 0;
 
 	    if(numNeighPars >= SIMD_WIDTH) {
-	      tc = ComputeDensitiesMTSIMD(&leftovers,indexNeigh,numNeighPars,np,index, cell,&neigh, &x_most_sig_bits);
+	      tc = ComputeDensitiesMTSIMD(&leftovers,indexNeigh,numNeighPars,np,index, cell,&neigh);
 	    }
 
-	    tc += ComputeDensitiesMTOriginal(leftovers,indexNeigh,numNeighPars,np,index,cell,neigh,&x_most_sig_bits);
+	    tc += ComputeDensitiesMTOriginal(leftovers,indexNeigh,numNeighPars,np,index,cell,neigh);
 
 #ifdef DEBUG_SIMD
-	    x_most_sig_bits = _MM_MASK_TRUE;
-            fptype tc2 = ComputeDensitiesMTOriginal_test(0,indexNeigh,numNeighPars,np,index,cell,neigh2,&x_most_sig_bits);
+            fptype tc2 = ComputeDensitiesMTOriginal_test(0,indexNeigh,numNeighPars,np,index,cell,neigh2);
 	    if (tc2 != tc) {
 	      if ((tc2 - tc) > max_diff) {
 		max_diff = (tc2 - tc);
@@ -876,8 +816,7 @@ void ComputeDensitiesMT(int tid)
 #else
 	    // JMCG Vectorization: Original Code does not work when changing the order of the loops, calling modified code
 	    int leftovers = 0;
-	    int x_most_sig_bits = 1; // anything, not used
-	    fptype tc = ComputeDensitiesMTOriginal(leftovers,indexNeigh,numNeighPars,np,index,cell,neigh,&x_most_sig_bits);
+	    fptype tc = ComputeDensitiesMTOriginal(leftovers,indexNeigh,numNeighPars,np,index,cell,neigh);
 
 #endif // END JMCG Vectorization
 
@@ -888,7 +827,7 @@ void ComputeDensitiesMT(int tid)
 
 /* JMCG BEGIN */
 
-inline fptype ComputeDensitiesMTOriginal(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh, int *x_most_sig_bits ) {
+inline fptype ComputeDensitiesMTOriginal(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh ) {
   fptype total_tc = 0.0;
   for(int iparNeigh = iparNeigh_in; iparNeigh < numNeighPars; ++iparNeigh) {
     Cell *cell_ipar = cell;
@@ -944,7 +883,7 @@ inline fptype ComputeDensitiesMTOriginal(int iparNeigh_in, int indexNeigh, int n
 }
 
 // Compute densities one by one starting at iparNeigh_in. Used for debugging, does not store any density
-inline fptype ComputeDensitiesMTOriginal_test(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh, int *x_most_sig_bits ) {
+inline fptype ComputeDensitiesMTOriginal_test(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh ) {
 
   fptype total_tc = 0.0;
 #ifdef SIMD_WIDTH
@@ -986,7 +925,7 @@ inline fptype ComputeDensitiesMTOriginal_test(int iparNeigh_in, int indexNeigh, 
 
 
 /* JMCG Vectorization. SIMD implementation with number of particles greater than SIMD_WIDTH but not neccesary to be divisible by SIMD_WIDTH */
-inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell **neigh, int *x_most_sig_bits ) {
+inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell **neigh ) {
 
   fptype total_tc = 0.0;
 #ifdef SIMD_WIDTH
@@ -1012,68 +951,20 @@ inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numN
       //Check address to make sure densities are computed only once per pair || JMCG NEED ANOTHER MASK HERE (Inverted as SSE does)
       // if(&(*neigh)->p[iparNeigh % PARTICLES_PER_CELL] < &cell->p[ipar % PARTICLES_PER_CELL]) {
 
-#if (SIMD_WIDTH == 2)
-#ifdef SIMD_SINGLE // JMCG New data structure
-      // This is not a very efficient way to check duplicates when using SSE/AVX, should find another way.
-      _mask = _MM_SETR((&((*neigh)->p_coord[((iparNeigh) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-			  (&((*neigh)->p_coord[((iparNeigh+1) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0);
-#else // ~SIMD_SINGLE
-      _mask = _MM_SETR((&((*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL] < (&cell_ipar->p[ipar % PARTICLES_PER_CELL]))) ? 1 : 0,
-			  (&((*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL] < (&cell_ipar->p[ipar % PARTICLES_PER_CELL]))) ? 1 : 0);
-#endif
-#endif // SIMD_WIDTH == 2
-
-#if (SIMD_WIDTH == 4)
-#ifdef SIMD_SINGLE // JMCG
-      _mask = _MM_SETR((&((*neigh)->p_coord[((iparNeigh) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+1) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+2) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+3) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0);
-#else
-      _mask = _MM_SETR((&((*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0);
-#endif
-#endif // SIMD_WIDTH == 4
-
-#if (SIMD_WIDTH == 8)
-#ifdef SIMD_SINGLE // JMCG
-      _mask = _MM_SETR((&((*neigh)->p_coord[((iparNeigh) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+1) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+2) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+3) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+4) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+5) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+6) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+7) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0);
-#else
-      _mask = _MM_SETR((&((*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+4) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+5) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+6) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+7) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0);
-#endif
-#endif // SIMD_WIDTH == 8
+#define LITERAL_FORMULA_DENSITY(A) ((&((*neigh)->p_coord[((A) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0)
+      _mask = _MM_SETR_FORMULA_1PARAM(LITERAL_FORMULA_DENSITY,iparNeigh);
 
       // This looks weird but our ARM evaluation system seems to be running in
       // Runfast mode. In this mode Subnormal numbers are being flushed to zero (that is, the 0x0...1 stored in otype)
       // Casting everything to integer and using integer comparations seems to work
       // minimum positive subnormal number 00000001 1.40129846e-45
-      _mask = (_MM_TYPE)_MM_CMPEQ_SIG((_MM_TYPE_I)_mask, (_MM_TYPE_I)_MM_SET(1)); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
-
-      //    *x_most_sig_bits = _MM_MOVEMASK(_mask); /* high bits of each of our bools */
-//      if(*x_most_sig_bits != 0) { // If all items have been already computed, we dont enter this section
+      _mask = _MM_CAST_I_TO_FP(_MM_CMPEQ_SIG(_MM_CAST_FP_TO_I(_mask), _MM_SET_I(1))); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
 
 	// ORIGINAL CODE
 	//      fptype distSq = (cell->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL]).GetLengthSq();
 	// if(distSq < hSq) { // JMCG We skip the if in the vectorization, just ignore negative values
 
-#ifdef SIMD_SINGLE // JMCG
-	_MM_TYPE dist_x = _MM_SUB(_MM_SET(cell_ipar->p_coord[(ipar% PARTICLES_PER_CELL)*3]),data_x);
+        _MM_TYPE dist_x = _MM_SUB(_MM_SET(cell_ipar->p_coord[(ipar% PARTICLES_PER_CELL)*3]),data_x);
 	_MM_TYPE dist_y = _MM_SUB(_MM_SET(cell_ipar->p_coord[((ipar% PARTICLES_PER_CELL)*3)+1]),data_y);
 	_MM_TYPE dist_z = _MM_SUB(_MM_SET(cell_ipar->p_coord[((ipar% PARTICLES_PER_CELL)*3)+2]),data_z);
 
@@ -1083,31 +974,6 @@ inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numN
 
 	_MM_TYPE distSq = _MM_ADD(_MM_ADD(dist_x,dist_y),dist_z);
 
-#else // ~SIMD_SINGLE
- #if (SIMD_WIDTH == 2)
-	_MM_TYPE distSq = _MM_SETM((cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+1)% PARTICLES_PER_CELL]).GetLengthSq(),
-				   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL]).GetLengthSq()
-				   );
- #endif // SIMD_WIDTH == 2
- #if (SIMD_WIDTH == 4)
-	_MM_TYPE distSq = _MM_SETM((cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL]).GetLengthSq(),
-				   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL]).GetLengthSq(),
-				   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL]).GetLengthSq(),
-				   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL]).GetLengthSq()
-				   );
- #endif // SIMD_WIDTH == 4
- #if (SIMD_WIDTH == 8)
-        _MM_TYPE distSq = _MM_SETM((cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+7) % PARTICLES_PER_CELL]).GetLengthSq(),
-                                   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+6) % PARTICLES_PER_CELL]).GetLengthSq(),
-                                   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+5) % PARTICLES_PER_CELL]).GetLengthSq(),
-                                   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+4) % PARTICLES_PER_CELL]).GetLengthSq()
-                                   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL]).GetLengthSq(),
-                                   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL]).GetLengthSq(),
-                                   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL]).GetLengthSq(),
-                                   (cell_ipar->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL]).GetLengthSq()
-                                   );
- #endif // SIMD_WIDTH == 8
-#endif // SIMD_SINGLE
 
 	//	fptype t = hSq - distSq;
 	_MM_TYPE _t = _MM_SUB(_MM_SET(hSq),distSq);
@@ -1145,7 +1011,6 @@ inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numN
 	/*else {
 	  iparNeigh = numNeighPars; // JMCG Adding this we can Stop iteration on internal loop. Slightly faster than original code, but I'm not completely sure that is the same.
 	  } */
-//      } // x_most_sig_bits
 
       if(ipar % PARTICLES_PER_CELL == PARTICLES_PER_CELL-1) {
         cell_ipar = cell_ipar->next;
@@ -1177,7 +1042,7 @@ inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numN
 
 
 // Compute Forces one by one starting at iparNeigh_in
-inline Vec3 ComputeForcesMTOriginal(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh, int *x_most_sig_bits ) {
+inline Vec3 ComputeForcesMTOriginal(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh ) {
 
   Vec3 return_vec(0.0,0.0,0.0);
 
@@ -1246,7 +1111,7 @@ inline Vec3 ComputeForcesMTOriginal(int iparNeigh_in, int indexNeigh, int numNei
 }
 
 // Compute Forces one by one starting at iparNeigh_in. Used for debugging, does not store any value in a[].
-inline Vec3 ComputeForcesMTOriginal_test(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh, int *x_most_sig_bits ) {
+inline Vec3 ComputeForcesMTOriginal_test(int iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell *neigh ) {
 
   Vec3 return_vec(0.0,0.0,0.0);
 
@@ -1300,7 +1165,7 @@ inline Vec3 ComputeForcesMTOriginal_test(int iparNeigh_in, int indexNeigh, int n
 
 
 // Compute Forces in groups of SIMD_WIDTH starting at iparNeigh_in. Stores last possition multiple of SIMD_WIDTH in iparNeigh_in and modifies neigh pointer to the latest neigh analized
-inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell **neigh, int *x_most_sig_bits ) {
+inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighPars, int np, int index, Cell *cell, Cell **neigh ) {
 
   Vec3 return_vec(0.0,0.0,0.0);
 
@@ -1333,145 +1198,22 @@ inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighP
 
     for(int ipar = 0; ipar < np; ++ipar) {
 
-#if (SIMD_WIDTH == 2)
- #ifdef SIMD_SINGLE // JMCG
-      // This is not a very efficient way to check duplicates when using SSE/AVX, should find another way.
-      _mask = _MM_SETR((&((*neigh)->p_coord[((iparNeigh) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-			  (&((*neigh)->p_coord[((iparNeigh+1) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0);
- #else
-      _mask = _MM_SETR((&((*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL] < (&cell_ipar->p[ipar % PARTICLES_PER_CELL]))) ? 1 : 0,
-			  (&((*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL] < (&cell_ipar->p[ipar % PARTICLES_PER_CELL]))) ? 1 : 0);
- #endif
-#endif // SIMD_WIDTH == 2
+#define LITERAL_FORMULA_FORCES(A) ((&((*neigh)->p_coord[((A) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0)
+       _mask = _MM_SETR_FORMULA_1PARAM(LITERAL_FORMULA_FORCES,iparNeigh);
 
-#if (SIMD_WIDTH == 4)
- #ifdef SIMD_SINGLE // JMCG
-      _mask = _MM_SETR((&((*neigh)->p_coord[((iparNeigh) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+1) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+2) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-		       (&((*neigh)->p_coord[((iparNeigh+3) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0);
- #else
-      _mask = _MM_SETR((&((*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-		       (&((*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0);
- #endif
-#endif // SIMD_WIDTH == 4
+       // This looks weird but our ARM evaluation system seems to be running in
+       // Runfast mode. In this mode Subnormal numbers are being flushed to zero (that is, the 0x0...1 stored in otype)
+       // Casting everything to integer and using integer comparations seems to work
+       // minimum positive subnormal number 00000001 1.40129846e-45
+       _mask = _MM_CAST_I_TO_FP(_MM_CMPEQ_SIG(_MM_CAST_FP_TO_I(_mask), _MM_SET_I(1))); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
 
-#if (SIMD_WIDTH == 8)
- #ifdef SIMD_SINGLE // JMCG
-      _mask = _MM_SETR((&((*neigh)->p_coord[((iparNeigh) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-                             (&((*neigh)->p_coord[((iparNeigh+1) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-                             (&((*neigh)->p_coord[((iparNeigh+2) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-                             (&((*neigh)->p_coord[((iparNeigh+3) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-                             (&((*neigh)->p_coord[((iparNeigh+4) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-                             (&((*neigh)->p_coord[((iparNeigh+5) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-                             (&((*neigh)->p_coord[((iparNeigh+6) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0,
-                             (&((*neigh)->p_coord[((iparNeigh+7) % PARTICLES_PER_CELL)*3]) < &(cell_ipar->p_coord[(ipar % PARTICLES_PER_CELL)*3])) ? 1 : 0);
- #else
-      _mask = _MM_SETR((&((*neigh)->p[(iparNeigh) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-			     (&((*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-			     (&((*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-			     (&((*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-			     (&((*neigh)->p[(iparNeigh+4) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-			     (&((*neigh)->p[(iparNeigh+5) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-			     (&((*neigh)->p[(iparNeigh+6) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0,
-			     (&((*neigh)->p[(iparNeigh+7) % PARTICLES_PER_CELL]) < &(cell_ipar->p[ipar % PARTICLES_PER_CELL])) ? 1 : 0);
-#endif
-#endif // SIMD_WIDTH == 8
+       _MM_TYPE dist_x = _MM_SUB(_MM_SET(cell_ipar->p_coord[(ipar% PARTICLES_PER_CELL)*3]),data_x);
+       _MM_TYPE dist_y = _MM_SUB(_MM_SET(cell_ipar->p_coord[((ipar% PARTICLES_PER_CELL)*3)+1]),data_y);
+       _MM_TYPE dist_z = _MM_SUB(_MM_SET(cell_ipar->p_coord[((ipar% PARTICLES_PER_CELL)*3)+2]),data_z);
 
-      //      _mask = _MM_CMPEQ(_mask,_MM_SET(1)); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
-      // This looks weird but our ARM evaluation system seems to be running in
-      // Runfast mode. In this mode Subnormal numbers are being flushed to zero (that is, the 0x0...1 stored in otype)
-      // Casting everything to integer and using integer comparations seems to work
-      // minimum positive subnormal number 00000001 1.40129846e-45
-      _mask = (_MM_TYPE)_MM_CMPEQ_SIG((_MM_TYPE_I)_mask, (_MM_TYPE_I)_MM_SET(1)); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
-
-//      *x_most_sig_bits = _MM_MOVEMASK(_mask); /* high bits of each of our bools */
-//      if(*x_most_sig_bits != 0) {
-
-#ifdef SIMD_SINGLE // JMCG
-	_MM_TYPE dist_x = _MM_SUB(_MM_SET(cell_ipar->p_coord[(ipar% PARTICLES_PER_CELL)*3]),data_x);
-	_MM_TYPE dist_y = _MM_SUB(_MM_SET(cell_ipar->p_coord[((ipar% PARTICLES_PER_CELL)*3)+1]),data_y);
-	_MM_TYPE dist_z = _MM_SUB(_MM_SET(cell_ipar->p_coord[((ipar% PARTICLES_PER_CELL)*3)+2]),data_z);
-
-	_MM_TYPE distSq = _MM_ADD(_MM_ADD( _MM_MUL(dist_x,dist_x),
-					   _MM_MUL(dist_y,dist_y)),
-				  _MM_MUL(dist_z,dist_z));
-
-#else // ~SIMD_ARRAYS
-
-#if (SIMD_WIDTH == 2)
-	_MM_TYPE dist_x = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].x,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].x
-				   );
-	_MM_TYPE dist_y = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].y,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].y
-				   );
-	_MM_TYPE dist_z = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].z,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].z
-				   );
-#endif // SIMD_WIDTH == 2
-
-#if (SIMD_WIDTH == 4)
-	_MM_TYPE dist_x = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].x,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].x,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL].x,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL].x
-				   );
-
-	_MM_TYPE dist_y = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].y,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].y,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL].y,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL].y
-				   );
-
-	_MM_TYPE dist_z = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].z,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].z,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL].z,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL].z
-				   );
-#endif // SIMD_WIDTH == 4
-
-#if (SIMD_WIDTH == 8)
-        _MM_TYPE dist_x = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].x,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].x,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL].x,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL].x,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+4) % PARTICLES_PER_CELL].x,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+5) % PARTICLES_PER_CELL].x,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+6) % PARTICLES_PER_CELL].x,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].x - (*neigh)->p[(iparNeigh+7) % PARTICLES_PER_CELL].x
-                                   );
-
-        _MM_TYPE dist_y = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].y,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].y,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL].y,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL].y,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+4) % PARTICLES_PER_CELL].y,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+5) % PARTICLES_PER_CELL].y,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+6) % PARTICLES_PER_CELL].y,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].y - (*neigh)->p[(iparNeigh+7) % PARTICLES_PER_CELL].y
-                                   );
-
-        _MM_TYPE dist_z = _MM_SETM(cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL].z,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+1) % PARTICLES_PER_CELL].z,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+2) % PARTICLES_PER_CELL].z,
-				   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+3) % PARTICLES_PER_CELL].z,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+4) % PARTICLES_PER_CELL].z,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+5) % PARTICLES_PER_CELL].z,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+6) % PARTICLES_PER_CELL].z,
-                                   cell_ipar->p[ipar % PARTICLES_PER_CELL].z - (*neigh)->p[(iparNeigh+7) % PARTICLES_PER_CELL].z
-                                   );
-#endif // SIMD_WIDTH == 8
-
-	_MM_TYPE dist_x_sq = _MM_MUL(dist_x,dist_x);
-	_MM_TYPE dist_y_sq = _MM_MUL(dist_y,dist_y);
-	_MM_TYPE dist_z_sq = _MM_MUL(dist_z,dist_z);
-
-	_MM_TYPE distSq = _MM_ADD(_MM_ADD(dist_x_sq,dist_y_sq),dist_z_sq);
-
-#endif // SIMD_SINGLE
+       _MM_TYPE distSq = _MM_ADD(_MM_ADD( _MM_MUL(dist_x,dist_x),
+					  _MM_MUL(dist_y,dist_y)),
+				 _MM_MUL(dist_z,dist_z));
 
 	/*
 	  if(distSq < hSq) { // JMCG We skip the if in the vectorization, just ignore negative values with mask
@@ -1482,8 +1224,6 @@ inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighP
 	_flag = (_MM_TYPE)_MM_CMPLT(_t, _MM_SET(0)); // Use flag later
 
 	// Extrack bits from flag to speed up, dont run the code if all 0
-//	int flag_most_sig_bits = _MM_MOVEMASK(_flag); /* high bits of each of our bools */
-//	if (flag_most_sig_bits != _MM_MASK_TRUE) { // at least one item to process
 	  /*
 	    // Original code
 	    #ifndef ENABLE_DOUBLE_PRECISION
@@ -1554,9 +1294,6 @@ inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighP
 	    cell_ipar->a[ipar % PARTICLES_PER_CELL].y += combined_y;
 	    cell_ipar->a[ipar % PARTICLES_PER_CELL].z += combined_z;
 	  }
-//	} // flag_most_sig_bits
-//      } // x_most_sig_bits
-
       if(ipar % PARTICLES_PER_CELL == PARTICLES_PER_CELL-1) {
         cell_ipar = cell_ipar->next;
       }
@@ -1657,7 +1394,6 @@ void ComputeForcesMT(int tid)
 #ifdef SIMD_WIDTH  // JMCG Vectorization: SIMD Version
 
 	    Vec3 acc(0.0,0.0,0.0);
-	    int x_most_sig_bits = _MM_MASK_TRUE;
 	    int leftovers = 0;
 
 #ifdef SIMD_STATS
@@ -1667,7 +1403,7 @@ void ComputeForcesMT(int tid)
 #ifdef SIMD_STATS
 	      total_compute_forces_calls_sse++;
 #endif
-	      acc += ComputeForcesMTSIMD(&leftovers,indexNeigh,numNeighPars,np,index,cell,&neigh, &x_most_sig_bits);
+	      acc += ComputeForcesMTSIMD(&leftovers,indexNeigh,numNeighPars,np,index,cell,&neigh);
 	    }
 
 #ifdef SIMD_STATS
@@ -1678,10 +1414,9 @@ void ComputeForcesMT(int tid)
 		  total_compute_forces_calls_leftovers++;
 	      }
 #endif
-	      acc += ComputeForcesMTOriginal(leftovers,indexNeigh,numNeighPars,np,index,cell,neigh,&x_most_sig_bits);
+	      acc += ComputeForcesMTOriginal(leftovers,indexNeigh,numNeighPars,np,index,cell,neigh);
 #ifdef DEBUG_SIMD
-	    x_most_sig_bits = _MM_MASK_TRUE;
-	    Vec3 acc2 = ComputeForcesMTOriginal_test(0,indexNeigh, numNeighPars, np, index, cell, neigh2, &x_most_sig_bits);
+	    Vec3 acc2 = ComputeForcesMTOriginal_test(0,indexNeigh, numNeighPars, np, index, cell, neigh2);
 	    if ((acc.x != acc2.x) || (acc.y != acc2.y) || (acc.z != acc2.z)) {
 	      float new_diff = fabs((acc2.x - acc.x)) + fabs((acc2.y - acc.y)) + fabs((acc2.z - acc.z));
 	      if (max_diff_forces < new_diff) {
@@ -1695,9 +1430,8 @@ void ComputeForcesMT(int tid)
 #else // Original code, Original code does not work with the "modified" loop structure, call modified functions
 	    // JMCG Vectorization: Original Code does not work when changing the order of the loops, calling modified code
 	    Vec3 acc;
-            int x_most_sig_bits = 1; // Anything, not used in the original code
             int leftovers = 0;
-	    acc = ComputeForcesMTOriginal(leftovers,indexNeigh,numNeighPars,np,index,cell,neigh,&x_most_sig_bits);
+	    acc = ComputeForcesMTOriginal(leftovers,indexNeigh,numNeighPars,np,index,cell,neigh);
 #endif // SIMD_WIDTH Vectorization
           }
           //move pointer to next cell in list if end of array is reached
@@ -1724,17 +1458,12 @@ void ProcessCollisionsMT(int tid)
         int np = cnumPars[index];
         for(int j = 0; j < np; ++j)
         {
-#ifdef SIMD_SINGLE // JMCG
 	  Vec3 pos;
 	  pos.x = cell->p_coord[(j % PARTICLES_PER_CELL)*3] + cell->hv[j % PARTICLES_PER_CELL].x * timeStep;
 	  pos.y = cell->p_coord[((j % PARTICLES_PER_CELL)*3)+1] + cell->hv[j % PARTICLES_PER_CELL].y * timeStep;
 	  pos.z = cell->p_coord[j % PARTICLES_PER_CELL)*3)+2] + cell->hv[j % PARTICLES_PER_CELL].z * timeStep;
-#else
-          Vec3 pos = cell->p[j % PARTICLES_PER_CELL] + cell->hv[j % PARTICLES_PER_CELL] * timeStep;
-#endif
           fptype diff = parSize - (pos.x - domainMin.x);
 
-#ifdef SIMD_SINGLE // v[] no longer exists
           if(diff > epsilon)
             cell->a[j % PARTICLES_PER_CELL].x += stiffnessCollisions*diff - damping*cell->v_coord[(j % PARTICLES_PER_CELL)*3];
 
@@ -1757,30 +1486,6 @@ void ProcessCollisionsMT(int tid)
           diff = parSize - (domainMax.z - pos.z);
           if(diff > epsilon)
             cell->a[j % PARTICLES_PER_CELL].z -= stiffnessCollisions*diff + damping*cell->v_coord[((j % PARTICLES_PER_CELL)*3)+2];
-#else
-          if(diff > epsilon)
-            cell->a[j % PARTICLES_PER_CELL].x += stiffnessCollisions*diff - damping*cell->v[j % PARTICLES_PER_CELL].x;
-
-          diff = parSize - (domainMax.x - pos.x);
-          if(diff > epsilon)
-            cell->a[j % PARTICLES_PER_CELL].x -= stiffnessCollisions*diff + damping*cell->v[j % PARTICLES_PER_CELL].x;
-
-          diff = parSize - (pos.y - domainMin.y);
-          if(diff > epsilon)
-            cell->a[j % PARTICLES_PER_CELL].y += stiffnessCollisions*diff - damping*cell->v[j % PARTICLES_PER_CELL].y;
-
-          diff = parSize - (domainMax.y - pos.y);
-          if(diff > epsilon)
-            cell->a[j % PARTICLES_PER_CELL].y -= stiffnessCollisions*diff + damping*cell->v[j % PARTICLES_PER_CELL].y;
-
-          diff = parSize - (pos.z - domainMin.z);
-          if(diff > epsilon)
-            cell->a[j % PARTICLES_PER_CELL].z += stiffnessCollisions*diff - damping*cell->v[j % PARTICLES_PER_CELL].z;
-
-          diff = parSize - (domainMax.z - pos.z);
-          if(diff > epsilon)
-            cell->a[j % PARTICLES_PER_CELL].z -= stiffnessCollisions*diff + damping*cell->v[j % PARTICLES_PER_CELL].z;
-#endif
           //move pointer to next cell in list if end of array is reached
           if(j % PARTICLES_PER_CELL == PARTICLES_PER_CELL-1) {
             cell = cell->next;
@@ -1805,15 +1510,10 @@ void ProcessCollisionsMT(int tid)
         for(int j = 0; j < np; ++j)
         {
 	  int ji = j % PARTICLES_PER_CELL;
-#ifdef SIMD_SINGLE // JMCG
 	  Vec3 pos;
 	  pos.x = cell->p_coord[ji*3] + cell->hv[ji].x * timeStep;
 	  pos.y = cell->p_coord[(ji*3)+1] + cell->hv[ji].y * timeStep;
 	  pos.z = cell->p_coord[(ji*3)+2] + cell->hv[ji].z * timeStep;
-#else
-          Vec3 pos = cell->p[ji] + cell->hv[ji] * timeStep;
-#endif
-#ifdef SIMD_SINGLE // JMCG
 	  if(ix==0) {
             fptype diff = parSize - (pos.x - domainMin.x);
 	    if(diff > epsilon)
@@ -1849,43 +1549,6 @@ void ProcessCollisionsMT(int tid)
 	      if(diff > epsilon)
 		cell->a[ji].z -= stiffnessCollisions*diff + damping*cell->v_coord[(ji*3)+2];
 	    }
-#else
-	  if(ix==0) {
-            fptype diff = parSize - (pos.x - domainMin.x);
-	    if(diff > epsilon)
-              cell->a[ji].x += stiffnessCollisions*diff - damping*cell->v[ji].x;
-	  }
-	  if(ix==(nx-1))
-	    {
-	      fptype diff = parSize - (domainMax.x - pos.x);
-	      if(diff > epsilon)
-		cell->a[ji].x -= stiffnessCollisions*diff + damping*cell->v[ji].x;
-	    }
-	  if(iy==0)
-	    {
-	      fptype diff = parSize - (pos.y - domainMin.y);
-	      if(diff > epsilon)
-		cell->a[ji].y += stiffnessCollisions*diff - damping*cell->v[ji].y;
-	    }
-	  if(iy==(ny-1))
-	    {
-	      fptype diff = parSize - (domainMax.y - pos.y);
-	      if(diff > epsilon)
-		cell->a[ji].y -= stiffnessCollisions*diff + damping*cell->v[ji].y;
-	    }
-	  if(iz==0)
-	    {
-	      fptype diff = parSize - (pos.z - domainMin.z);
-	      if(diff > epsilon)
-		cell->a[ji].z += stiffnessCollisions*diff - damping*cell->v[ji].z;
-	    }
-	  if(iz==(nz-1))
-	    {
-	      fptype diff = parSize - (domainMax.z - pos.z);
-	      if(diff > epsilon)
-		cell->a[ji].z -= stiffnessCollisions*diff + damping*cell->v[ji].z;
-	    }
-#endif
           //move pointer to next cell in list if end of array is reached
           if(ji == PARTICLES_PER_CELL-1) {
             cell = cell->next;
@@ -1923,27 +1586,17 @@ void ProcessCollisions2MT(int tid)
 		  int ji = j % PARTICLES_PER_CELL;
 
 		  Vec3 pos;
-#ifdef SIMD_SINGLE // JMCG
 		  pos.x = cell->p_coord[ji*3];
 		  pos.y = cell->p_coord[(ji*3)+1];
 		  pos.z = cell->p_coord[(ji*3)+2];
-#else
-		  pos = cell->p[ji];
-#endif
 
 		  if(ix==0)
 		    {
 		      fptype diff = pos.x - domainMin.x;
 		      if(diff < Zero)
 			{
-
-#ifdef SIMD_SINGLE // JMCG
 			  cell->p_coord[ji*3] = domainMin.x - diff;
 			  cell->v_coord[ji*3] = -cell->v_coord[ji*3];
-#else
-			  cell->p[ji].x = domainMin.x - diff;
-			  cell->v[ji].x = -cell->v[ji].x;
-#endif
 			  cell->hv[ji].x = -cell->hv[ji].x;
 			}
 		    }
@@ -1952,14 +1605,8 @@ void ProcessCollisions2MT(int tid)
             fptype diff = domainMax.x - pos.x;
 	              if(diff < Zero)
 	                    {
-
-#ifdef SIMD_SINGLE // JMCG
 			      cell->p_coord[ji*3] = domainMax.x + diff;
 			      cell->v_coord[ji*3] = -cell->v_coord[ji*3];
-#else
-			      cell->p[ji].x = domainMax.x + diff;
-			      cell->v[ji].x = -cell->v[ji].x;
-#endif
 
 			      cell->hv[ji].x = -cell->hv[ji].x;
 			    }
@@ -1969,14 +1616,8 @@ void ProcessCollisions2MT(int tid)
             fptype diff = pos.y - domainMin.y;
 		    if(diff < Zero)
 			{
-#ifdef SIMD_SINGLE // JMCG
 			  cell->p_coord[(ji*3)+1] = domainMin.y - diff;
 			  cell->v_coord[(ji*3)+1] = -cell->v_coord[(ji*3)+1];
-#else
-			  cell->p[ji].y = domainMin.y - diff;
-			  cell->v[ji].y = -cell->v[ji].y;
-#endif
-
 			  cell->hv[ji].y = -cell->hv[ji].y;
 			}
 		  }
@@ -1985,13 +1626,8 @@ void ProcessCollisions2MT(int tid)
             fptype diff = domainMax.y - pos.y;
  			if(diff < Zero)
 			{
-#ifdef SIMD_SINGLE // JMCG
 			  cell->p_coord[(ji*3)+1] = domainMax.y + diff;
 			  cell->v_coord[(ji*3)+1] = -cell->v_coord[(ji*3)+1];
-#else
-			  cell->p[ji].y = domainMax.y + diff;
-			  cell->v[ji].y = -cell->v[ji].y;
-#endif
 
 			  cell->hv[ji].y = -cell->hv[ji].y;
 			}
@@ -2001,14 +1637,8 @@ void ProcessCollisions2MT(int tid)
             fptype diff = pos.z - domainMin.z;
 		    if(diff < Zero)
 			{
-#ifdef SIMD_SINGLE // JMCG
 			  cell->p_coord[(ji*3)+2] = domainMin.z - diff;
 			  cell->v_coord[(ji*3)+2] = -cell->v_coord[(ji*3)+2];
-#else
-			  cell->p[ji].z = domainMin.z - diff;
-			  cell->v[ji].z = -cell->v[ji].z;
-#endif
-
 			  cell->hv[ji].z = -cell->hv[ji].z;
 			}
 		  }
@@ -2017,15 +1647,9 @@ void ProcessCollisions2MT(int tid)
             fptype diff = domainMax.z - pos.z;
  			if(diff < Zero)
 			{
-#ifdef SIMD_SINGLE // JMCG
 			  cell->p_coord[(ji*3)+2] = domainMax.z + diff;
 			  cell->v_coord[(ji*3)+2] = -cell->v_coord[(ji*3)+2];
-#else
-			  cell->p[ji].z = domainMax.z + diff;
-			  cell->v[ji].z = -cell->v[ji].z;
-#endif
-
-				cell->hv[ji].z = -cell->hv[ji].z;
+			  cell->hv[ji].z = -cell->hv[ji].z;
 			}
 		  }
           //move pointer to next cell in list if end of array is reached
@@ -2062,7 +1686,6 @@ void AdvanceParticlesMT(int tid)
 		// beyond domain
 #endif
 
-#ifdef SIMD_SINGLE // JMCG
 	  cell->p_coord[(j % PARTICLES_PER_CELL)*3] += v_half.x * timeStep;
           cell->p_coord[((j % PARTICLES_PER_CELL)*3)+1] += v_half.y * timeStep;
           cell->p_coord[((j % PARTICLES_PER_CELL)*3)+2] += v_half.z * timeStep;
@@ -2070,12 +1693,6 @@ void AdvanceParticlesMT(int tid)
 	  cell->v_coord[(j % PARTICLES_PER_CELL)*3] = 0.5 * (cell->hv[j % PARTICLES_PER_CELL].x + v_half.x);
 	  cell->v_coord[((j % PARTICLES_PER_CELL)*3)+1] = 0.5 * (cell->hv[j % PARTICLES_PER_CELL].y + v_half.y);
 	  cell->v_coord[((j % PARTICLES_PER_CELL)*3)+2] = 0.5 * (cell->hv[j % PARTICLES_PER_CELL].z + v_half.z);
-#else
-	  cell->p[j % PARTICLES_PER_CELL] += v_half * timeStep;
-
-          cell->v[j % PARTICLES_PER_CELL] = cell->hv[j % PARTICLES_PER_CELL] + v_half;
-          cell->v[j % PARTICLES_PER_CELL] *= 0.5;
-#endif
           cell->hv[j % PARTICLES_PER_CELL] = v_half;
 
           //move pointer to next cell in list if end of array is reached
