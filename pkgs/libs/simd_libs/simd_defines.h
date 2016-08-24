@@ -490,10 +490,12 @@ static inline _MM_TYPE _mm_copysign_pd(_MM_TYPE x, _MM_TYPE y) {
 }
 
 #ifndef __FMA3__
+#ifndef __INTEL_COMPILER
 #ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm_fmadd_pd(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 #endif
 
@@ -740,10 +742,12 @@ static inline _MM_TYPE_I _custom_mm256_packs_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
 #endif
 
 #ifndef __FMA3__
+#ifndef __INTEL_COMPILER
 #ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm256_fmadd_pd(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 #endif
 
@@ -1035,13 +1039,14 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #endif
 
 #ifndef __FMA3__
+#ifndef __INTEL_COMPILER
 #ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm512_fmadd_pd(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
 #endif
 #endif
-
+#endif
 
 __attribute__((aligned (64))) static const uint32_t absmask_double_512[] = { 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff, 0xffffffff, 0x7fffffff};
 #define _custom_mm512_abs_pd(x) _MM_AND(x, *(const __m512d*)absmask_double_512)
@@ -1317,10 +1322,12 @@ static inline _MM_TYPE _mm512_atan_pd(_MM_TYPE A) {
 #endif
 
 #ifndef __FMA3__
+#ifndef __INTEL_COMPILER
 #ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm_fmadd_ps(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 #endif
 
@@ -1601,10 +1608,12 @@ static inline _MM_TYPE_I _custom_mm256_packs_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
 #endif
 
 #ifndef __FMA3__
+#ifndef __INTEL_COMPILER
 #ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm256_fmadd_ps(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 #endif
 
@@ -1834,10 +1843,12 @@ static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
 
 
 #ifndef __FMA3__
+#ifndef __INTEL_COMPILER
 #ifndef _FMAINTRIN_H_INCLUDED
 static inline _MM_TYPE _mm512_fmadd_ps(_MM_TYPE A, _MM_TYPE B, _MM_TYPE C) {
   return _MM_ADD(_MM_MUL(A,B),C);
 }
+#endif
 #endif
 #endif
 
