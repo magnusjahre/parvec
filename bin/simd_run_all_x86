@@ -1,21 +1,33 @@
 #!/bin/bash
 
-#	./parsecmgmt -a run ${QUEUE} -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc -i native >> output_scalar_${iter}
-#	./parsecmgmt -a run ${QUEUE} -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-sse -i native >> output_sse_${iter}
-#	./parsecmgmt -a run ${QUEUE} -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-avx -i native >> output_avx_${iter}
+#       ./parsecmgmt -a run ${QUEUE} -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc -i native >> output_scalar_${iter}
+#       ./parsecmgmt -a run ${QUEUE} -p parsec.simd.blackscholes parsec.simd.raytrace parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-sse -i native >> output_sse_${iter}
+#       ./parsecmgmt -a run ${QUEUE} -p parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal -c gcc-avx -i native >> output_avx_${iter}
 
 #QUEUE=""
-QUEUE="-s \"srun --exclusive\""
+QUEUE="-s \"srun --exclusive --exclude=knl04\""
 #DEST=""
-DEST="-d ./run_icc"
+DEST="-d ./run"
 
 for threads in 1 2 4 8 16 32 64 128 256; do
-    for iter in 1 2 3 4; do
-	#	for configuration in gcc-hooks gcc-sse-hooks gcc-avx-hooks; do
-	for configuration in icc-hooks icc-sse-hooks icc-avx-hooks; do
-	    for benchmark in parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal; do
-echo "./parsecmgmt -a run $DEST ${QUEUE} -p ${benchmark} -c ${configuration} -i native -n ${threads} >> output_${benchmark}_${configuration}_threads${threads}_${iter}"
-	    done
-	done
+    for iter in 1 2 3 4 5 6 7 8 9 10; do
+	for configuration in icc-hooks icc-sse-hooks icc-avx-hooks gcc-hooks gcc-sse-hooks gcc-avx2-hooks; do
+	    #        for configuration in gcc-hooks gcc-sse-hooks gcc-avx-hooks; do
+            for benchmark in parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal; do
+		echo "./parsecmgmt -a run $DEST ${QUEUE} -k -p ${benchmark} -c ${configuration} -i native -n ${threads} >> output_${benchmark}_${configuration}_threads${threads}_${iter} &"
+            done
+	    echo "sleep 10"
+        done
+    done
+done
+
+for threads in 1 2 4 8 16 32 64 128 256; do
+    for iter in 1 2 3 4 5 6 7 8 9 10; do
+	for configuration in icc-mic-avx512-hooks gcc-avx512-hooks; do
+            for benchmark in parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.canneal; do
+		echo "./parsecmgmt -a run $DEST ${QUEUE} -k -p ${benchmark} -c ${configuration} -i native -n ${threads} >> output_${benchmark}_${configuration}_threads${threads}_${iter} &"
+            done
+	    echo "sleep 10"
+        done
     done
 done
