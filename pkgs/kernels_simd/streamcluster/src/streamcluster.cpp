@@ -1869,7 +1869,7 @@ void outcenterIDs( Points* centers, long* centerIDs, char* outfile ) {
 
   for( int i = 0; i < centers->num; i++ ) {
     if( is_a_median[i] ) {
-      fprintf(fp, "%u\n", centerIDs[i]);
+      fprintf(fp, "%u\n", (unsigned int)centerIDs[i]);
       fprintf(fp, "%lf\n", centers->p[i].weight);
       for( int k = 0; k < centers->dim; k++ ) {
 	fprintf(fp, "%lf ", centers->p[i].coord[k]);
@@ -1944,7 +1944,7 @@ void streamCluster( PStream* stream,
   while(1) {
 
     size_t numRead  = stream->read(block, dim, chunksize );
-    fprintf(stderr,"read %d points\n",numRead);
+    fprintf(stderr,"read %d points\n",(int)numRead);
 
     if( stream->ferror() || numRead < (unsigned int)chunksize && !stream->feof() ) {
       fprintf(stderr, "error reading data!\n");

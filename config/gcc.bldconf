@@ -44,7 +44,7 @@ case "${OSTYPE}" in
   # CC_HOME is installation root of the C compiler
 #    export CC_HOME="/usr"
 #JMCG BEIN
-  export CC_HOME="${HOME}/extras/gcc-6.1.0"
+   export CC_HOME="${HOME}/extras/gcc-6.2.0"
 #  export CC_HOME="${HOME}/extras/gcc-5.4.0"
 #  export CC_HOME="${HOME}/extras/gcc-4.8.2"
 #JMCG END
@@ -86,7 +86,7 @@ if [[ "$system_info" == *arm* ]]
 then
     PORTABILITY_FLAGS="-static-libgcc -Wl,--hash-style=both,--as-needed -Wa,-mimplicit-it=thumb"
 else
-    PORTABILITY_FLAGS="-static-libgcc -Wl,--hash-style=both,--as-needed"
+    PORTABILITY_FLAGS="-static-libgcc -Wl,--hash-style=both,--as-needed -Wno-error=unused-result"
 fi
 # Arguments to use
 # JMCG Optimization level reduced to O2 to disable automatic vectorization in testing
