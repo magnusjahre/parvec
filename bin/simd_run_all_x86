@@ -11,7 +11,7 @@ DEST="-d ./run"
 
 for threads in 1 2 4 8 16 32 64 128 256; do
     for iter in 1 2 3 4 5 6 7 8 9 10; do
-	for configuration in icc-hooks icc-sse-hooks icc-avx-hooks gcc-hooks gcc-sse-hooks gcc-avx2-hooks; do
+	for configuration in icc-hooks icc-sse-hooks icc-avx2-hooks gcc-hooks gcc-sse-hooks gcc-avx2-hooks; do
 	    #        for configuration in gcc-hooks gcc-sse-hooks gcc-avx-hooks; do
             for benchmark in parsec.simd.blackscholes parsec.simd.swaptions parsec.simd.fluidanimate parsec.simd.vips parsec.simd.streamcluster parsec.simd.x264 parsec.simd.canneal; do
 		echo "./parsecmgmt -a run $DEST ${QUEUE} -k -p ${benchmark} -c ${configuration} -i native -n ${threads} >> output_${benchmark}_${configuration}_threads${threads}_${iter} &"
