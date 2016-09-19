@@ -1,10 +1,10 @@
 #!/bin/bash
 #
-# icc-avx2-hooks.bldconf - file containing global information necessary to build
-#                     PARSEC with AVX2 and hooks API
+# icc-avx-hooks.bldconf - file containing global information necessary to build
+#                     PARSEC with AVX and hooks API
 #
 # Copyright (C) 2006-2007 Princeton University
-# SIMD Version by Juan M. Cebrian, NTNU - 2013. BSC - 2016
+# SIMD Version by Juan M. Cebrian, NTNU - 2013.
 
 source ${PARSECDIR}/config/icc-hooks.bldconf
 
@@ -13,7 +13,7 @@ PROTABILITY_FLAGS="-DPARSEC_USE_AVX ${PORTABILITY_FLAGS}"
 EXTRA_CFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
 EXTRA_CXXFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
 
-CFLAGS="-xCORE-AVX2 ${CFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CFLAGS}"
-CXXFLAGS="-xCORE-AVX2 ${CXXFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CXXFLAGS}"
+CFLAGS="-axAVX,CORE-AVX2 ${CFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CFLAGS}"
+CXXFLAGS="-axAVX,CORE-AVX2 ${CXXFLAGS} ${PROTABILITY_FLAGS} ${EXTRA_CXXFLAGS}"
 LDFLAGS="${LDFLAGS} ${EXTRA_LDFLAGS}"
 LIBS="${LIBS} -pthread -lm"
