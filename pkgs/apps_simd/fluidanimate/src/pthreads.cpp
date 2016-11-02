@@ -959,7 +959,8 @@ inline fptype ComputeDensitiesMTSIMD(int *iparNeigh_in, int indexNeigh, int numN
       // Runfast mode. In this mode Subnormal numbers are being flushed to zero (that is, the 0x0...1 stored in otype)
       // Casting everything to integer and using integer comparations seems to work
       // minimum positive subnormal number 00000001 1.40129846e-45
-      _mask = _MM_CAST_I_TO_FP(_MM_CMPEQ_SIG(_MM_CAST_FP_TO_I(_mask), _MM_SET_I(1))); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
+//      _mask = _MM_CAST_I_TO_FP(_MM_CMPEQ_SIG(_MM_CAST_FP_TO_I(_mask), _MM_SET_I(1))); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
+      _mask = (_MM_TYPE)_MM_CMPEQ_SIG((_MM_TYPE_I)_mask, (_MM_TYPE_I)_MM_SET(1)); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
 
 	// ORIGINAL CODE
 	//      fptype distSq = (cell->p[ipar % PARTICLES_PER_CELL] - (*neigh)->p[iparNeigh % PARTICLES_PER_CELL]).GetLengthSq();
@@ -1206,7 +1207,8 @@ inline Vec3 ComputeForcesMTSIMD(int *iparNeigh_in, int indexNeigh, int numNeighP
        // Runfast mode. In this mode Subnormal numbers are being flushed to zero (that is, the 0x0...1 stored in otype)
        // Casting everything to integer and using integer comparations seems to work
        // minimum positive subnormal number 00000001 1.40129846e-45
-       _mask = _MM_CAST_I_TO_FP(_MM_CMPEQ_SIG(_MM_CAST_FP_TO_I(_mask), _MM_SET_I(1))); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
+//       _mask = _MM_CAST_I_TO_FP(_MM_CMPEQ_SIG(_MM_CAST_FP_TO_I(_mask), _MM_SET_I(1))); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
+       _mask = (_MM_TYPE)_MM_CMPEQ_SIG((_MM_TYPE_I)_mask, (_MM_TYPE_I)_MM_SET(1)); // Set 1s to all to 1s (I cant figure it out why setting 0xffffffff in the setr does not work)
 
        _MM_TYPE dist_x = _MM_SUB(_MM_SET(cell_ipar->p_coord[(ipar% PARTICLES_PER_CELL)*3]),data_x);
        _MM_TYPE dist_y = _MM_SUB(_MM_SET(cell_ipar->p_coord[((ipar% PARTICLES_PER_CELL)*3)+1]),data_y);
