@@ -35,5 +35,5 @@ build_env="PATH=\"${PARSECDIR}/pkgs/tools/yasm/inst/${PARSECPLAT}/bin:${PATH}\""
 build_inplace="TRUE"
 
 # Arguments to pass to the configure script, if it exists
-build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
+build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable -Wno-error=tautological-compare ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
 #build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
