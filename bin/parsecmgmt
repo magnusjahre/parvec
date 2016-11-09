@@ -920,6 +920,14 @@ function build_package {
   fi
   pushd ${pkgobjdir} > /dev/null
 
+  # Run Autoreconf for specific pkgs
+  if [ "${pkg}" == "automake" ]
+  then
+  	cd ${pkgsrcdir}
+	autoreconf -fi
+	cd -
+  fi
+
   # Run configure
   if [ -x ${pkgbuildsrcdir}/configure ]; then
     local build_conf_pkg="${build_conf} ${build_conf_global}"
