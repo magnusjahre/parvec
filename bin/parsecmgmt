@@ -921,7 +921,7 @@ function build_package {
   pushd ${pkgobjdir} > /dev/null
 
   # Run Autoreconf for specific pkgs
-  if [ "${pkg}" == "automake" ]
+  if [ "${pkg}" == "parsec.automake" ]
   then
   	cd ${pkgsrcdir}
 	autoreconf -fi
