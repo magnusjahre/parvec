@@ -1,3 +1,9 @@
+Lib requirements: 
+
+texinfo
+
+e.g., sudo apt-get install texinfo
+
 PARSEC Benchmark Suite 3.0
 ==========================
 
