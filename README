@@ -1,8 +1,8 @@
 Lib requirements: 
 
-texinfo
+texinfo  autoconf libx11-dev libxv-dev m4 libxt-dev libxmu-headers libxi-dev libxmu-dev pkg-config gettext libxext-dev texi2html texinfo libpcre3-dev
 
-e.g., sudo apt-get install texinfo
+e.g., sudo apt-get install texinfo texinfo
 
 PARSEC Benchmark Suite 3.0
 ==========================
