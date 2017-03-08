@@ -153,8 +153,16 @@ int main(void)
 #if defined (SCALAR)
 	printf("SCALAR\n");
 #else
-	printf("PARVEC WRAPPER\n");
-#endif	
+	printf("PARVEC WRAPPER with ");
+#endif
+#if defined (PARSEC_USE_AVX)
+	printf("AVX\n");
+#elif defined (PARSEC_USE_SSE)
+	printf("SSE\n");
+#else
+	printf("UNDEFINED\n");
+#endif
+
 	// Before you exit the application
 #ifdef ENABLE_PARSEC_HOOKS
 	__parsec_bench_end(); 
