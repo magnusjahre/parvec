@@ -36,17 +36,14 @@ typedef double real_t;
 
 
 // ********* PARVEC WRAPPER LIBRARY *********** 	//
-//												//
-// 		To compile for parvec wrapper, just		//
-// 		include ONE definition of VECWIDTH 		//
-//		(value not important)					//
-
 #define VECWIDTH 1
 
 // ============================================ 	//
 
 // Enable this to compile the scalar version		//
-//#define SCALAR 1
+#if !defined (PARSEC_USE_SSE) && !defined (PARSEC_USE_AVX)
+#define SCALAR 1
+#endif
 
 // ******************************************** //
 
@@ -149,16 +146,13 @@ int main(void)
 	}
 */
 	RunSimulation(NTIMESTEPS, NBODIES);
-	printf("Complete! Method: ");
+	printf("Complete!\n[EXECUTABLE] Method: ");
 #if defined (SCALAR)
 	printf("SCALAR\n");
-#else
-	printf("PARVEC WRAPPER with ");
-#endif
-#if defined (PARSEC_USE_AVX)
-	printf("AVX\n");
+#elif defined (PARSEC_USE_AVX)
+	printf("PARVEC WRAPPER with AVX\n");
 #elif defined (PARSEC_USE_SSE)
-	printf("SSE\n");
+	printf("PARVEC WRAPPER with SSE\n");
 #else
 	printf("UNDEFINED\n");
 #endif
@@ -269,10 +263,7 @@ void TimeStep(
 //	__parsec_thread_begin(); 
 //#endif
 
-#if defined(AVX) || defined(SSE)
-	ComputeAccelVec(nBodies, rx,ry, ax,ay, mass);
-	//printf("AVX or SSE");
-#elif defined(SCALAR)
+#ifdef SCALAR
 	//printf("SCALAR");
 	ComputeAccel(nBodies, rx,ry, ax,ay, mass);
 #else
