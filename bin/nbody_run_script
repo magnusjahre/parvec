@@ -1,0 +1,13 @@
+#!/bin/bash
+
+# Run Scalar
+bash parsecmgmt -a run -p parsec.simd.nbody -c gcc-hooks
+
+# Run SSE
+bash parsecmgmt -a run -p parsec.simd.nbody -c gcc-sse-hooks
+
+# Run AVX
+bash parsecmgmt -a run -p parsec.simd.nbody -c gcc-avx-hooks
+
+
+

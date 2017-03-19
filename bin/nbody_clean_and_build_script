@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Clean and uninstall
+bash parsecmgmt -a fulluninstall -p parsec.simd.nbody 
+bash parsecmgmt -a fullclean -p parsec.simd.nbody 
+
+# Build
+#echo "Please edit nbody.c to compile for Scalar"
+#read -p "Answer 'y' to build or 'n' to quit: " yn
+#case $yn in
+#	[Yy]* ) bash parsecmgmt -a build -p parsec.simd.nbody -c gcc-hooks;;
+#	[Nn]* ) exit;;
+#	* ) echo "Please answer 'y' or 'n'";;
+#esac
+
+#echo "Please edit nbody.c to compile for ParVec wrapper SSE"
+#read -p "Answer 'y' to build or 'n' to quit: " yn
+#case $yn in
+#	[Yy]* ) bash parsecmgmt -a build -p parsec.simd.gccnbody -c gcc-sse-hooks;;
+#	[Nn]* ) exit;;
+#	* ) echo "Please answer 'y' or 'n'";;
+#esac
+
+#echo "Please edit nbody.c to compile for ParVec wrapper AVX"
+read -p "Answer 'y' to build all or 'n' to quit: " yn
+case $yn in
+	[Yy]* ) bash parsecmgmt -a build -p parsec.simd.nbody -c gcc-hooks;
+bash parsecmgmt -a build -p parsec.simd.nbody -c gcc-sse-hooks;
+bash parsecmgmt -a build -p parsec.simd.nbody -c gcc-avx-hooks;;
+	[Nn]* ) exit;;
+	* ) echo "Please answer 'y' or 'n'";;
+esac
+
+#echo "Now building for wrapper hooks - AVX"
+#bash parsecmgmt -a build -p parsec.simd.nbody -c gcc-avx-hooks
+#echo "Done!"
+#echo ""
+#echo "Now building for wrapper hooks -SSE"
+#bash parsecmgmt -a build -p parsec.simd.nbody -c gcc-sse-hooks
+#echo "Done!"
+
+
+

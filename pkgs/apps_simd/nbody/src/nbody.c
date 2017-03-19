@@ -9,7 +9,14 @@
 #include <hooks.h>
 #endif
 
-#define DFTYPE
+// Enable this to use double precision
+//#define DFTYPE	// NOTE: This ALWAYS needs to go before simd_defines.h!
+//typedef double real_t;
+
+// Enable this to use single precision
+typedef float real_t;
+
+
 #include "simd_defines.h"
 /* CDF END */
 
@@ -19,6 +26,7 @@
 #define STEPSIZE 0.0001
 #define FORCELIMIT 0.0001
 
+
 /************************/
 /*				   		*/
 /*	RUNTIME PARAMETERS	*/
@@ -26,35 +34,13 @@
 /************************/
 #define NBODIES 500
 #define NTIMESTEPS 2000
+
 /************************/
 
-//#define PRINTPOS 1
-
-// Choose precision
-typedef double real_t;
-#define DOUBLEPREC 1
-
-
-// ********* PARVEC WRAPPER LIBRARY *********** 	//
-#define VECWIDTH 1
-
-// ============================================ 	//
-
-// Enable this to compile the scalar version		//
+// Build scalar when using gcc-hooks
 #if !defined (PARSEC_USE_SSE) && !defined (PARSEC_USE_AVX)
 #define SCALAR 1
 #endif
-
-// ******************************************** //
-
-
-//#define SINGLEPREC 1
-//	typedef float real_t;
-//	#define AVX 1
-//		#define VECWIDTH 8
-//	#define SSE 1
-//		#define VECWIDTH 4
-//#define VECWIDTH 1
 
 
 // Function prototypes
@@ -73,14 +59,6 @@ void TimeStep(
 	const real_t * restrict mass);
 
 void ComputeAccel(
-	const int nBodies,
-	const real_t * restrict rx,
-	const real_t * restrict ry,
-	real_t * restrict ax,
-	real_t * restrict ay,
-	const real_t * restrict mass);
-
-void ComputeAccelVec(
 	const int nBodies,
 	const real_t * restrict rx,
 	const real_t * restrict ry,
@@ -320,6 +298,7 @@ void ComputeAccel(
 #endif
 
 
+
 /* CDF PARVEC PORT BEGIN */
 
 #ifndef SCALAR
@@ -370,16 +349,18 @@ void ComputeAccelParvec(
 			_MM_TYPE axjVec = _MM_LOAD(&ax[j]);
 			_MM_TYPE ayjVec = _MM_LOAD(&ay[j]);
 			_MM_TYPE massjVec = _MM_LOAD(&mass[j]);
+			
+			
+			// *************** FAST MULTIPOLE METHOD ***************
 
 			_MM_TYPE distxVec = _MM_SUB(rxiVec, rxjVec);
 			_MM_TYPE distyVec = _MM_SUB(ryiVec, ryjVec);
 
-			// Old inv sqrt
-			_MM_TYPE sqrtRecipDistVec = _MM_DIV(_MM_SET(1.0), _MM_SQRT(_MM_ADD(_MM_MUL(distxVec,distxVec), _MM_MUL(distyVec,distyVec))));
+			// Original inv sqrt
+			//_MM_TYPE sqrtRecipDistVec = _MM_DIV(_MM_SET(1.0), _MM_SQRT(_MM_ADD(_MM_MUL(distxVec,distxVec), _MM_MUL(distyVec,distyVec))));
 			
-			// New inv sqrt (NEON only??)
-			//_MM_TYPE sqrtRecipDistVec = vsqrtq_f32(_MM_ADD( _MM_MUL(distxVec,distxVec), _MM_MUL(distyVec,distyVec) ));
-
+			// Approximate inv sqrt (Single precision only)
+			_MM_TYPE sqrtRecipDistVec = _MM_RSQRT( _MM_ADD(_MM_MUL(distxVec,distxVec), _MM_MUL(distyVec,distyVec)));
 
 			// cube:
 			sqrtRecipDistVec = _MM_MUL(sqrtRecipDistVec,
@@ -394,7 +375,10 @@ void ComputeAccelParvec(
 			ayiUpdVec = _MM_ADD(ayiUpdVec, _MM_MUL(massjVec, distyVec));
 			axjVec = _MM_SUB(axjVec, _MM_MUL(massiVec, distxVec));
 			ayjVec = _MM_SUB(ayjVec, _MM_MUL(massiVec, distyVec));
-
+			
+			
+			// *****************************************************
+			
 			_MM_STORE(&ax[j], axjVec);
 			_MM_STORE(&ay[j], ayjVec);
 		}
