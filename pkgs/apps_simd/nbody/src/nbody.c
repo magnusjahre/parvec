@@ -9,12 +9,16 @@
 #include <hooks.h>
 #endif
 
-// Enable this to use double precision
-//#define DFTYPE	// NOTE: This ALWAYS needs to go before simd_defines.h!
-//typedef double real_t;
+// Double precision
+#ifdef DOUBLEPREC
+#define DFTYPE	// NOTE: This ALWAYS needs to go before simd_defines.h!
+typedef double real_t;
+#endif
 
-// Enable this to use single precision
+// Single precision
+#ifdef SINGLEPREC
 typedef float real_t;
+#endif
 
 
 #include "simd_defines.h"
@@ -126,14 +130,20 @@ int main(void)
 	RunSimulation(NTIMESTEPS, NBODIES);
 	printf("Complete!\n[EXECUTABLE] Method: ");
 #if defined (SCALAR)
-	printf("SCALAR\n");
+	printf("SCALAR ");
 #elif defined (PARSEC_USE_AVX)
-	printf("PARVEC WRAPPER with AVX\n");
+	printf("PARVEC WRAPPER with AVX ");
 #elif defined (PARSEC_USE_SSE)
-	printf("PARVEC WRAPPER with SSE\n");
+	printf("PARVEC WRAPPER with SSE ");
 #else
 	printf("UNDEFINED\n");
 #endif
+#if defined (SINGLEPREC)
+	printf("using SINGLE PRECISION\n");
+#elif defined (DOUBLEPREC)
+	printf("using DOUBLE PRECISION\n");
+#endif
+
 
 	// Before you exit the application
 #ifdef ENABLE_PARSEC_HOOKS
@@ -356,11 +366,14 @@ void ComputeAccelParvec(
 			_MM_TYPE distxVec = _MM_SUB(rxiVec, rxjVec);
 			_MM_TYPE distyVec = _MM_SUB(ryiVec, ryjVec);
 
+#ifdef ORIGINAL
 			// Original inv sqrt
-			//_MM_TYPE sqrtRecipDistVec = _MM_DIV(_MM_SET(1.0), _MM_SQRT(_MM_ADD(_MM_MUL(distxVec,distxVec), _MM_MUL(distyVec,distyVec))));
-			
+			_MM_TYPE sqrtRecipDistVec = _MM_DIV(_MM_SET(1.0), _MM_SQRT(_MM_ADD(_MM_MUL(distxVec,distxVec), _MM_MUL(distyVec,distyVec))));
+#endif
+#ifdef IMPROVED			
 			// Approximate inv sqrt (Single precision only)
 			_MM_TYPE sqrtRecipDistVec = _MM_RSQRT( _MM_ADD(_MM_MUL(distxVec,distxVec), _MM_MUL(distyVec,distyVec)));
+#endif
 
 			// cube:
 			sqrtRecipDistVec = _MM_MUL(sqrtRecipDistVec,

@@ -9,7 +9,6 @@ TARGET=gccnbody
 # Set this name equal to what your program source code file is called
 OBJS=nbody.o
 
-
 ifdef version
 	ifeq "$(version)" "pthreads"
 		CXXFLAGS := $(CXXFLAGS) -DENABLE_THREADS -pthread -std=gnu99
