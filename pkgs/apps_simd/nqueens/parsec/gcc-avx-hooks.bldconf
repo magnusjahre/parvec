@@ -1,0 +1,7 @@
+#!/bin/bash
+
+# gcc-pthreads.bldconf - configuration file for PARSEC
+
+source ${PARSECDIR}/pkgs/apps_simd/nqueens/parsec/gcc-hooks.bldconf
+
+

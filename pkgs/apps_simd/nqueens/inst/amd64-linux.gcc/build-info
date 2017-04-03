@@ -1,0 +1,40 @@
+PARSEC Compile Information
+==========================
+Package 'parsec.simd.nqueens'
+Built on Mon Apr 3 19:00:50 CEST 2017
+
+Configure arguments:  --prefix=/home/shomed/c/chrisdef/parvec-git/bin/../pkgs/apps_simd/nqueens/inst/amd64-linux.gcc
+
+Environment modifications: version=pthreads
+
+CC: /home/shomed/c/chrisdef/extras/gcc-6.2.0/bin/gcc
+Version: gcc (GCC) 6.2.0
+Copyright (C) 2016 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+CFLAGS: -Werror -O2 -funroll-loops -fprefetch-loop-arrays -static-libgcc -Wl,--hash-style=both,--as-needed -Wno-error=unused-result -DPARSEC_VERSION=3.0-beta-20120904 -I/home/shomed/c/chrisdef/parvec-git/bin/../pkgs/libs/simd_libs
+
+CXX: /home/shomed/c/chrisdef/extras/gcc-6.2.0/bin/g++
+Version: g++ (GCC) 6.2.0
+Copyright (C) 2016 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+CXXFLAGS: -Werror -O2 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions -static-libgcc -Wl,--hash-style=both,--as-needed -Wno-error=unused-result -DPARSEC_VERSION=3.0-beta-20120904 -I/home/shomed/c/chrisdef/parvec-git/bin/../pkgs/libs/simd_libs
+
+CCAS: 
+Version: 
+CCASFLAGS: 
+
+LD: /usr/bin/ld
+Version: GNU ld (GNU Binutils for Ubuntu) 2.26.1
+Copyright (C) 2015 Free Software Foundation, Inc.
+This program is free software; you may redistribute it under the terms of
+the GNU General Public License version 3 or (at your option) a later version.
+This program has absolutely no warranty.
+LDFLAGS: -L/home/shomed/c/chrisdef/extras/gcc-6.2.0/lib64 -L/home/shomed/c/chrisdef/extras/gcc-6.2.0/lib
+
+JAVAC: /usr/bin/javac
+Version: javac 1.8.0_121
+JFLAGS: 
+
+[EOF]
