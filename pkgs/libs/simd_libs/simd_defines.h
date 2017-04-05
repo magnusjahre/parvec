@@ -1287,6 +1287,7 @@ static inline _MM_TYPE _mm512_atan_pd(_MM_TYPE A) {
 #define _MM_DIV   _mm_div_ps
 #define _MM_DIV_I _mm_div_epi32
 #define _MM_SQRT  _mm_sqrt_ps
+#define _MM_RSQRT _mm_rsqrt_ps // CDF, used for nbody
 #define _MM_HADD _mm_hadd_ps
 #define _MM_RHADD _mm_hadd_ps // JMCG REAL HADD, totally horizontal
 #define _MM_FULL_HADD _mm_fullhadd_f32
@@ -1504,6 +1505,7 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #define _MM_DIV   _mm256_div_ps
 #define _MM_DIV_I _mm256_div_epi32
 #define _MM_SQRT  _mm256_sqrt_ps
+#define _MM_RSQRT _mm256_rsqrt_ps // CDF, used for nbody
 #define _MM_HADD _mm256_hadd_ps
 #define _MM_RHADD _mm256_rhadd_ps // JMCG REAL HADD, totally horizontal
 #define _MM_FULL_HADD _mm256_fullhadd_f32
