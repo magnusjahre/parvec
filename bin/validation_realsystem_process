@@ -1,0 +1,105 @@
+#!/bin/bash
+
+##################################################################
+## Juan M. Cebrian: Returns processed files with event groups as
+## columns and events within an event group as files
+##
+##################################################################
+
+# Default groups
+
+##### Group 1 #####
+##CPU_CLK_UNHALTED IDQ_UOPS_NOT_DELIVERED:CORE UOPS_ISSUED:ANY UOPS_RETIRED:RETIRE_SLOTS INT_MISC:RECOVERY_CYCLES
+
+##### Group 2 #####
+##perf::CYCLES ICACHE:IFETCH_STALL perf::INSTRUCTIONS INSTRUCTIONS_RETIRED IDQ:EMPTY CYCLE_ACTIVITY:STALLS_L1D_PENDING
+
+##### Group 3 #####
+##CYCLE_ACTIVITY:CYCLES_NO_EXECUTE CYCLE_ACTIVITY:CYCLES_L2_PENDING CYCLE_ACTIVITY:CYCLES_L1D_PENDING CYCLE_ACTIVITY:STALLS_L2_PENDING
+
+##### Group 4 #####
+##RESOURCE_STALLS:ANY RESOURCE_STALLS:RS RESOURCE_STALLS:SB RESOURCE_STALLS:ROB
+
+##### Group 5 #####
+##UOPS_ISSUED:ALL UOPS_ISSUED:STALL_CYCLES UOPS_EXECUTED:CORE UOPS_EXECUTED:STALL_CYCLES
+
+##### Group 6 #####
+##UOPS_RETIRED:ALL UOPS_RETIRED:STALL_CYCLES perf::CONTEXT-SWITCHES BACLEARS
+
+##### Group 7 #####
+##perf::PERF_COUNT_HW_CACHE_DTLB:READ:ACCESS perf::PERF_COUNT_HW_CACHE_DTLB:READ:MISS
+
+##### Group 8 #####
+##perf::PERF_COUNT_HW_CACHE_DTLB:WRITE:ACCESS perf::PERF_COUNT_HW_CACHE_DTLB:WRITE:MISS
+
+##### Group 9 #####
+##perf::PERF_COUNT_HW_CACHE_ITLB:READ:ACCESS perf::PERF_COUNT_HW_CACHE_ITLB:READ:MISS
+
+##### Group 10 #####
+##PAPI_BR_INS PAPI_BR_UCN PAPI_BR_CN PAPI_BR_TKN PAPI_BR_NTK PAPI_BR_MSP PAPI_BR_PRC
+
+##### Group 11 #####
+##perf::PERF_COUNT_HW_CACHE_L1D:READ:ACCESS perf::PERF_COUNT_HW_CACHE_L1D:READ:MISS
+
+##### Group 12 #####
+##perf::PERF_COUNT_HW_CACHE_L1D:WRITE:ACCESS
+
+##### Group 13 #####
+##perf::PERF_COUNT_HW_CACHE_L1I:READ:ACCESS perf::PERF_COUNT_HW_CACHE_L1I:READ:MISS
+
+##### Group 14 #####
+##PAPI_L2_TCR PAPI_L2_LDM PAPI_L3_TCA
+
+##### Group 15 #####
+##PAPI_L2_TCW PAPI_L2_STM PAPI_L3_TCM
+
+##### Group 16 #####
+##INT_MISC:RECOVERY_CYCLES CYCLE_ACTIVITY:STALLS_L1D_PENDING
+
+
+BENCHMARKS="parsec.simd.nqueens"
+#INPUTS="simsmall simlarge"
+INPUTS="simmedium"
+
+TOTAL_EVENTGROUPS=16
+MAX_EVENTS_IN_EVENTGROUP=8
+
+# Number of runs per event group
+RUN_COUNT=`ls -la | grep eventgroup_1_ | wc -l`
+
+
+ROOT_F=`pwd`
+
+for benchmark in ${BENCHMARKS}; do
+    cd ${ROOT_F}
+    for input in ${INPUTS}; do
+	#	for configuration in scalar sse avx; do
+	for configuration in scalar; do
+	    echo -e "\e[93mProcessing ${benchmark} with ${input} input..."
+	    rm .processed_output 2> /dev/null
+	    touch .processed_output
+	    name_string=""
+	    rm .outemp_${configuration} 2> /dev/null
+	    touch .outemp_${configuration}
+	    for eventgroup in $(seq 1 ${TOTAL_EVENTGROUPS}); do
+#		EVENTS_IN_GROUP=`grep "Total_Event_" ${ROOT_F}/raw/output_${benchmark}_${input}_${configuration}_eventgroup_${eventgroup}_iter_1 | wc -l`
+		EVENTS_IN_GROUP=${MAX_EVENTS_IN_EVENTGROUP}
+		EVENTS_IN_GROUP=`expr ${EVENTS_IN_GROUP} - 1`
+		#grep "ROI:" ${ROOT_F}/${configuration}/output_${benchmark}_g${configuration}_threads${threads}_* | cut -d ' ' -f 7 | tr 's' ' ' | awk '{ sum += $1; n++ } END { if (n > 0) print sum / n; }' >> .outemp_${configuration}
+		for event in $(seq 0 ${EVENTS_IN_GROUP}); do
+		    python_input=`grep "Total_Event_${event}:" ${ROOT_F}/raw/output_${benchmark}_${input}_${configuration}_eventgroup_${eventgroup}_iter_* | cut -d ' ' -f 3 | tr 's' ' '`
+#		    echo "python input:"${python_input}
+		    python ../trimmed_mean.py ${python_input} >> .outemp_${configuration}
+		done
+		paste .outemp_${configuration} | tr '\t' ' ' > .temp_jmcg
+		paste .processed_output .temp_jmcg | tr '\t' ' ' | tr ' ' ';' > .temp2_jmcg
+		mv .temp2_jmcg .processed_output
+#		cat .processed_output
+		rm .outemp_${configuration}
+	    done
+	    cat .processed_output | sed -e 's/^[ \t]*//' | sed -e 's/nan//g' >  processed_output_${configuration}_${benchmark}_${input}
+	done
+    done
+done
+
+echo -e "\e[39mDone"

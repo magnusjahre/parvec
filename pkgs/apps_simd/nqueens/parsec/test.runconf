@@ -16,5 +16,5 @@
 run_exec="bin/nqueens"
 
 # Arguments to use
-run_args="${NTHREADS} in_4.txt prices.txt"
+run_args="2 15"
 

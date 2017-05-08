@@ -1,0 +1,109 @@
+#!/bin/bash
+
+# Default groups
+##### Group 1 #####
+##CPU_CLK_UNHALTED IDQ_UOPS_NOT_DELIVERED:CORE UOPS_ISSUED:ANY UOPS_RETIRED:RETIRE_SLOTS INT_MISC:RECOVERY_CYCLES
+
+##### Group 2 #####
+##perf::CYCLES ICACHE:IFETCH_STALL perf::INSTRUCTIONS INSTRUCTIONS_RETIRED IDQ:EMPTY CYCLE_ACTIVITY:STALLS_L1D_PENDING
+
+##### Group 3 #####
+##CYCLE_ACTIVITY:CYCLES_NO_EXECUTE CYCLE_ACTIVITY:CYCLES_L2_PENDING CYCLE_ACTIVITY:CYCLES_L1D_PENDING CYCLE_ACTIVITY:STALLS_L2_PENDING
+
+##### Group 4 #####
+##RESOURCE_STALLS:ANY RESOURCE_STALLS:RS RESOURCE_STALLS:SB RESOURCE_STALLS:ROB
+
+##### Group 5 #####
+##UOPS_ISSUED:ALL UOPS_ISSUED:STALL_CYCLES UOPS_EXECUTED:CORE UOPS_EXECUTED:STALL_CYCLES
+
+##### Group 6 #####
+##UOPS_RETIRED:ALL UOPS_RETIRED:STALL_CYCLES perf::CONTEXT-SWITCHES BACLEARS
+
+##### Group 7 #####
+##perf::PERF_COUNT_HW_CACHE_DTLB:READ:ACCESS perf::PERF_COUNT_HW_CACHE_DTLB:READ:MISS
+
+##### Group 8 #####
+##perf::PERF_COUNT_HW_CACHE_DTLB:WRITE:ACCESS perf::PERF_COUNT_HW_CACHE_DTLB:WRITE:MISS
+
+##### Group 9 #####
+##perf::PERF_COUNT_HW_CACHE_ITLB:READ:ACCESS perf::PERF_COUNT_HW_CACHE_ITLB:READ:MISS
+
+##### Group 10 #####
+##PAPI_BR_INS PAPI_BR_UCN PAPI_BR_CN PAPI_BR_TKN PAPI_BR_NTK PAPI_BR_MSP PAPI_BR_PRC
+
+##### Group 11 #####
+##perf::PERF_COUNT_HW_CACHE_L1D:READ:ACCESS perf::PERF_COUNT_HW_CACHE_L1D:READ:MISS
+
+##### Group 12 #####
+##perf::PERF_COUNT_HW_CACHE_L1D:WRITE:ACCESS
+
+##### Group 13 #####
+##perf::PERF_COUNT_HW_CACHE_L1I:READ:ACCESS perf::PERF_COUNT_HW_CACHE_L1I:READ:MISS
+
+##### Group 14 #####
+##PAPI_L2_TCR PAPI_L2_LDM PAPI_L3_TCA
+
+##### Group 15 #####
+##PAPI_L2_TCW PAPI_L2_STM PAPI_L3_TCM
+
+##### Group 16 #####
+##INT_MISC:RECOVERY_CYCLES CYCLE_ACTIVITY:STALLS_L1D_PENDING
+
+##### Configuration parameters ######
+# Root folder for hooks installation (go to the stand-alone hooks provided, edit the makefile acording to your target folders and run make; make install
+HOOKS_R=${HOME}/hooks_latest/inst
+# Total event groups
+TOTAL_EVENTGROUPS=16
+# Root folder for PAPI installation
+PAPI_R=${HOME}/extras/papi/lib
+# COREs to shield for user applications
+C_SHIELD="2-3"
+# Number of runs per event group
+RUN_COUNT=1
+# Benchmarks (names as required by the parsecmgmt script)
+BENCHMARKS="parsec.simd.nqueens"
+#INPUTS="simsmall simlarge"
+INPUTS="simmedium"
+
+ROOTF=`pwd`
+DATE=`date +%Y-%m-%d:%H:%M:%S`
+mkdir ${DATE}
+mkdir ${DATE}/raw
+
+if [[ $EUID -ne 0 ]]; then
+    for input in ${INPUTS}; do
+	for i in $(seq 1 ${RUN_COUNT}); do
+	    for bench in ${BENCHMARKS}; do
+		for EVENT in $(seq 1 ${TOTAL_EVENTGROUPS}); do
+		    #env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} ./parsecmgmt -a run -p ${bench} -c gcc-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_scalar_eventgroup_${EVENT}_iter_${i}
+		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} ./parsecmgmt -a run -p ${bench} -c gcc-sse-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_sse_eventgroup_${EVENT}_iter_${i}
+		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} ./parsecmgmt -a run -p ${bench} -c gcc-avx2-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_avx_eventgroup_${EVENT}_iter_${i}
+		done
+	    done
+	done
+    done
+    ln -s ${ROOTF}/validation_realsystem_process ${DATE}/validation_realsystem_process
+else
+    # Create a CPU sub-set for measuring stats before running the benchmarks
+    cset shield --cpu ${C_SHIELD}
+    for input in ${INPUTS}; do
+	for i in $(seq 1 ${RUN_COUNT}); do
+	    for bench in ${BENCHMARKS}; do
+		for EVENT in $(seq 1 ${TOTAL_EVENTGROUPS}); do
+		    #env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} cset shield --exec ./parsecmgmt -- -a run -p ${bench} -c gcc-hooks -i input >> ${DATE}/raw/output_${bench}_${input}_scalar_eventgroup_${EVENT}_iter_${i}
+		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} cset shield --exec ./parsecmgmt -- -a run -p ${bench} -c gcc-sse-hooks -i input >> ${DATE}/raw/output_${bench}_${input}_sse_eventgroup_${EVENT}_iter_${i}
+		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} cset shield --exec ./parsecmgmt -- -a run -p ${bench} -c gcc-avx2-hooks -i input >> ${DATE}/raw/output_${bench}_${input}_avx_eventgroup_${EVENT}_iter_${i}
+		done
+	    done
+	done
+    done
+    ln -s ${ROOTF}/validation_realsystem_process ${DATE}/validation_realsystem_process
+    chown -R ${SUDO_USER} ${DATE}
+    chgrp -R ${SUDO_USER} ${DATE}
+    # Clean everything, as ROOT, or regular users won't be able to run
+    ./parsecmgmt -a fullclean -p parsec.simd.nqueens
+    # Destroy sub-sets
+    cset shield --reset
+fi
+
+mv ${DATE} ${HOME}/parvec-git/OUTPUT

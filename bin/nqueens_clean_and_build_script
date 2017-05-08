@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Clean and uninstall
+bash parsecmgmt -a fulluninstall -p parsec.simd.nqueens 
+bash parsecmgmt -a fullclean -p parsec.simd.nqueens
+
+# Build
+read -p "Answer 'y' to build all or 'n' to quit: " yn
+case $yn in
+	[Yy]* ) bash parsecmgmt -a build -p parsec.simd.nqueens -c gcc-sse-hooks;
+bash parsecmgmt -a build -p parsec.simd.nqueens -c gcc-avx2-hooks;;
+#bash parsecmgmt -a build -p parsec.simd.nqueens -c gcc-hooks;;
+#bash parsecmgmt -a build -p parsec.simd.nqueens -c gcc-avx-hooks;;
+	[Nn]* ) exit;;
+	* ) echo "Please answer 'y' or 'n'";;
+esac
