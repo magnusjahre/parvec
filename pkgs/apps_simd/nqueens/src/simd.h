@@ -31,7 +31,7 @@
 #endif
 #ifdef PARSEC_USE_AVX
 	const int LOCAL_SIMD_WIDTH  = 32;
-	const uint FULL_MASK = 0xffffffff;
+	const int FULL_MASK = 0xffffffff;
 #endif
 /* CDF END */
 

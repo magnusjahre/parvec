@@ -1,25 +1,27 @@
 /**********************************************************/
 /* This code is for PLDI-15 Artifact Evaluation only      */
 /* and will be released with further copyright information*/
-/* File: SSE block w reexpansion of nqueens               */
+/* File: Vectorized block w reexpansion of nqueens        */
 /**********************************************************/
-//#define AVX
-
-//#ifdef ENABLE_PARSEC_HOOKS
-#include "simd_defines.h"
-#include <hooks.h>
-//#endif
 
 #include <iostream>
 #include <fstream>
 #include "harness.h"
 #include "simd.h"	// must precede block.h
-#include "block-sse.h"
+#include "block-vect.h"
 
-#ifdef BLOCK_PROFILE
+/* CDF START */
+//#ifdef ENABLE_PARSEC_HOOKS
+#include "simd_defines.h"
+#include <hooks.h>
+//#endif
+/* CDF END */
+
+/*#ifdef BLOCK_PROFILE
 #include "blockprofiler.h"
 BlockProfiler profiler;
-#endif
+#endif*/
+
 
 int* expand_condition_table;
 int expand_condition;
@@ -48,9 +50,9 @@ int ok(char n, char *a) {
 
 /*Pseudo tail recursive nqueens matching our language spec*/
 void nqueens(char n, char j, char *a, int *num, int _callIndex) {
-#ifdef BLOCK_PROFILE
+/*#ifdef BLOCK_PROFILE
   profiler.record_single();
-#endif
+#endif*/
 
   if (_callIndex != -1) {
     a[j - 1] = _callIndex;
@@ -186,9 +188,9 @@ int nqueens_block(_BlockStack *_stack, int _depth, int* num, int _callIndex, int
   class _Block *_block = _set -> block;
   class _Block *_nextBlock0 = &_set -> _BlockSet::nextBlock0;
   _nextBlock0 ->  recycle ();
-#ifdef BLOCK_PROFILE
+/*#ifdef BLOCK_PROFILE
   profiler.record(_block->size, _depth);
-#endif
+#endif*/
   int _block_size = _block->size;
   if (_block_size <= _expandSize / expand_condition){//Do dynamic reexpansion
     dynamic_reexpand_count++;
@@ -252,9 +254,9 @@ void nqueens_expand_bf(_BlockStack* _stack, int* _depth, int* num, int n){
   class _Block *_block = _set -> block;
   class _Block *_nextBlock0 = &_set -> _BlockSet::nextBlock0;
   _nextBlock0 ->  recycle ();
-#ifdef BLOCK_PROFILE
+/*#ifdef BLOCK_PROFILE
   profiler.record(_block->size, *_depth);
-#endif
+#endif*/
 
   if (n == *_depth) {
     *num += _block->size;
@@ -284,7 +286,7 @@ void nqueens_expand_bf(_BlockStack* _stack, int* _depth, int* num, int n){
   }
 
   int _nextblock0_size = _nextBlock0 -> _Block::size;
-#ifdef _DEBUG
+/*#ifdef _DEBUG
   cout << "This is max_block: " << _Block::max_block << endl;
   cout << "This is _nextblock0_size: " << _nextblock0_size << endl;
   for (int j = 0; j < _nextblock0_size; ++j){
@@ -294,7 +296,7 @@ void nqueens_expand_bf(_BlockStack* _stack, int* _depth, int* num, int n){
     cout << endl;
   }
   cout << endl;
-#endif
+#endif*/
 
   *_depth += 1;
   if (_nextblock0_size > 0 && _nextblock0_size <= _expandSize / expand_condition) {
@@ -302,8 +304,8 @@ void nqueens_expand_bf(_BlockStack* _stack, int* _depth, int* num, int n){
     nqueens_expand_bf(_stack, _depth, num, n);
   } else { //Reach the buffer size, or finish all evaluation
     if (!dynamic_reexpand_count){// only print for the first time
-      cout << "This is the max block buffer size for dfs: " << _nextblock0_size << endl;
-      cout << "This is the result now: " << *num << endl;
+      /*cout << "This is the max block buffer size for dfs: " << _nextblock0_size << endl;*/
+      /*cout << "This is the result now: " << *num << endl;*/
     }
 
     if (_nextblock0_size){
@@ -315,6 +317,14 @@ void nqueens_expand_bf(_BlockStack* _stack, int* _depth, int* num, int n){
   }
 }
 
+
+/***********************************************
+*
+*              MAIN APPLICATION
+*
+*
+***********************************************/
+
 /*Benchmark entrance called by harness*/
 int app_main(int argc, char **argv) {
 
@@ -325,8 +335,8 @@ int app_main(int argc, char **argv) {
 #endif
 /* CDF END */
 
-  cout << "[CDF_DEBUG] " << "SIMD_WIDTH: " << MY_SIMD_WIDTH << endl;
-  cout << "[CDF_DEBUG] " << "FULL_MASK: " << FULL_MASK << endl;
+  /*cout << "[CDF_DEBUG] " << "SIMD_WIDTH: " << MY_SIMD_WIDTH << endl;
+  cout << "[CDF_DEBUG] " << "FULL_MASK: " << log(FULL_MASK)/log(2) << endl;*/
 
 
   if (argc < 1) {
@@ -336,8 +346,10 @@ int app_main(int argc, char **argv) {
   if (argc > 2)
     printf("extra arguments being ignored\n");
 
+
   int n = atoi(argv[0]);
   printf("running queens %d\n", n);
+
 
   if (argc == 2) _expandSize = pow(2.0, atoi(argv[1]));
 
@@ -347,6 +359,9 @@ int app_main(int argc, char **argv) {
 
   char *a = (char *)alloca(n * sizeof(char));
   int num = 0;
+  
+
+  
   expand_condition_table = (int*)malloc(25 * sizeof(int));
   //Specific for n = 13
   for (int i = 0; i < 25; ++i){
@@ -359,6 +374,7 @@ int app_main(int argc, char **argv) {
   }
   expand_condition = n;
   if (argc == 2 && n == 13)	expand_condition = expand_condition_table[atoi(argv[1])];
+
 
   //Initialize software block stack
   _Block::n = n;
@@ -385,13 +401,11 @@ int app_main(int argc, char **argv) {
   //Start to execute blocked nqueens
   if (_expandSize >= n) nqueens_expand_bf(_stack, &_depth, &num, n);
   else{ int df_block_size = _stack->get(_depth)->block->size;
-    //cout << "This is the max block buffer size for dfs: " << df_block_size << endl;
-    //cout << "This is the result now: " << num << endl;
+    /*cout << "This is the max block buffer size for dfs: " << df_block_size << endl;*/
+    /*cout << "This is the result now: " << num << endl;*/
 
     if (df_block_size){
-      for (int i = 0; i < n; i++) {
-        nqueens_block(_stack, _depth, &num, i, n);
-      }
+      for (int i = 0; i < n; i++) nqueens_block(_stack, _depth, &num, i, n);
     }
   }
 
@@ -402,9 +416,9 @@ int app_main(int argc, char **argv) {
   delete _stack;
   if (_expandSize < n) delete _block;
   Harness::stop_timing();
-#ifdef BLOCK_PROFILE
+/*#ifdef BLOCK_PROFILE
   profiler.output();
-#endif
+#endif*/
 
 /* CDF START */
   //  Right before the section of the code we want to measure
@@ -415,10 +429,10 @@ int app_main(int argc, char **argv) {
 
   printf("nqueens = %d\n", num);
 
-#ifdef PROFILE_SPACE_USE
+/*#ifdef PROFILE_SPACE_USE
   cout << "This is max space use (Bytes): " << m_space << endl;
   cout << "This is the total number of new operations for block: " << total_malloc << endl;
-#endif
+#endif*/
 
 
 /* CDF START */
