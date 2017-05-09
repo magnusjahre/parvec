@@ -25,7 +25,7 @@ default : $(OBJS)
 	$(CXX) $(CXXFLAGS) -I. -o $@ -c $<
 
 harness.o: harness.cpp harness.h
-	$(CXX) -c harness.cpp
+	$(CXX) $(CXXFLAGS) -c harness.cpp
 
 clean:
 	rm -f *.o $(TARGET)

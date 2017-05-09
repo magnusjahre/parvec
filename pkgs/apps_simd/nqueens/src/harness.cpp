@@ -2,6 +2,9 @@
 
 #include <pthread.h>
 //#include "papiprofiler.h"
+#ifdef ENABLE_PARSEC_HOOKS
+#include <hooks.h>
+#endif
 
 const float min_stability = 2.0f;
 
@@ -51,7 +54,13 @@ struct targs {
 
 static void *thread_entry(void * arg) {
 	struct targs * t = (struct targs*)arg;
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_thread_begin();
+#endif
 	t->func(t->start, t->end);
+#ifdef ENABLE_PARSEC_HOOKS
+	__parsec_thread_end();
+#endif
   return NULL;
 }
 
@@ -440,6 +449,3 @@ int Harness::run(int argc, char **argv) {
 
 	return 0;
 }
-
-
-
