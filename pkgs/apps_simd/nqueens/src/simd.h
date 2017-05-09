@@ -26,11 +26,11 @@
 
 /* CDF START */
 #ifdef PARSEC_USE_SSE
-	//const int LOCAL_SIMD_WIDTH  = 16;
+	const int LOCAL_SIMD_WIDTH  = 16;
 	const int FULL_MASK = 0xffff;
 #endif
 #ifdef PARSEC_USE_AVX
-	//const int LOCAL_SIMD_WIDTH  = 16;
+	const int LOCAL_SIMD_WIDTH  = 32;
 	const int FULL_MASK = 0xffff;
 #endif
 /* CDF END */

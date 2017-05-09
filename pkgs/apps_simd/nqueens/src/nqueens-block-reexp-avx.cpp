@@ -1,6 +1,6 @@
 /**********************************************************/
-/* This code is for PLDI-15 Artifact Evaluation only      */ 
-/* and will be released with further copyright information*/ 
+/* This code is for PLDI-15 Artifact Evaluation only      */
+/* and will be released with further copyright information*/
 /* File: SSE block w reexpansion of nqueens               */
 /**********************************************************/
 //#define AVX
@@ -68,7 +68,8 @@ void nqueens(char n, char j, char *a, int *num, int _callIndex) {
   }
 }
 
-const int MY_SIMD_WIDTH = 16; // SIMD_WIDTH;
+//const int MY_SIMD_WIDTH = 16; // SIMD_WIDTH;
+const int MY_SIMD_WIDTH = LOCAL_SIMD_WIDTH; //16;
 
 /*sequential check for blocked code*/
 int ok(char n, _Block *_block, int _bi) {
@@ -120,7 +121,7 @@ void ok_vec(char n, _Block *_block, int _si, int *ret_mask) {
 
 /*simd processing for Depth First Execution, we store n in char in the block*/
 inline void process_simd(_Block *_block, _Block *_nextBlock0, int _si, char n, char j, int _callIndex, int *num) {
-  
+
   _MM_TYPE_I vec_callIndex = _MM_SET_8(_callIndex);
   char *dest = _block->getptr(_si, j - 1);
   _MM_STOREU_I((_MM_TYPE_I*)dest, vec_callIndex);
@@ -146,7 +147,7 @@ inline void process_simd(_Block *_block, _Block *_nextBlock0, int _si, char n, c
 
 #else//Streaming Compaction
   if (n == j){
-    *num += g_advanceNextPtrCounts[ret_mask & 0x000000FF] 
+    *num += g_advanceNextPtrCounts[ret_mask & 0x000000FF]
         + g_advanceNextPtrCounts[(ret_mask & 0x0000FF00) >> 8];
   }else{
     __attribute__((aligned(16))) unsigned char tmp[16];
@@ -317,7 +318,7 @@ void nqueens_expand_bf(_BlockStack* _stack, int* _depth, int* num, int n){
 
 /*Benchmark entrance called by harness*/
 int app_main(int argc, char **argv) {
-  
+
 /* CDF START */
 // When the benchmark begins (main), use the same string "__parsec_streamcluster", it's just ignored
 #ifdef ENABLE_PARSEC_HOOKS
@@ -327,8 +328,8 @@ int app_main(int argc, char **argv) {
 
   cout << "[CDF_DEBUG] " << "SIMD_WIDTH: " << MY_SIMD_WIDTH << endl;
   cout << "[CDF_DEBUG] " << "FULL_MASK: " << FULL_MASK << endl;
-  
-  
+
+
   if (argc < 1) {
     printf("number of queens required\n");
     return 1;
@@ -382,7 +383,7 @@ int app_main(int argc, char **argv) {
   /* CDF END */
 
 
-  //Start to execute blocked nqueens 
+  //Start to execute blocked nqueens
   if (_expandSize >= n) nqueens_expand_bf(_stack, &_depth, &num, n);
   else{ int df_block_size = _stack->get(_depth)->block->size;
     cout << "This is the max block buffer size for dfs: " << df_block_size << endl;
@@ -424,7 +425,7 @@ int app_main(int argc, char **argv) {
 /* CDF START */
   // Before you exit the application
 #ifdef ENABLE_PARSEC_HOOKS
-  __parsec_bench_end(); 
+  __parsec_bench_end();
 #endif
 /* CDF END */
 
