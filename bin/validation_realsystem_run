@@ -75,7 +75,7 @@ if [[ $EUID -ne 0 ]]; then
 	for i in $(seq 1 ${RUN_COUNT}); do
 	    for bench in ${BENCHMARKS}; do
 		for EVENT in $(seq 1 ${TOTAL_EVENTGROUPS}); do
-		    #env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} ./parsecmgmt -a run -p ${bench} -c gcc-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_scalar_eventgroup_${EVENT}_iter_${i}
+		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} ./parsecmgmt -a run -p ${bench} -c gcc-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_scalar_eventgroup_${EVENT}_iter_${i}
 		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} ./parsecmgmt -a run -p ${bench} -c gcc-sse-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_sse_eventgroup_${EVENT}_iter_${i}
 		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} ./parsecmgmt -a run -p ${bench} -c gcc-avx2-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_avx_eventgroup_${EVENT}_iter_${i}
 		done
@@ -90,7 +90,7 @@ else
 	for i in $(seq 1 ${RUN_COUNT}); do
 	    for bench in ${BENCHMARKS}; do
 		for EVENT in $(seq 1 ${TOTAL_EVENTGROUPS}); do
-		    #env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} cset shield --exec ./parsecmgmt -- -a run -p ${bench} -c gcc-hooks -i input >> ${DATE}/raw/output_${bench}_${input}_scalar_eventgroup_${EVENT}_iter_${i}
+		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} cset shield --exec ./parsecmgmt -- -a run -p ${bench} -c gcc-hooks -i {input} >> ${DATE}/raw/output_${bench}_${input}_scalar_eventgroup_${EVENT}_iter_${i}
 		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} cset shield --exec ./parsecmgmt -- -a run -p ${bench} -c gcc-sse-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_sse_eventgroup_${EVENT}_iter_${i}
 		    env LD_PRELOAD=${HOOKS_R}/hooks_event_lib${EVENT}/lib/libhooks.so LD_LIBRARY_PATH=${PAPI_R} cset shield --exec ./parsecmgmt -- -a run -p ${bench} -c gcc-avx2-hooks -i ${input} >> ${DATE}/raw/output_${bench}_${input}_avx_eventgroup_${EVENT}_iter_${i}
 		done

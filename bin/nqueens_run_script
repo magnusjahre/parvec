@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Run Scalar
-#bash parsecmgmt -a run -p parsec.simd.nqueens -c gcc-hooks -i simlarge
+bash parsecmgmt -a run -p parsec.simd.nqueens -c gcc-hooks -i simlarge
 
 # Run SSE
 bash parsecmgmt -a run -p parsec.simd.nqueens -c gcc-sse-hooks -i simlarge
