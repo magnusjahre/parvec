@@ -59,7 +59,7 @@ PAPI_R=${HOME}/extras/papi/lib
 # COREs to shield for user applications
 C_SHIELD="2-3"
 # Number of runs per event group
-RUN_COUNT=1
+RUN_COUNT=100
 # Benchmarks (names as required by the parsecmgmt script)
 BENCHMARKS="parsec.simd.nqueens"
 #INPUTS="simsmall simlarge"
