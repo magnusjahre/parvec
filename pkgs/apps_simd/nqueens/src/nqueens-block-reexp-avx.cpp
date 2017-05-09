@@ -112,7 +112,7 @@ void ok_vec(char n, _Block *_block, int _si, int *ret_mask) {
       _MM_TYPE_I vec_cond3 = _MM_CMPEQ_SIG8(vec_q, _MM_ADD_8(vec_p, vec_j_sub_i));
       _MM_TYPE_I vec_cond = _MM_OR_SIG(_MM_OR_SIG(vec_cond1, vec_cond2), vec_cond3);
       int mask = _MM_MOVEMASK_I(vec_cond);
-      *ret_mask = *ret_mask | mask;
+	  *ret_mask = *ret_mask | mask;
       //if (*ret_mask == 0xffff) return;
       if (*ret_mask == FULL_MASK) return;
     }
@@ -131,7 +131,7 @@ inline void process_simd(_Block *_block, _Block *_nextBlock0, int _si, char n, c
   if (ret_mask == FULL_MASK) return;
   int ok_mask = ~ret_mask;
 
-#ifdef NOSC
+//#ifdef NOSC
   if (n == j) {
     for (int i = 0; i < MY_SIMD_WIDTH; i++) {
       int f = 1 << i;
@@ -144,7 +144,7 @@ inline void process_simd(_Block *_block, _Block *_nextBlock0, int _si, char n, c
     }
   }
 
-
+/*
 #else//Streaming Compaction
   if (n == j){
     *num += g_advanceNextPtrCounts[ret_mask & 0x000000FF]
@@ -175,7 +175,7 @@ inline void process_simd(_Block *_block, _Block *_nextBlock0, int _si, char n, c
   }
 
 #endif
-
+*/
 }
 
 void nqueens_expand_bf(_BlockStack* _stack, int* _depth, int* num, int n);
@@ -238,7 +238,6 @@ inline void process_simd_bf(_Block *_block, _Block *_nextBlock0, int _si, char n
   //if (ret_mask == 0xffff) return;
   if (ret_mask == FULL_MASK) return;
   int ok_mask = ~ret_mask;
-
 
   for (int i = 0; i < MY_SIMD_WIDTH; i++) {
     int f = 1 << i;
@@ -386,8 +385,8 @@ int app_main(int argc, char **argv) {
   //Start to execute blocked nqueens
   if (_expandSize >= n) nqueens_expand_bf(_stack, &_depth, &num, n);
   else{ int df_block_size = _stack->get(_depth)->block->size;
-    cout << "This is the max block buffer size for dfs: " << df_block_size << endl;
-    cout << "This is the result now: " << num << endl;
+    //cout << "This is the max block buffer size for dfs: " << df_block_size << endl;
+    //cout << "This is the result now: " << num << endl;
 
     if (df_block_size){
       for (int i = 0; i < n; i++) {
