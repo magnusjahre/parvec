@@ -1,0 +1,8 @@
+#!/bin/bash
+
+# icc-pthreads.bldconf - configuration file for PARSEC
+
+source ${PARSECDIR}/pkgs/apps_simd/swat/parsec/icc-mic.bldconf
+
+# Package dependencies
+build_deps="hooks"

@@ -367,6 +367,7 @@ static inline __m512i _custom_mm512_packs_epi32(__m512i x, __m512i y) {
 #define _MM_CMPEQ _mm_cmpeq_pd
 #define _MM_CMPEQ_SIG _mm_cmpeq_epi64
 #define _MM_SRLI_I _mm_srli_epi64
+//#define _MM_SRLI_SIG _mm_srli_si128 /* CDF - swat */
 #define _MM_SLLI_I _mm_slli_epi64
 #define _MM_ADD_I _mm_add_epi64
 #define _MM_SUB_I _mm_sub_epi64
@@ -413,12 +414,15 @@ static inline __m512i _custom_mm512_packs_epi32(__m512i x, __m512i y) {
 #define _MM_MIN _mm_min_pd
 #define _MM_MAX_I _custom_mm_max_epi64
 #define _MM_MIN_I _custom_mm_min_epi64
+//#define _MM_MAX_8 _mm_max_epu8 /* CDF - swat */
 #define _MM_ATAN _mm_atan_pd
 #define _MM_BLENDV(A,B,C) _mm_blendv_pd(A,B,C)
 #define _MM_COPYSIGN _mm_copysign_pd // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
 #define _MM_MALLOC(A,B) _mm_malloc(A,B)
 #define _MM_DEINTERLEAVE_I(A) A // Not needed for SSE
 #define _MM_REDUCE_ADD(A) _MM_CVT_F(_MM_FULL_HADD(A,A))
+
+//#define _MM_EXTRACT_16(A,B) _mm_extract_epi16(A,B) /* CDF - swat */
 
 #define _MM_SETR_FORMULA_1PARAM(A,B) _MM_SETR(A(B),A(B+1)); // This is very specific for Fluidanimate, not sure how to make it generic for other uses
 
@@ -603,6 +607,7 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #ifndef __AVX2__ // GCC 5+ ALWAYS define cmpeq even if AVX2 is not available, so we can no longer implement our own with the same name
 #define _MM_CMPEQ_SIG _custom_mm256_cmpeq_epi64
 #define _MM_SRLI_I _custom_mm256_srli_epi64
+//#define _MM_SRLI_SIG _custom_mm256_srli_si256 /* CDF - swat */
 #define _MM_SLLI_I _custom_mm256_slli_epi64
 #define _MM_ADD_I _custom_mm256_add_epi64
 #define _MM_SUB_I _custom_mm256_sub_epi64
@@ -610,6 +615,7 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #else
 #define _MM_CMPEQ_SIG _mm256_cmpeq_epi64
 #define _MM_SRLI_I _mm256_srli_epi64
+//#define _MM_SRLI_SIG _mm256_srli_si256 /* CDF - swat */
 #define _MM_SLLI_I _mm256_slli_epi64
 #define _MM_ADD_I _mm256_add_epi64
 #define _MM_SUB_I _mm256_sub_epi64
@@ -659,6 +665,7 @@ static inline _MM_TYPE _mm_atan_pd(_MM_TYPE A) {
 #define _MM_MIN _mm256_min_pd
 #define _MM_MAX_I _custom_mm256_max_epi64
 #define _MM_MIN_I _custom_mm256_min_epi64
+//#define _MM_MAX_8 _mm256_max_epu8 /* CDF - swat */
 #define _MM_ATAN _mm256_atan_pd
 #define _MM_BLENDV(A,B,C) _mm256_blendv_pd(A,B,C)
 #define _MM_COPYSIGN _mm256_copysign_pd // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
@@ -697,6 +704,16 @@ static inline _MM_TYPE_I _custom_mm256_srli_epi64(_MM_TYPE_I x, uint32_t imm8) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
+/* CDF START
+static inline _MM_TYPE_I _custom_mm256_srli_si256(_MM_TYPE_I x, uint32_t imm8) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_srli_si128(_mm256_extractf128_si256(x, 0), imm8);
+  __m128i emm02 = _mm_srli_si128(_mm256_extractf128_si256(x, 1), imm8);
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+CDF END */
 static inline _MM_TYPE_I _custom_mm256_slli_epi64(_MM_TYPE_I x, uint32_t imm8) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_slli_epi64(_mm256_extractf128_si256(x, 0), imm8);
@@ -1261,6 +1278,7 @@ static inline _MM_TYPE _mm512_atan_pd(_MM_TYPE A) {
 #define _MM_CMPEQ _mm_cmpeq_ps
 #define _MM_CMPEQ_SIG _mm_cmpeq_epi32
 #define _MM_SRLI_I _mm_srli_epi32
+//#define _MM_SRLI_SIG _mm_srli_si128 /* CDF - swat */
 #define _MM_SLLI_I _mm_slli_epi32
 #define _MM_ADD_I _mm_add_epi32
 #define _MM_SUB_I _mm_sub_epi32
@@ -1307,6 +1325,7 @@ static inline _MM_TYPE _mm512_atan_pd(_MM_TYPE A) {
 #define _MM_MIN _mm_min_ps
 #define _MM_MAX_I _mm_max_epi32
 #define _MM_MIN_I _mm_min_epi32
+//#define _MM_MAX_8 _mm_max_epu8 /* CDF - swat */
 #define _MM_ATAN _mm_atan_ps
 #define _MM_BLENDV(A,B,C) _mm_blendv_ps(A,B,C)
 #define _MM_COPYSIGN _mm_copysign_ps // _MM_COPYSIGN(X,Y) takes sign from Y and copies it to X
@@ -1459,11 +1478,13 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #ifndef __AVX2__ // GCC 5+ ALWAYS define intrinsics even if not available, so we can no longer implement our own with the same name
 #define _MM_CMPEQ_SIG _custom_mm256_cmpeq_epi32
 #define _MM_SRLI_I _custom_mm256_srli_epi32
+//#define _MM_SRLI_SIG _custom_mm256_srli_si256 /* CDF - swat */
 #define _MM_SLLI_I _custom_mm256_slli_epi32
 #define _MM_ADD_I _custom_mm256_add_epi32
 #define _MM_SUB_I _custom_mm256_sub_epi32
 #define _MM_MAX_I _custom_mm256_max_epi32
 #define _MM_MIN_I _custom_mm256_min_epi32
+//#define _MM_MAX_8 _custom_mm256_max_epu8 /* CDF - swat */
 #define _MM_MUL_I _custom_mm256_mullo_epi32
 #define _MM_CVT_H_TO_I(A) _custom_mm256_cvtepi16_epi32(_mm256_castsi256_si128(A))
 #define _MM_PACKS_I _custom_mm256_packs_epi32
@@ -1471,11 +1492,13 @@ static inline _MM_TYPE _mm_atan_ps(_MM_TYPE A) {
 #else
 #define _MM_CMPEQ_SIG _mm256_cmpeq_epi32
 #define _MM_SRLI_I _mm256_srli_epi32
+//#define _MM_SRLI_SIG _mm256_srli_si256 /* CDF - swat */
 #define _MM_SLLI_I _mm256_slli_epi32
 #define _MM_ADD_I _mm256_add_epi32
 #define _MM_SUB_I _mm256_sub_epi32
 #define _MM_MAX_I _mm256_max_epi32
 #define _MM_MIN_I _mm256_min_epi32
+//#define _MM_MAX_8 _mm256_max_epu8 /* CDF - swat */
 #define _MM_MUL_I _mm256_mullo_epi32
 #define _MM_CVT_H_TO_I(A) _mm256_cvtepi16_epi32(_mm256_castsi256_si128(A))
 #define _MM_PACKS_I _mm256_packs_epi32
@@ -1548,6 +1571,16 @@ static inline _MM_TYPE_I _custom_mm256_srli_epi32(_MM_TYPE_I x, uint32_t imm8) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
+/* CDF START
+static inline _MM_TYPE_I _custom_mm256_srli_si256(_MM_TYPE_I x, uint32_t imm8) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_srli_si128(_mm256_extractf128_si256(x, 0), imm8);
+  __m128i emm02 = _mm_srli_si128(_mm256_extractf128_si256(x, 1), imm8);
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+CDF END */
 static inline _MM_TYPE_I _custom_mm256_slli_epi32(_MM_TYPE_I x, uint32_t imm8) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_slli_epi32(_mm256_extractf128_si256(x, 0), imm8);
@@ -1588,6 +1621,16 @@ static inline _MM_TYPE_I _custom_mm256_min_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
   output = _mm256_insertf128_si256(output, emm02, 1);
   return output;
 }
+/* CDF START 
+static inline _MM_TYPE_I _custom_mm256_max_epu8(_MM_TYPE_I x, _MM_TYPE_I y) {
+  _MM_TYPE_I output;
+  __m128i emm01 = _mm_max_epu8(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
+  __m128i emm02 = _mm_max_epu8(_mm256_extractf128_si256(x, 1), _mm256_extractf128_si256(y, 1));
+  output = _mm256_insertf128_si256(output, emm01, 0);
+  output = _mm256_insertf128_si256(output, emm02, 1);
+  return output;
+}
+ CDF END */
 static inline _MM_TYPE_I _custom_mm256_mullo_epi32(_MM_TYPE_I x, _MM_TYPE_I y) {
   _MM_TYPE_I output;
   __m128i emm01 = _mm_mullo_epi32(_mm256_extractf128_si256(x, 0), _mm256_extractf128_si256(y, 0));
