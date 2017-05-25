@@ -1,0 +1,13 @@
+#!/bin/bash
+
+#input="simlarge simmedium"
+input="simlarge"
+
+# Run Scalar
+#bash parsecmgmt -a run -p parsec.simd.swat -c gcc-hooks -i simlarge
+
+# Run SSE
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-sse-hooks -i ${input}
+
+# Run AVX
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-avx2-hooks -i ${input}

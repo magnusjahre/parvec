@@ -7,7 +7,7 @@ PREFIX=${PARSECDIR}/pkgs/apps_simd/swat/inst/${PARSECPLAT}
 TARGET=opal_aligner
 
 
-#OBJS = test opal_aligner
+OBJS = test opal_aligner
 
 
 ifdef version
@@ -33,22 +33,22 @@ CXXFLAGS := -std=c++11 $(CXXFLAGS)
 	
 
 
-all: test $(TARGET)
+all: $(OBJS)
 
-opal_aligner: opal.o ScoreMatrix.o opal_aligner.cpp
-	$(CXX) $(CXXFLAGS) opal.o ScoreMatrix.o opal_aligner.cpp -o opal_aligner
+opal_aligner: opal_wrapper.o ScoreMatrix.o opal_aligner.cpp
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) opal_wrapper.o ScoreMatrix.o opal_aligner.cpp $(LIBS) -o $(TARGET)
 
 ScoreMatrix.o: ScoreMatrix.cpp ScoreMatrix.hpp
 	$(CXX) $(CXXFLAGS) -c ScoreMatrix.cpp
 
-test: opal.o ScoreMatrix.o test.cpp
-	$(CXX) $(CXXFLAGS) opal.o ScoreMatrix.o test.cpp -o test
+test: opal_wrapper.o ScoreMatrix.o test.cpp
+	$(CXX) $(CXXFLAGS) opal_wrapper.o ScoreMatrix.o test.cpp -o test
 
-opal.o: opal.cpp opal.h
-	$(CXX) $(CXXFLAGS) -c opal.cpp
+opal.o: opal_wrapper.cpp opal.h
+	$(CXX) $(CXXFLAGS) -c opal_wrapper.cpp
 
 clean:
-	rm *.o test opal_aligner
+	rm *.o test $(TARGET)
 
 install:
 	mkdir -p $(PREFIX)/bin

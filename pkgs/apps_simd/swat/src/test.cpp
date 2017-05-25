@@ -73,12 +73,13 @@ int main(int argc, char * const argv[]) {
 
     // Run Opal
     printf("Starting Opal!\n");
-#ifdef __AVX2__
+#ifdef PARSEC_USE_AVX
     printf("Using AVX2!\n");
-#elif __SSE4_1__
+#elif PARSEC_USE_SSE
     printf("Using SSE4.1!\n");
 #endif
     start = clock();
+    
     OpalSearchResult* results[dbLength];
     for (int i = 0; i < dbLength; i++) {
         results[i] = new OpalSearchResult;
@@ -97,6 +98,7 @@ int main(int argc, char * const argv[]) {
     resultCode = opalSearchDatabase(query, queryLength, db, dbLength, dbSeqsLengths,
                                     gapOpen, gapExt, scoreMatrix, alphabetLength, results,
                                     OPAL_SEARCH_ALIGNMENT, modeCode, OPAL_OVERFLOW_SIMPLE);
+                
     finish = clock();
     double time1 = ((double)(finish-start)) / CLOCKS_PER_SEC;
 
@@ -116,6 +118,7 @@ int main(int argc, char * const argv[]) {
     // Run normal SW
     printf("Starting normal!\n");
     start = clock();
+    
     OpalSearchResult* results2[dbLength];
     for (int i = 0; i < dbLength; i++) {
         results2[i] = new OpalSearchResult;
@@ -128,6 +131,7 @@ int main(int argc, char * const argv[]) {
         resultCode = calculateGlobal(query, queryLength, db, dbLength, dbSeqsLengths,
                                      gapOpen, gapExt, scoreMatrix, alphabetLength, results2, modeCode);
     }
+    
     finish = clock();
     double time2 = ((double)(finish-start))/CLOCKS_PER_SEC;
     printf("Time: %lf\n", time2);
@@ -180,6 +184,7 @@ int main(int argc, char * const argv[]) {
         delete[] db[i];
     }
     delete[] scoreMatrix;
+    
 }
 
 void fillRandomly(unsigned char* seq, int seqLength, int alphabetLength) {

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Clean and uninstall
+bash parsecmgmt -a fulluninstall -p parsec.simd.swat 
+bash parsecmgmt -a fullclean -p parsec.simd.swat
+
+# Build
+read -p "Answer 'y' to build all or 'n' to quit: " yn
+case $yn in
+	[Yy]* ) bash parsecmgmt -a build -p parsec.simd.swat -c gcc-sse-hooks;
+bash parsecmgmt -a build -p parsec.simd.swat -c gcc-avx2-hooks;;
+	[Nn]* ) exit;;
+	* ) echo "Please answer 'y' or 'n'";;
+esac

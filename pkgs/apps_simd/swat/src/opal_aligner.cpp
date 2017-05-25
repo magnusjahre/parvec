@@ -10,6 +10,13 @@
 #include "opal.h"
 #include "ScoreMatrix.hpp"
 
+/* CDF START */
+//#ifdef ENABLE_PARSEC_HOOKS
+#include "simd_defines.h"
+#include <hooks.h>
+//#endif
+/* CDF END */
+
 using namespace std;
 
 bool readFastaSequences(FILE* &file, unsigned char* alphabet, int alphabetLength, vector< vector<unsigned char> >* seqs);
@@ -18,6 +25,14 @@ void printAlignment(const unsigned char* query, const int queryLength,
                     const OpalSearchResult result, const unsigned char* alphabet);
 
 int main(int argc, char * const argv[]) {
+    
+/* CDF START */
+// When the benchmark begins (main), use the same string "__parsec_streamcluster", it's just ignored
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_bench_begin(__parsec_streamcluster);
+#endif
+/* CDF END */
+    
     int gapOpen = 3;
     int gapExt = 1;
     ScoreMatrix scoreMatrix;
@@ -152,12 +167,28 @@ int main(int argc, char * const argv[]) {
             results[i] = new OpalSearchResult;
             opalInitSearchResult(results[i]);
         }
-        printf("\nComparing query to database...");
+        printf("\nComparing query to database...\n");
         fflush(stdout);
         clock_t start = clock();
+        
+/* CDF START */
+    //  Right before the section of the code we want to measure
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_roi_begin();
+#endif
+/* CDF END */
+        
         int resultCode = opalSearchDatabase(query, queryLength, db, dbLength, dbSeqLengths,
                                              gapOpen, gapExt, scoreMatrix.getMatrix(), alphabetLength,
                                              results, searchType, modeCode, OPAL_OVERFLOW_BUCKETS);
+                                            
+/* CDF START */
+    //  Right before the section of the code we want to measure
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_roi_end();
+#endif
+/* CDF END */
+            
         if (resultCode) {
             printf("\nDatabase search failed with error code: %d\n", resultCode);
         }
@@ -230,6 +261,15 @@ int main(int argc, char * const argv[]) {
     fclose(dbFile);
     // Free allocated space
     delete querySequences;
+    
+    
+/* CDF START */
+    // Before you exit the application
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_bench_end();
+#endif
+/* CDF END */
+    
 
     return 0;
 }
