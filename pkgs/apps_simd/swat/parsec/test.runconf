@@ -1,7 +1,12 @@
+####
+# NOTE: FOR USE WITH THE SCALAR VERSION ONLY !
+####
+
+
 #!/bin/bash
 #
 # test.runconf - file containing information necessary to run a specific
-#                program of the PARSEC benchmark suite
+#                     program of the PARSEC benchmark suite
 #
 # Copyright (C) 2007 Princeton University
 # Written by Christian Bienia
@@ -12,9 +17,12 @@
 # be referenced here.
 
 
+# Input directory
+inputdir="${PARSECDIR}/pkgs/apps_simd/swat/inputs"
+
+
 # Binary file to execute, relative to installation root
-run_exec="bin/opal_aligner"
+run_exec="bin/SmithWaterman"
 
 # Arguments to use
-run_args="${NTHREADS} in_4.txt prices.txt"
-
+run_args="0 0 ${inputdir}/Q3ZAI3.fasta ${inputdir}/uniprot_sprot12071.fasta 1"

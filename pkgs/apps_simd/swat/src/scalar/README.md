@@ -1,0 +1,1 @@
+An optimized Smith-Waterson implementation using pthreads. Collected from https://github.com/laertispappas/Smith-Waterman/tree/master/pthreads
