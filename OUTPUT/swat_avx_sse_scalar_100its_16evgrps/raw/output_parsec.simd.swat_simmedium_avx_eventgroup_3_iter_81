@@ -1,0 +1,46 @@
+[PARSEC] Benchmarks to run:  parsec.simd.swat
+
+[PARSEC] [========== Running benchmark parsec.simd.swat [1] ==========]
+[PARSEC] Deleting old run directory.
+[PARSEC] Setting up run directory.
+[PARSEC] No archive for input 'simmedium' available, skipping input setup.
+[PARSEC] Running 'time /home/shomed/c/chrisdef/parvec-git/bin/../pkgs/apps_simd/swat/inst/amd64-linux.gcc-avx2-hooks/bin/opal_aligner -s /home/shomed/c/chrisdef/parvec-git/bin/../pkgs/apps_simd/swat/inputs/Q3ZAI3.fasta /home/shomed/c/chrisdef/parvec-git/bin/../pkgs/apps_simd/swat/inputs/uniprot_sprot12071.fasta':
+[PARSEC] [---------- Beginning of output ----------]
+[HOOKS] PARSEC Hooks Version 1.2
+Using SW alignment mode.
+Reading query fasta file...
+Read query sequence, 390 residues.
+
+Reading database fasta file...
+Read 12071 database sequences, 4886913 residues total.
+Whole database read: 12071 database sequences, 4886913 residues in total.
+
+Comparing query to database...
+[HOOKS] Entering ROI
+[HOOKS] Leaving ROI
+
+Finished!
+
+Cpu time of searching: 0.49
+GCUPS (giga cell updates per second): 3.86
+[HOOKS] Total time spent in ROI: 0.494s
+[HOOKS] Terminating
+Main_Thread_Event_0: CYCLE_ACTIVITY:CYCLES_NO_EXECUTE 18586499
+Main_Thread_Event_1: CYCLE_ACTIVITY:CYCLES_L2_PENDING 13168338
+Main_Thread_Event_2: CYCLE_ACTIVITY:CYCLES_L1D_PENDING 46775740
+Main_Thread_Event_3: CYCLE_ACTIVITY:STALLS_L2_PENDING 735282
+Total_Event_0: CYCLE_ACTIVITY:CYCLES_NO_EXECUTE 18586499
+Total_Event_1: CYCLE_ACTIVITY:CYCLES_L2_PENDING 13168338
+Total_Event_2: CYCLE_ACTIVITY:CYCLES_L1D_PENDING 46775740
+Total_Event_3: CYCLE_ACTIVITY:STALLS_L2_PENDING 735282
+
+real	0m0.558s
+user	0m0.532s
+sys	0m0.020s
+[PARSEC] [----------    End of output    ----------]
+[PARSEC]
+[PARSEC] BIBLIOGRAPHY
+[PARSEC]
+[PARSEC] [1] Cebrian. Optimized Hardware for Suboptimal Software: The Case for SIMD-aware Benchmarks. Proceedings of 2014 IEEE International Symposium on Performance Analysis of Systems and Software, 2014.
+[PARSEC]
+[PARSEC] Done.

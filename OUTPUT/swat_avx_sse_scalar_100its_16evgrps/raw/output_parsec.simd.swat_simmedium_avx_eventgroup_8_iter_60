@@ -1,0 +1,42 @@
+[PARSEC] Benchmarks to run:  parsec.simd.swat
+
+[PARSEC] [========== Running benchmark parsec.simd.swat [1] ==========]
+[PARSEC] Deleting old run directory.
+[PARSEC] Setting up run directory.
+[PARSEC] No archive for input 'simmedium' available, skipping input setup.
+[PARSEC] Running 'time /home/shomed/c/chrisdef/parvec-git/bin/../pkgs/apps_simd/swat/inst/amd64-linux.gcc-avx2-hooks/bin/opal_aligner -s /home/shomed/c/chrisdef/parvec-git/bin/../pkgs/apps_simd/swat/inputs/Q3ZAI3.fasta /home/shomed/c/chrisdef/parvec-git/bin/../pkgs/apps_simd/swat/inputs/uniprot_sprot12071.fasta':
+[PARSEC] [---------- Beginning of output ----------]
+[HOOKS] PARSEC Hooks Version 1.2
+Using SW alignment mode.
+Reading query fasta file...
+Read query sequence, 390 residues.
+
+Reading database fasta file...
+Read 12071 database sequences, 4886913 residues total.
+Whole database read: 12071 database sequences, 4886913 residues in total.
+
+Comparing query to database...
+[HOOKS] Entering ROI
+[HOOKS] Leaving ROI
+
+Finished!
+
+Cpu time of searching: 0.50
+GCUPS (giga cell updates per second): 3.80
+[HOOKS] Total time spent in ROI: 0.502s
+[HOOKS] Terminating
+Main_Thread_Event_0: perf::PERF_COUNT_HW_CACHE_DTLB:WRITE:ACCESS 407120438
+Main_Thread_Event_1: perf::PERF_COUNT_HW_CACHE_DTLB:WRITE:MISS 269
+Total_Event_0: perf::PERF_COUNT_HW_CACHE_DTLB:WRITE:ACCESS 407120438
+Total_Event_1: perf::PERF_COUNT_HW_CACHE_DTLB:WRITE:MISS 269
+
+real	0m0.576s
+user	0m0.552s
+sys	0m0.016s
+[PARSEC] [----------    End of output    ----------]
+[PARSEC]
+[PARSEC] BIBLIOGRAPHY
+[PARSEC]
+[PARSEC] [1] Cebrian. Optimized Hardware for Suboptimal Software: The Case for SIMD-aware Benchmarks. Proceedings of 2014 IEEE International Symposium on Performance Analysis of Systems and Software, 2014.
+[PARSEC]
+[PARSEC] Done.
