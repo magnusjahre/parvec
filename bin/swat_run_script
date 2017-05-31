@@ -4,7 +4,7 @@
 input="simmedium"
 
 # Run Scalar
-bash parsecmgmt -a run -p parsec.simd.swat -c gcc-hooks -i test
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-hooks -i ${input}
 
 # Run SSE
 bash parsecmgmt -a run -p parsec.simd.swat -c gcc-sse-hooks -i ${input}

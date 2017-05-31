@@ -1,4 +1,4 @@
-#!/bin/bash
+﻿#!/bin/bash
 #
 # simmedium.runconf - file containing information necessary to run a specific
 #                     program of the PARSEC benchmark suite
