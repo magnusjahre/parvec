@@ -16,5 +16,5 @@
 run_exec="bin/nqueens"
 
 # Arguments to use
-run_args="10 15"
+run_args="13 15"
 

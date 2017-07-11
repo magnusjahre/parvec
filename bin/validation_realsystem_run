@@ -62,8 +62,8 @@ C_SHIELD="2-3"
 RUN_COUNT=100
 # Benchmarks (names as required by the parsecmgmt script)
 BENCHMARKS="parsec.simd.nqueens"
-#INPUTS="simsmall simlarge"
-INPUTS="simlarge"
+INPUTS="simsmall simmedium simlarge"
+#INPUTS="simsmall"
 
 ROOTF=`pwd`
 DATE=`date +%Y-%m-%d:%H:%M:%S`
