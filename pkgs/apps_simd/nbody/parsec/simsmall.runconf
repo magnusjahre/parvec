@@ -16,5 +16,5 @@
 run_exec="bin/gccnbody"
 
 # Arguments to use
-#run_args="${NTHREADS} in_4K.txt prices.txt"
+run_args="250"
 

@@ -36,7 +36,7 @@ typedef float real_t;
 /*	RUNTIME PARAMETERS	*/
 /*				   		*/
 /************************/
-#define NBODIES 500
+#define NBODIES atoi(argv[1])
 #define NTIMESTEPS 2000
 
 /************************/
@@ -106,8 +106,13 @@ double GetWallTime(void);
 
 
 
-int main(void)
+int main(int argc, char **argv)
 {
+	
+	//const int n = &argv[1];
+
+	
+	
 	// When the benchmark begins (main), use the same string "__parsec_streamcluster", it's just ignored
 #ifdef ENABLE_PARSEC_HOOKS
 	 __parsec_bench_begin(__parsec_streamcluster);
@@ -128,13 +133,13 @@ int main(void)
 	}
 */
 	RunSimulation(NTIMESTEPS, NBODIES);
-	printf("Complete!\n[EXECUTABLE] Method: ");
+	printf("Complete!\n[EXECUTABLE] Method: %d bodies, ", NBODIES);
 #if defined (SCALAR)
-	printf("SCALAR ");
+	printf("SCALAR config ");
 #elif defined (PARSEC_USE_AVX)
-	printf("PARVEC WRAPPER with AVX ");
+	printf("PARVEC WRAPPER with AVX config");
 #elif defined (PARSEC_USE_SSE)
-	printf("PARVEC WRAPPER with SSE ");
+	printf("PARVEC WRAPPER with SSE config");
 #else
 	printf("UNDEFINED\n");
 #endif
