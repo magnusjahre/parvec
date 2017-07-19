@@ -1,13 +1,16 @@
 #!/bin/bash
 
-#input="simlarge simmedium"
-input="simmedium"
-
 # Run Scalar
-bash parsecmgmt -a run -p parsec.simd.swat -c gcc-hooks -i ${input}
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-hooks -i simsmall
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-hooks -i simmedium
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-hooks -i simlarge
 
 # Run SSE
-bash parsecmgmt -a run -p parsec.simd.swat -c gcc-sse-hooks -i ${input}
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-sse-hooks -i simsmall
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-sse-hooks -i simmedium
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-sse-hooks -i simlarge
 
 # Run AVX
-bash parsecmgmt -a run -p parsec.simd.swat -c gcc-avx2-hooks -i ${input}
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-avx2-hooks -i simsmall
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-avx2-hooks -i simmedium
+bash parsecmgmt -a run -p parsec.simd.swat -c gcc-avx2-hooks -i simlarge

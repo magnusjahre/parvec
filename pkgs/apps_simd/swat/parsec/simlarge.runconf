@@ -19,5 +19,5 @@ inputdir="${PARSECDIR}/pkgs/apps_simd/swat/inputs"
 run_exec="bin/opal_aligner"
 
 # Arguments to use
-run_args="-s ${inputdir}/Q3ZAI3.fasta ${inputdir}/uniprot_sprot_full_sequence.fasta"
+run_args="-a SW -s ${inputdir}/query_swat_uniprot_sprot.fasta ${inputdir}/uniprot_sprot_10000.fasta"
 

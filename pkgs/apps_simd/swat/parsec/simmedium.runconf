@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 #
 # simmedium.runconf - file containing information necessary to run a specific
 #                     program of the PARSEC benchmark suite
@@ -15,9 +15,8 @@
 # Input directory
 inputdir="${PARSECDIR}/pkgs/apps_simd/swat/inputs"
 
-
 # Binary file to execute, relative to installation root
 run_exec="bin/opal_aligner"
 
 # Arguments to use
-run_args="-s ${inputdir}/Q3ZAI3.fasta ${inputdir}/uniprot_sprot12071.fasta"
+run_args="-a SW -s ${inputdir}/query_swat_uniprot_sprot.fasta ${inputdir}/uniprot_sprot_5000.fasta"
