@@ -1,0 +1,5 @@
+#!/bin/bash
+
+source ${PARSECDIR}/pkgs/tools/nasm/parsec/gcc-pthreads.bldconf
+
+

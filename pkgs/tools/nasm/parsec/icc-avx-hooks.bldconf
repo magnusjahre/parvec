@@ -1,0 +1,3 @@
+#!/bin/bash
+
+source ${PARSECDIR}/pkgs/tools/nasm/parsec/icc-hooks.bldconf
