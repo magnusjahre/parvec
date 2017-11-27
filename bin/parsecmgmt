@@ -923,8 +923,15 @@ function build_package {
   # Run Autoreconf for specific pkgs
   if [ "${pkg}" == "parsec.automake" ]
   then
-  	cd ${pkgsrcdir}
+  	cd ${pkgbuildsrcdir}
 	autoreconf -fi
+	cd -
+  fi
+
+  if [ "${pkg}" == "parsec.nasm" ]
+  then
+  	cd ${pkgbuildsrcdir}
+	./autogen.sh
 	cd -
   fi
 
