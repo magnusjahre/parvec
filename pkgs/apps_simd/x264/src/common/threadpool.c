@@ -25,6 +25,10 @@
 
 #include "common.h"
 
+#ifdef ENABLE_PARSEC_HOOKS
+#include <hooks.h>
+#endif
+
 typedef struct
 {
     void *(*func)(void *);
@@ -52,6 +56,10 @@ static void *x264_threadpool_thread( x264_threadpool_t *pool )
     if( pool->init_func )
         pool->init_func( pool->init_arg );
 
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_thread_begin();
+#endif
+
     while( !pool->exit )
     {
         x264_threadpool_job_t *job = NULL;
@@ -69,6 +77,12 @@ static void *x264_threadpool_thread( x264_threadpool_t *pool )
         job->ret = (void*)x264_stack_align( job->func, job->arg ); /* execute the function */
         x264_sync_frame_list_push( &pool->done, (void*)job );
     }
+
+
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_thread_end();
+#endif
+
     return NULL;
 }
 
