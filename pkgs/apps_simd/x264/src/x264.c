@@ -1825,9 +1825,9 @@ static int encode_frame( x264_t *h, hnd_t hout, x264_picture_t *pic, int64_t *la
 
 static int64_t print_status( int64_t i_start, int64_t i_previous, int i_frame, int i_frame_total, int64_t i_file, x264_param_t *param, int64_t last_ts )
 {
-    char buf[200];
+//    char buf[200];
     int64_t i_time = x264_mdate();
-    if( i_previous && i_time - i_previous < UPDATE_INTERVAL )
+    /*  if( i_previous && i_time - i_previous < UPDATE_INTERVAL )
         return i_previous;
     int64_t i_elapsed = i_time - i_start;
     double fps = i_elapsed > 0 ? i_frame * 1000000. / i_elapsed : 0;
@@ -1848,6 +1848,7 @@ static int64_t print_status( int64_t i_start, int64_t i_previous, int i_frame, i
     fprintf( stderr, "%s  \r", buf+5 );
     x264_cli_set_console_title( buf );
     fflush( stderr ); // needed in windows
+    */
     return i_time;
 }
 
@@ -2051,6 +2052,7 @@ fail:
     cli_output.close_file( opt->hout, largest_pts, second_largest_pts );
     opt->hout = NULL;
 
+/*
     if( i_frame_output > 0 )
     {
         double fps = (double)i_frame_output * (double)1000000 /
@@ -2059,6 +2061,6 @@ fail:
         fprintf( stderr, "encoded %d frames, %.2f fps, %.2f kb/s\n", i_frame_output, fps,
                  (double) i_file * 8 / ( 1000 * duration ) );
     }
-
+*/
     return retval;
 }
