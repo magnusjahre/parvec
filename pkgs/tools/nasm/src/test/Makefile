@@ -28,9 +28,6 @@ $(NASM):
 %.obj: %.asm $(NASM)
 	$(NASM) $(NASMOPT) -f obj -o $@ -l $*.lst $<
 
-%.od: %.obj ../misc/omfdump
-	../misc/omfdump $< > $@
-
 %.coff: %.asm $(NASM)
 	$(NASM) $(NASMOPT) -f coff -o $@ -l $*.lst $<
 
