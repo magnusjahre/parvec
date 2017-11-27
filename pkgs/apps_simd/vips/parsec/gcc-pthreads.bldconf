@@ -24,7 +24,7 @@ build_env="PATH=\"${PARSECDIR}/pkgs/tools/automake/inst/${PARSECPLAT}/bin:${PARS
 # If TRUE, then all sources will be copied to the build directory before we
 # start building the package. Required for older build systems which don't
 # support VPATH.
-build_inplace="FALSE"
+build_inplace="TRUE"
 
 # Arguments to pass to the configure script, if it exists
 vips_basic_conf="--disable-shared --without-fftw --without-orc --without-magick --without-lcms --without-OpenEXR --without-matio --without-pangoft2 --without-tiff --without-jpeg --without-zip --without-png --without-libexif --without-python --without-x"

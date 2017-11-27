@@ -17,7 +17,7 @@
 # Package dependencies
 case `arch` in
     i*86|x86_64)
-	build_deps="yasm"
+	build_deps="nasm"
     ;;
 
     *)
@@ -26,7 +26,7 @@ case `arch` in
 esac
 
 # Environment to use for configure script and Makefile
-build_env="PATH=\"${PARSECDIR}/pkgs/tools/yasm/inst/${PARSECPLAT}/bin:${PATH}\""
+build_env="PATH=\"${PARSECDIR}/pkgs/tools/nasm/inst/${PARSECPLAT}/bin:${PATH}\""
 
 # Whether the build system supports only in-place compilation.
 # If TRUE, then all sources will be copied to the build directory before we

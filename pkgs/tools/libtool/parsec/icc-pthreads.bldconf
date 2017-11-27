@@ -22,7 +22,7 @@ build_env="LIBS=\"\""
 # If TRUE, then all sources will be copied to the build directory before we
 # start building the package. Required for older build systems which don't
 # support VPATH.
-build_inplace="FALSE"
+build_inplace="TRUE"
 
 # Arguments to pass to the configure script, if it exists
 build_conf=""
