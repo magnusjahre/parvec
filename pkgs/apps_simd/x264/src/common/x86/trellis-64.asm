@@ -1,7 +1,7 @@
 ;*****************************************************************************
 ;* trellis-64.asm: x86_64 trellis quantization
 ;*****************************************************************************
-;* Copyright (C) 2012-2016 x264 project
+;* Copyright (C) 2012-2017 x264 project
 ;*
 ;* Authors: Loren Merritt <lorenm@u.washington.edu>
 ;*
@@ -53,14 +53,14 @@
 
 SECTION_RODATA
 
-pd_8: times 4 dd 8
 pd_m16: times 4 dd -16
-pd_0123: dd 0, 1, 2, 3
-pd_4567: dd 4, 5, 6, 7
 sq_1: dq 1, 0
 pq_128: times 2 dq 128
 pq_ffffffff: times 2 dq 0xffffffff
 
+cextern pd_8
+cextern pd_0123
+cextern pd_4567
 cextern cabac_entropy
 cextern cabac_transition
 cextern cabac_size_unary
@@ -600,8 +600,8 @@ TRELLIS trellis_cabac_chroma_422_dc, 8, 1, 0
 INIT_XMM
 %macro clocal 1
     ALIGN 16
-    global mangle(x264_%1)
-    mangle(x264_%1):
+    global mangle(private_prefix %+ _%1)
+    mangle(private_prefix %+ _%1):
     %1:
     %assign stack_offset stack_offset_bak+gprsize
 %endmacro

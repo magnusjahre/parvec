@@ -1,7 +1,7 @@
 /*****************************************************************************
  * input.c: common input functions
  *****************************************************************************
- * Copyright (C) 2010-2016 x264 project
+ * Copyright (C) 2010-2017 x264 project
  *
  * Authors: Steven Walters <kemuri9@gmail.com>
  *          Henrik Gramner <henrik@gramner.com>
@@ -28,7 +28,6 @@
 
 #ifdef _WIN32
 #include <io.h>
-#include <windows.h>
 #elif HAVE_MMAP
 #include <sys/mman.h>
 #include <unistd.h>
@@ -44,6 +43,8 @@ const x264_cli_csp_t x264_cli_csps[] = {
     [X264_CSP_NV12] = { "nv12", 2, { 1,  1 },     { 1, .5 },     2, 2 },
     [X264_CSP_NV21] = { "nv21", 2, { 1,  1 },     { 1, .5 },     2, 2 },
     [X264_CSP_NV16] = { "nv16", 2, { 1,  1 },     { 1,  1 },     2, 1 },
+    [X264_CSP_YUYV] = { "yuyv", 1, { 2 },         { 1 },         2, 1 },
+    [X264_CSP_UYVY] = { "uyvy", 1, { 2 },         { 1 },         2, 1 },
     [X264_CSP_BGR]  = { "bgr",  1, { 3 },         { 1 },         1, 1 },
     [X264_CSP_BGRA] = { "bgra", 1, { 4 },         { 1 },         1, 1 },
     [X264_CSP_RGB]  = { "rgb",  1, { 3 },         { 1 },         1, 1 },
@@ -154,6 +155,8 @@ int x264_cli_mmap_init( cli_mmap_t *h, FILE *fh )
         SYSTEM_INFO si;
         GetSystemInfo( &si );
         h->align_mask = si.dwAllocationGranularity - 1;
+        h->prefetch_virtual_memory = (void*)GetProcAddress( GetModuleHandleW( L"kernel32.dll" ), "PrefetchVirtualMemory" );
+        h->process_handle = GetCurrentProcess();
         h->map_handle = CreateFileMappingW( osfhandle, NULL, PAGE_READONLY, 0, 0, NULL );
         return !h->map_handle;
     }
@@ -173,9 +176,16 @@ void *x264_cli_mmap( cli_mmap_t *h, int64_t offset, size_t size )
     size   += align;
 #ifdef _WIN32
     uint8_t *base = MapViewOfFile( h->map_handle, FILE_MAP_READ, offset >> 32, offset, size );
-    /* TODO: Would PrefetchVirtualMemory() (only available on Win8+) be beneficial? */
     if( base )
+    {
+        /* PrefetchVirtualMemory() is only available on Windows 8 and newer. */
+        if( h->prefetch_virtual_memory )
+        {
+            struct { void *addr; size_t size; } mem_range = { base, size };
+            h->prefetch_virtual_memory( h->process_handle, 1, &mem_range, 0 );
+        }
         return base + align;
+    }
 #else
     uint8_t *base = mmap( NULL, size, PROT_READ, MAP_PRIVATE, h->fd, offset );
     if( base != MAP_FAILED )

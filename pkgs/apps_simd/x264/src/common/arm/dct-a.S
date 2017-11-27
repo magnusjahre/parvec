@@ -1,7 +1,7 @@
 /****************************************************************************
  * dct-a.S: arm transform and zigzag
  *****************************************************************************
- * Copyright (C) 2009-2016 x264 project
+ * Copyright (C) 2009-2017 x264 project
  *
  * Authors: David Conrad <lessen42@gmail.com>
  *          Martin Storsjo <martin@martin.st>
@@ -26,14 +26,12 @@
 
 #include "asm.S"
 
-.section .rodata
-.align 4
-
-scan4x4_frame:
+const scan4x4_frame, align=4
 .byte    0,1,   8,9,   2,3,   4,5
 .byte    2,3,   8,9,  16,17, 10,11
 .byte   12,13,  6,7,  14,15, 20,21
 .byte   10,11, 12,13,  6,7,  14,15
+endconst
 
 .text
 

@@ -35,6 +35,7 @@ Configuration options:
 
 Advanced options:
   --disable-asm            disable platform-specific assembly optimizations
+  --enable-lto             enable link-time optimization
   --enable-debug           add -g
   --enable-gprof           add -pg
   --enable-strip           add -s
@@ -304,7 +305,8 @@ configure_system_override() {
     return $res
 }
 
-rm -f x264_config.h config.h config.mak config.log x264.pc x264.def conftest*
+rm -f x264_config.h config.h config.mak config.log x264.pc x264.def
+rm -rf conftest*
 
 # Construct a path to the specified directory relative to the working directory
 relative_path() {
@@ -346,6 +348,7 @@ thread="auto"
 swscale="auto"
 asm="auto"
 interlaced="yes"
+lto="no"
 debug="no"
 gprof="no"
 strip="no"
@@ -355,6 +358,7 @@ chroma_format="all"
 compiler="GNU"
 compiler_style="GNU"
 opencl="yes"
+vsx="auto"
 
 CFLAGS="$CFLAGS -Wall -I. -I\$(SRCPATH)"
 LDFLAGS="$LDFLAGS"
@@ -373,7 +377,7 @@ NL="
 # list of all preprocessor HAVE values we can define
 CONFIG_HAVE="MALLOC_H ALTIVEC ALTIVEC_H MMX ARMV6 ARMV6T2 NEON BEOSTHREAD POSIXTHREAD WIN32THREAD THREAD LOG2F SWSCALE \
              LAVF FFMS GPAC AVS GPL VECTOREXT INTERLACED CPU_COUNT OPENCL THP LSMASH X86_INLINE_ASM AS_FUNC INTEL_DISPATCHER \
-             MSA MMAP WINRT"
+             MSA MMAP WINRT VSX ARM_INLINE_ASM"
 
 # parse options
 
@@ -452,6 +456,9 @@ for opt do
         --disable-swscale)
             swscale="no"
             ;;
+        --enable-lto)
+            lto="auto"
+            ;;
         --enable-debug)
             debug="yes"
             ;;
@@ -468,6 +475,9 @@ for opt do
             ;;
         --host=*)
             host="$optarg"
+            ;;
+        --disable-vsx)
+            vsx="no"
             ;;
         --disable-opencl)
             opencl="no"
@@ -503,10 +513,21 @@ done
 [ "$cli" = "no" -a "$shared" = "no" -a "$static" = "no" ] && die "Nothing to build. Enable cli, shared or static."
 
 CC="${CC-${cross_prefix}gcc}"
-AR="${AR-${cross_prefix}ar}"
-RANLIB="${RANLIB-${cross_prefix}ranlib}"
 STRIP="${STRIP-${cross_prefix}strip}"
 INSTALL="${INSTALL-install}"
+PKGCONFIG="${PKGCONFIG-${cross_prefix}pkg-config}"
+
+# ar and ranlib doesn't load the LTO plugin by default, prefer the gcc-prefixed wrappers which does.
+if ${cross_prefix}gcc-ar --version >/dev/null 2>&1; then
+    AR="${AR-${cross_prefix}gcc-ar}"
+else
+    AR="${AR-${cross_prefix}ar}"
+fi
+if ${cross_prefix}gcc-ranlib --version >/dev/null 2>&1; then
+    RANLIB="${RANLIB-${cross_prefix}gcc-ranlib}"
+else
+    RANLIB="${RANLIB-${cross_prefix}ranlib}"
+fi
 
 if [ "x$host" = x ]; then
     host=`${SRCPATH}/config.guess`
@@ -520,7 +541,7 @@ host="${host#*-}"
 host_vendor="${host%%-*}"
 host_os="${host#*-}"
 
-trap 'rm -f conftest*' EXIT
+trap 'rm -rf conftest*' EXIT
 
 # test for use of compilers that require specific handling
 cc_base=`basename "$CC"`
@@ -533,9 +554,12 @@ if [[ $host_os = mingw* || $host_os = cygwin* ]]; then
         compiler_style=MS
         CFLAGS="$CFLAGS -Qstd=c99 -nologo -Qms0 -DHAVE_STRING_H -I\$(SRCPATH)/extras"
         QPRE="-Q"
-        `$CC 2>&1 | grep -q IA-32` && host_cpu=i486
-        `$CC 2>&1 | grep -q "Intel(R) 64"` && host_cpu=x86_64
-        cpp_check "" "" "_MSC_VER >= 1400" || die "Windows Intel Compiler support requires Visual Studio 2005 or newer"
+        cpp_check '' '' '_MSC_VER >= 1400' || die "Windows Intel Compiler support requires Visual Studio 2005 or newer"
+        if cpp_check '' '' 'defined(_M_AMD64) || defined(_M_X64)' ; then
+            host_cpu=x86_64
+        elif cpp_check '' '' 'defined(_M_IX86)' ; then
+            host_cpu=i486
+        fi
         if cc_check '' -Qdiag-error:10006,10157 ; then
             CHECK_CFLAGS="$CHECK_CFLAGS -Qdiag-error:10006,10157"
         fi
@@ -544,25 +568,28 @@ if [[ $host_os = mingw* || $host_os = cygwin* ]]; then
         compiler=CL
         compiler_style=MS
         CFLAGS="$CFLAGS -nologo -GS- -DHAVE_STRING_H -I\$(SRCPATH)/extras"
-        `$CC 2>&1 | grep -q 'x86'` && host_cpu=i486
-        `$CC 2>&1 | grep -q 'x64'` && host_cpu=x86_64
         cpp_check '' '' '_MSC_VER > 1800 || (_MSC_VER == 1800 && _MSC_FULL_VER >= 180030324)' || die "Microsoft Visual Studio support requires Visual Studio 2013 Update 2 or newer"
+        if cpp_check '' '' 'defined(_M_AMD64) || defined(_M_X64)' ; then
+            host_cpu=x86_64
+        elif cpp_check '' '' 'defined(_M_IX86)' ; then
+            host_cpu=i486
+        elif cpp_check '' '' 'defined(_M_ARM64)' ; then
+            host_cpu=aarch64
+        elif cpp_check '' '' 'defined(_M_ARM)' ; then
+            host_cpu=arm
+        fi
     else
         # MinGW uses broken pre-VS2015 Microsoft printf functions unless it's told to use the POSIX ones.
         CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=200112L"
     fi
 else
     if [[ "$cc_base" = icc || "$cc_base" = icc[\ .]* ]]; then
-	if [ ! -f ${CC_HOME}/bin/xiar ]; then
-            AR="xiar"
-	else
-	    AR="${CC_HOME}/bin/xiar"
-	fi
+        AR="xiar"
         compiler=ICC
     fi
 fi
 
-if [[ "$cc_base" = clang || "$cc_base" = clang[\ .]* ]]; then
+if [ $compiler = GNU ]; then
     if cc_check '' -Werror=unknown-warning-option ; then
         CHECK_CFLAGS="$CHECK_CFLAGS -Werror=unknown-warning-option"
     fi
@@ -616,8 +643,8 @@ case $host_os in
         else
             SYS="WINDOWS"
             DEVNULL="NUL"
-            LDFLAGSCLI="$LDFLAGSCLI -lshell32"
-            [ $compiler = GNU ] && RC="${RC-${cross_prefix}windres}" || RC="${RC-rc}"
+            cc_check '' -lshell32 && LDFLAGSCLI="$LDFLAGSCLI -lshell32"
+            [ $compiler = GNU ] && RC="${RC-${cross_prefix}windres}" || RC="${RC-rc.exe}"
         fi
         ;;
     sunos*|solaris*)
@@ -661,7 +688,7 @@ stack_alignment=4
 case $host_cpu in
     i*86)
         ARCH="X86"
-        AS="yasm"
+        AS="${AS-nasm}"
         AS_EXT=".asm"
         ASFLAGS="$ASFLAGS -DARCH_X86_64=0 -I\$(SRCPATH)/common/x86/"
         if [ $compiler = GNU ]; then
@@ -687,7 +714,7 @@ case $host_cpu in
         ;;
     x86_64)
         ARCH="X86_64"
-        AS="yasm"
+        AS="${AS-nasm}"
         AS_EXT=".asm"
         ASFLAGS="$ASFLAGS -DARCH_X86_64=1 -I\$(SRCPATH)/common/x86/"
         stack_alignment=16
@@ -725,6 +752,14 @@ case $host_cpu in
                 CFLAGS="$CFLAGS -maltivec -mabi=altivec"
                 define HAVE_ALTIVEC_H
             fi
+            if [ "$vsx" != "no" ] ; then
+                vsx="no"
+                if cc_check "" "-mvsx" ; then
+                    CFLAGS="$CFLAGS -mvsx"
+                    define HAVE_VSX
+                    vsx="yes"
+                fi
+            fi
         fi
         ;;
     sparc)
@@ -738,13 +773,15 @@ case $host_cpu in
     arm*)
         ARCH="ARM"
         if [ "$SYS" = MACOSX ] ; then
-            AS="${AS-${SRCPATH}/tools/gas-preprocessor.pl -arch arm -- ${CC}}"
+            AS="${AS-${CC}}"
             ASFLAGS="$ASFLAGS -DPREFIX -DPIC"  # apple's ld doesn't support movw/movt relocations at all
             # build for armv7 by default
             if ! echo $CFLAGS | grep -Eq '\-arch' ; then
                 CFLAGS="$CFLAGS -arch armv7"
                 LDFLAGS="$LDFLAGS -arch armv7"
             fi
+        elif [ "$SYS" = WINDOWS ] ; then
+            AS="${AS-${SRCPATH}/tools/gas-preprocessor.pl -arch arm -as-type armasm -force-thumb -- armasm -nologo -ignore 4509}"
         else
             AS="${AS-${CC}}"
         fi
@@ -752,11 +789,9 @@ case $host_cpu in
     aarch64)
         ARCH="AARCH64"
         stack_alignment=16
+        AS="${AS-${CC}}"
         if [ "$SYS" = MACOSX ] ; then
-            AS="${AS-${SRCPATH}/tools/gas-preprocessor.pl -arch aarch64 -- ${CC}}"
-            ASFLAGS="$ASFLAGS -DPREFIX"
-        else
-            AS="${AS-${CC}}"
+            ASFLAGS="$ASFLAGS -DPREFIX -DPIC"
         fi
         ;;
     s390|s390x)
@@ -775,6 +810,8 @@ case $host_cpu in
         ARCH="$(echo $host_cpu | tr a-z A-Z)"
         ;;
 esac
+
+[ "$vsx" != "yes" ] && vsx="no"
 
 if [ $SYS = WINDOWS ]; then
     if ! rc_check "0 RCDATA {0}" ; then
@@ -826,7 +863,10 @@ if [ $shared = yes -a \( $ARCH = "X86_64" -o $ARCH = "PPC" -o $ARCH = "ALPHA" -o
 fi
 
 if [ $compiler = GNU -a \( $ARCH = X86 -o $ARCH = X86_64 \) ] ; then
-    if cc_check '' -mpreferred-stack-boundary=5 ; then
+    if cc_check '' -mpreferred-stack-boundary=6 ; then
+        CFLAGS="$CFLAGS -mpreferred-stack-boundary=6"
+        stack_alignment=64
+    elif cc_check '' -mpreferred-stack-boundary=5 ; then
         CFLAGS="$CFLAGS -mpreferred-stack-boundary=5"
         stack_alignment=32
     elif [ $stack_alignment -lt 16 ] && cc_check '' -mpreferred-stack-boundary=4 ; then
@@ -849,23 +889,27 @@ elif [ $compiler = ICC -a $ARCH = X86 ]; then
 fi
 
 if [ $asm = auto -a \( $ARCH = X86 -o $ARCH = X86_64 \) ] ; then
-    if ! as_check "vpmovzxwd ymm0, xmm0" ; then
+    if ! as_check "vmovdqa32 [eax]{k1}{z}, zmm0" ; then
         VER=`($AS --version || echo no assembler) 2>/dev/null | head -n 1`
         echo "Found $VER"
-        echo "Minimum version is yasm-1.2.0"
+        echo "Minimum version is nasm-2.13"
         echo "If you really want to compile without asm, configure with --disable-asm."
         exit 1
     fi
     cc_check '' '' '__asm__("pabsw %xmm0, %xmm0");' && define HAVE_X86_INLINE_ASM
-    ASFLAGS="$ASFLAGS -Worphan-labels"
     define HAVE_MMX
 fi
 
 if [ $asm = auto -a $ARCH = ARM ] ; then
     # set flags so neon is built by default
-    echo $CFLAGS | grep -Eq '(-mcpu|-march|-mfpu)' || CFLAGS="$CFLAGS -mcpu=cortex-a8 -mfpu=neon"
+    [ $compiler == CL ] || echo $CFLAGS | grep -Eq '(-mcpu|-march|-mfpu)' || CFLAGS="$CFLAGS -mcpu=cortex-a8 -mfpu=neon"
 
-    if  cc_check '' '' '__asm__("rev ip, ip");' ; then      define HAVE_ARMV6
+    cc_check '' '' '__asm__("add r0, r1, r2");' && define HAVE_ARM_INLINE_ASM
+    if [ $compiler = CL ] && cpp_check '' '' 'defined(_M_ARM) && _M_ARM >= 7' ; then
+        define HAVE_ARMV6
+        define HAVE_ARMV6T2
+        define HAVE_NEON
+    elif cc_check '' '' '__asm__("rev ip, ip");' ; then     define HAVE_ARMV6
         cc_check '' '' '__asm__("movt r0, #0");'         && define HAVE_ARMV6T2
         cc_check '' '' '__asm__("vadd.i16 q0, q0, q0");' && define HAVE_NEON
         ASFLAGS="$ASFLAGS -c"
@@ -929,9 +973,9 @@ fi
 
 if [ "$cli_libx264" = "system" -a "$shared" != "yes" ] ; then
     [ "$static" = "yes" ] && die "Option --system-libx264 can not be used together with --enable-static"
-    if ${cross_prefix}pkg-config --exists x264 2>/dev/null; then
-        X264_LIBS="$(${cross_prefix}pkg-config --libs x264)"
-        X264_INCLUDE_DIR="${X264_INCLUDE_DIR-$(${cross_prefix}pkg-config --variable=includedir x264)}"
+    if $PKGCONFIG --exists x264 2>/dev/null; then
+        X264_LIBS="$($PKGCONFIG --libs x264)"
+        X264_INCLUDE_DIR="${X264_INCLUDE_DIR-$($PKGCONFIG --variable=includedir x264)}"
         configure_system_override "$X264_INCLUDE_DIR" || die "Detection of system libx264 configuration failed"
     else
         die "Can not find system libx264"
@@ -1015,9 +1059,9 @@ fi
 
 if [ "$swscale" = "auto" ] ; then
     swscale="no"
-    if ${cross_prefix}pkg-config --exists libswscale 2>/dev/null; then
-        SWSCALE_LIBS="$SWSCALE_LIBS $(${cross_prefix}pkg-config --libs libswscale libavutil)"
-        SWSCALE_CFLAGS="$SWSCALE_CFLAGS $(${cross_prefix}pkg-config --cflags libswscale libavutil)"
+    if $PKGCONFIG --exists libswscale 2>/dev/null; then
+        SWSCALE_LIBS="$SWSCALE_LIBS $($PKGCONFIG --libs libswscale libavutil)"
+        SWSCALE_CFLAGS="$SWSCALE_CFLAGS $($PKGCONFIG --cflags libswscale libavutil)"
     fi
     [ -z "$SWSCALE_LIBS" ] && SWSCALE_LIBS="-lswscale -lavutil"
 
@@ -1032,9 +1076,9 @@ fi
 
 if [ "$lavf" = "auto" ] ; then
     lavf="no"
-    if ${cross_prefix}pkg-config --exists libavformat libavcodec libswscale 2>/dev/null; then
-        LAVF_LIBS="$LAVF_LIBS $(${cross_prefix}pkg-config --libs libavformat libavcodec libavutil libswscale)"
-        LAVF_CFLAGS="$LAVF_CFLAGS $(${cross_prefix}pkg-config --cflags libavformat libavcodec libavutil libswscale)"
+    if $PKGCONFIG --exists libavformat libavcodec libswscale 2>/dev/null; then
+        LAVF_LIBS="$LAVF_LIBS $($PKGCONFIG --libs libavformat libavcodec libavutil libswscale)"
+        LAVF_CFLAGS="$LAVF_CFLAGS $($PKGCONFIG --cflags libavformat libavcodec libavutil libswscale)"
     fi
     if [ -z "$LAVF_LIBS" -a -z "$LAVF_CFLAGS" ]; then
         LAVF_LIBS="-lavformat"
@@ -1056,9 +1100,9 @@ if [ "$ffms" = "auto" ] ; then
     ffms_major="2"; ffms_minor="21"; ffms_micro="0"; ffms_bump="0"
     ffms="no"
 
-    if ${cross_prefix}pkg-config --exists ffms2 2>/dev/null; then
-        FFMS2_LIBS="$FFMS2_LIBS $(${cross_prefix}pkg-config --libs ffms2)"
-        FFMS2_CFLAGS="$FFMS2_CFLAGS $(${cross_prefix}pkg-config --cflags ffms2)"
+    if $PKGCONFIG --exists ffms2 2>/dev/null; then
+        FFMS2_LIBS="$FFMS2_LIBS $($PKGCONFIG --libs ffms2)"
+        FFMS2_CFLAGS="$FFMS2_CFLAGS $($PKGCONFIG --cflags ffms2)"
     fi
     [ -z "$FFMS2_LIBS" ] && FFMS2_LIBS="-lffms2"
 
@@ -1098,9 +1142,9 @@ fi
 
 if [ "$lsmash" = "auto" ] ; then
     lsmash="no"
-    if ${cross_prefix}pkg-config --exists liblsmash 2>/dev/null; then
-        LSMASH_LIBS="$LSMASH_LIBS $(${cross_prefix}pkg-config --libs liblsmash)"
-        LSMASH_CFLAGS="$LSMASH_CFLAGS $(${cross_prefix}pkg-config --cflags liblsmash)"
+    if $PKGCONFIG --exists liblsmash 2>/dev/null; then
+        LSMASH_LIBS="$LSMASH_LIBS $($PKGCONFIG --libs liblsmash)"
+        LSMASH_CFLAGS="$LSMASH_CFLAGS $($PKGCONFIG --cflags liblsmash)"
     fi
     [ -z "$LSMASH_LIBS" ] && LSMASH_LIBS="-llsmash"
 
@@ -1181,7 +1225,13 @@ if [ "$debug" = "yes" ]; then
     RCFLAGS="$RCFLAGS -DDEBUG"
 else
     CFLAGS="-O3 -ffast-math $CFLAGS"
+    if [ "$lto" = "auto" ] && [ $compiler = GNU ] && cc_check "" "-flto" ; then
+        lto="yes"
+        CFLAGS="$CFLAGS -flto"
+        LDFLAGS="$LDFLAGS -O3 -flto"
+    fi
 fi
+[ "$lto" = "auto" ] && lto="no"
 
 if cc_check '' -fno-tree-vectorize ; then
     CFLAGS="$CFLAGS -fno-tree-vectorize"
@@ -1283,13 +1333,13 @@ fi
 DEPMM="${QPRE}MM"
 DEPMT="${QPRE}MT"
 if [ $compiler_style = MS ]; then
-    AR="lib -nologo -out:"
-    LD="link -out:"
+    AR="lib.exe -nologo -out:"
+    LD="link.exe -out:"
     if [ $compiler = ICL ]; then
         AR="xi$AR"
         LD="xi$LD"
     else
-        mslink="$(dirname "$(command -v cl 2>/dev/null)")/link"
+        mslink="$(dirname "$(command -v cl.exe 2>/dev/null)")/link.exe"
         [ -x "$mslink" ] && LD="\"$mslink\" -out:"
     fi
     HAVE_GETOPT_LONG=0
@@ -1466,6 +1516,7 @@ gpl:           $gpl
 thread:        $thread
 opencl:        $opencl
 filters:       $filters
+lto:           $lto
 debug:         $debug
 gprof:         $gprof
 strip:         $strip
@@ -1479,7 +1530,8 @@ cat conftest.log >> config.log
 cat conftest.log
 
 [ "$SRCPATH" != "." ] && ln -sf ${SRCPATH}/Makefile ./Makefile
-mkdir -p common/{aarch64,arm,ppc,x86} encoder extras filters/video input output tools
+mkdir -p common/{aarch64,arm,mips,ppc,x86} encoder extras filters/video input output tools
 
 echo
 echo "You can run 'make' or 'make fprofiled' now."
+

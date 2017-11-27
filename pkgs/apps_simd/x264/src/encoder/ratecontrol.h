@@ -1,7 +1,7 @@
 /*****************************************************************************
  * ratecontrol.h: ratecontrol
  *****************************************************************************
- * Copyright (C) 2003-2016 x264 project
+ * Copyright (C) 2003-2017 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -49,6 +49,7 @@ void x264_adaptive_quant_frame( x264_t *h, x264_frame_t *frame, float *quant_off
 int  x264_macroblock_tree_read( x264_t *h, x264_frame_t *frame, float *quant_offsets );
 int  x264_reference_build_list_optimal( x264_t *h );
 void x264_thread_sync_ratecontrol( x264_t *cur, x264_t *prev, x264_t *next );
+void x264_ratecontrol_zone_init( x264_t * );
 void x264_ratecontrol_start( x264_t *, int i_force_qp, int overhead );
 int  x264_ratecontrol_slice_type( x264_t *, int i_frame );
 void x264_ratecontrol_set_weights( x264_t *h, x264_frame_t *frm );
@@ -57,10 +58,7 @@ int  x264_ratecontrol_qp( x264_t * );
 int  x264_ratecontrol_mb_qp( x264_t *h );
 int  x264_ratecontrol_end( x264_t *, int bits, int *filler );
 void x264_ratecontrol_summary( x264_t * );
-void x264_ratecontrol_set_estimated_size( x264_t *, int bits );
-int  x264_ratecontrol_get_estimated_size( x264_t const *);
 int  x264_rc_analyse_slice( x264_t *h );
-int x264_weighted_reference_duplicate( x264_t *h, int i_ref, const x264_weight_t *w );
 void x264_threads_distribute_ratecontrol( x264_t *h );
 void x264_threads_merge_ratecontrol( x264_t *h );
 void x264_hrd_fullness( x264_t *h );

@@ -1,7 +1,7 @@
 ;*****************************************************************************
 ;* x86util.asm: x86 utility macros
 ;*****************************************************************************
-;* Copyright (C) 2008-2016 x264 project
+;* Copyright (C) 2008-2017 x264 project
 ;*
 ;* Authors: Holger Lubitz <holger@lubitz.org>
 ;*          Loren Merritt <lorenm@u.washington.edu>
@@ -303,24 +303,24 @@
 %endmacro
 
 %macro HADDD 2 ; sum junk
-%if sizeof%1 == 32
-%define %2 xmm%2
-    vextracti128 %2, %1, 1
-%define %1 xmm%1
-    paddd   %1, %2
+%if sizeof%1 >= 64
+    vextracti32x8 ymm%2, zmm%1, 1
+    paddd         ymm%1, ymm%2
 %endif
-%if mmsize >= 16
-    MOVHL   %2, %1
-    paddd   %1, %2
+%if sizeof%1 >= 32
+    vextracti128  xmm%2, ymm%1, 1
+    paddd         xmm%1, xmm%2
+%endif
+%if sizeof%1 >= 16
+    MOVHL         xmm%2, xmm%1
+    paddd         xmm%1, xmm%2
 %endif
 %if cpuflag(xop) && sizeof%1 == 16
-    vphadddq %1, %1
+    vphadddq      xmm%1, xmm%1
 %else
-    PSHUFLW %2, %1, q0032
-    paddd   %1, %2
+    PSHUFLW       xmm%2, xmm%1, q1032
+    paddd         xmm%1, xmm%2
 %endif
-%undef %1
-%undef %2
 %endmacro
 
 %macro HADDW 2 ; reg, tmp
@@ -741,25 +741,25 @@
 %if %6 ; %5 aligned?
     mova       %1, %4
     psubw      %1, %5
+%elif cpuflag(avx)
+    movu       %1, %4
+    psubw      %1, %5
 %else
     movu       %1, %4
     movu       %2, %5
     psubw      %1, %2
 %endif
 %else ; !HIGH_BIT_DEPTH
-%ifidn %3, none
     movh       %1, %4
     movh       %2, %5
+%ifidn %3, none
     punpcklbw  %1, %2
     punpcklbw  %2, %2
-    psubw      %1, %2
 %else
-    movh       %1, %4
     punpcklbw  %1, %3
-    movh       %2, %5
     punpcklbw  %2, %3
-    psubw      %1, %2
 %endif
+    psubw      %1, %2
 %endif ; HIGH_BIT_DEPTH
 %endmacro
 

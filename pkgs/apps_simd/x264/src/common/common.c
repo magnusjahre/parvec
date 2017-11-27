@@ -1,7 +1,7 @@
 /*****************************************************************************
  * common.c: misc common functions
  *****************************************************************************
- * Copyright (C) 2003-2016 x264 project
+ * Copyright (C) 2003-2017 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -221,7 +221,6 @@ static int x264_param_apply_preset( x264_param_t *param, const char *preset )
     }
     else if( !strcasecmp( preset, "veryfast" ) )
     {
-        param->analyse.i_me_method = X264_ME_HEX;
         param->analyse.i_subpel_refine = 2;
         param->i_frame_reference = 1;
         param->analyse.b_mixed_references = 0;
@@ -250,11 +249,10 @@ static int x264_param_apply_preset( x264_param_t *param, const char *preset )
     }
     else if( !strcasecmp( preset, "slow" ) )
     {
-        param->analyse.i_me_method = X264_ME_UMH;
         param->analyse.i_subpel_refine = 8;
         param->i_frame_reference = 5;
-        param->i_bframe_adaptive = X264_B_ADAPT_TRELLIS;
         param->analyse.i_direct_mv_pred = X264_DIRECT_PRED_AUTO;
+        param->analyse.i_trellis = 2;
         param->rc.i_lookahead = 50;
     }
     else if( !strcasecmp( preset, "slower" ) )
@@ -612,7 +610,7 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
 
 #define OPT(STR) else if( !strcmp( name, STR ) )
 #define OPT2(STR0, STR1) else if( !strcmp( name, STR0 ) || !strcmp( name, STR1 ) )
-    if(0);
+    if( 0 );
     OPT("asm")
     {
         p->cpu = isdigit(value[0]) ? atoi(value) :
@@ -671,7 +669,7 @@ int x264_param_parse( x264_param_t *p, const char *name, const char *value )
     {
         if( !strcmp(value, "1b") )
             p->i_level_idc = 9;
-        else if( atof(value) < 6 )
+        else if( atof(value) < 7 )
             p->i_level_idc = (int)(10*atof(value)+.5);
         else
             p->i_level_idc = atoi(value);
@@ -1145,6 +1143,8 @@ int x264_picture_alloc( x264_picture_t *pic, int i_csp, int i_width, int i_heigh
         [X264_CSP_I422] = { 3, { 256*1, 256/2, 256/2 }, { 256*1, 256*1, 256*1 } },
         [X264_CSP_YV16] = { 3, { 256*1, 256/2, 256/2 }, { 256*1, 256*1, 256*1 } },
         [X264_CSP_NV16] = { 2, { 256*1, 256*1 },        { 256*1, 256*1 },       },
+        [X264_CSP_YUYV] = { 1, { 256*2 },               { 256*1 },              },
+        [X264_CSP_UYVY] = { 1, { 256*2 },               { 256*1 },              },
         [X264_CSP_I444] = { 3, { 256*1, 256*1, 256*1 }, { 256*1, 256*1, 256*1 } },
         [X264_CSP_YV24] = { 3, { 256*1, 256*1, 256*1 }, { 256*1, 256*1, 256*1 } },
         [X264_CSP_BGR]  = { 1, { 256*3 },               { 256*1 },              },

@@ -1,7 +1,7 @@
 /*****************************************************************************
  * ratecontrol.c: ratecontrol
  *****************************************************************************
- * Copyright (C) 2005-2016 x264 project
+ * Copyright (C) 2005-2017 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *          Michael Niedermayer <michaelni@gmx.at>
@@ -243,7 +243,7 @@ static ALWAYS_INLINE uint32_t ac_energy_plane( x264_t *h, int mb_x, int mb_y, x2
     stride <<= b_field;
     if( b_chroma )
     {
-        ALIGNED_ARRAY_16( pixel, pix,[FENC_STRIDE*16] );
+        ALIGNED_ARRAY_32( pixel, pix,[FENC_STRIDE*16] );
         int chromapix = h->luma2chroma_pixel[PIXEL_16x16];
         int shift = 7 - CHROMA_V_SHIFT;
 
@@ -420,7 +420,7 @@ static int x264_macroblock_tree_rescale_init( x264_t *h, x264_ratecontrol_t *rc 
     float dstdim[2] = {    h->param.i_width / 16.f,    h->param.i_height / 16.f};
     int srcdimi[2] = {ceil(srcdim[0]), ceil(srcdim[1])};
     int dstdimi[2] = {ceil(dstdim[0]), ceil(dstdim[1])};
-    if( PARAM_INTERLACED )
+    if( h->param.b_interlaced || h->param.b_fake_interlaced )
     {
         srcdimi[1] = (srcdimi[1]+1)&~1;
         dstdimi[1] = (dstdimi[1]+1)&~1;
@@ -786,7 +786,7 @@ int x264_ratecontrol_new( x264_t *h )
         x264_reduce_fraction64( &num, &denom );
         rc->hrd_multiply_denom = 90000 / num;
 
-        double bits_required = log2( 90000 / rc->hrd_multiply_denom )
+        double bits_required = log2( num )
                              + log2( h->sps->vui.i_time_scale )
                              + log2( h->sps->vui.hrd.i_cpb_size_unscaled );
         if( bits_required >= 63 )
@@ -1096,7 +1096,7 @@ int x264_ratecontrol_new( x264_t *h )
                                     &rce->weight[2][0], &rce->weight[2][1] );
                 if( count == 3 )
                     rce->i_weight_denom[1] = -1;
-                else if ( count != 8 )
+                else if( count != 8 )
                     rce->i_weight_denom[0] = rce->i_weight_denom[1] = -1;
             }
 
@@ -1409,6 +1409,15 @@ static void accum_p_qp_update( x264_t *h, float qp )
         rc->accum_p_qp += qp;
 }
 
+void x264_ratecontrol_zone_init( x264_t *h )
+{
+    x264_ratecontrol_t *rc = h->rc;
+    x264_zone_t *zone = get_zone( h, h->fenc->i_frame );
+    if( zone && (!rc->prev_zone || zone->param != rc->prev_zone->param) )
+        x264_encoder_reconfig_apply( h, zone->param );
+    rc->prev_zone = zone;
+}
+
 /* Before encoding a frame, choose a QP for it */
 void x264_ratecontrol_start( x264_t *h, int i_force_qp, int overhead )
 {
@@ -1418,10 +1427,6 @@ void x264_ratecontrol_start( x264_t *h, int i_force_qp, int overhead )
     float q;
 
     x264_emms();
-
-    if( zone && (!rc->prev_zone || zone->param != rc->prev_zone->param) )
-        x264_encoder_reconfig_apply( h, zone->param );
-    rc->prev_zone = zone;
 
     if( h->param.rc.b_stat_read )
     {
@@ -1464,7 +1469,7 @@ void x264_ratecontrol_start( x264_t *h, int i_force_qp, int overhead )
             if( h->i_frame == 0 )
             {
                 //384 * ( Max( PicSizeInMbs, fR * MaxMBPS ) + MaxMBPS * ( tr( 0 ) - tr,n( 0 ) ) ) / MinCR
-                double fr = 1. / 172;
+                double fr = 1. / (h->param.i_level_idc >= 60 ? 300 : 172);
                 int pic_size_in_mbs = h->mb.i_mb_width * h->mb.i_mb_height;
                 rc->frame_size_maximum = 384 * BIT_DEPTH * X264_MAX( pic_size_in_mbs, fr*l->mbps ) / mincr;
             }
@@ -2864,7 +2869,7 @@ static int vbv_pass2( x264_t *h, double all_available_bits )
             t0 = 0;
             /* fix overflows */
             adj_min = 1;
-            while(adj_min && find_underflow( h, fills, &t0, &t1, 1 ))
+            while( adj_min && find_underflow( h, fills, &t0, &t1, 1 ) )
             {
                 adj_min = fix_underflow( h, t0, t1, adjustment, qscale_min, qscale_max );
                 t0 = t1;

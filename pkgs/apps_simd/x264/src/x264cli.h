@@ -1,7 +1,7 @@
 /*****************************************************************************
  * x264cli.h: x264cli common
  *****************************************************************************
- * Copyright (C) 2003-2016 x264 project
+ * Copyright (C) 2003-2017 x264 project
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Loren Merritt <lorenm@u.washington.edu>
@@ -71,11 +71,14 @@ int x264_ansi_filename( const char *filename, char *ansi_filename, int size, int
 #endif
 
 #define RETURN_IF_ERR( cond, name, ret, ... )\
-if( cond )\
+do\
 {\
-    x264_cli_log( name, X264_LOG_ERROR, __VA_ARGS__ );\
-    return ret;\
-}
+    if( cond )\
+    {\
+        x264_cli_log( name, X264_LOG_ERROR, __VA_ARGS__ );\
+        return ret;\
+    }\
+} while( 0 )
 
 #define FAIL_IF_ERR( cond, name, ... ) RETURN_IF_ERR( cond, name, -1, __VA_ARGS__ )
 

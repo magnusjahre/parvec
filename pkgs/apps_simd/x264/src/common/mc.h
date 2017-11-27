@@ -1,7 +1,7 @@
 /*****************************************************************************
  * mc.h: motion compensation
  *****************************************************************************
- * Copyright (C) 2004-2016 x264 project
+ * Copyright (C) 2004-2017 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *
@@ -32,7 +32,7 @@ do\
 {\
     MC_CLIP_ADD((s)[0], (x)[0]);\
     MC_CLIP_ADD((s)[1], (x)[1]);\
-} while(0)
+} while( 0 )
 
 #define PROPAGATE_LIST(cpu)\
 void x264_mbtree_propagate_list_internal_##cpu( int16_t (*mvs)[2], int16_t *propagate_amount,\
@@ -98,6 +98,131 @@ static void x264_mbtree_propagate_list_##cpu( x264_t *h, uint16_t *ref_costs, in
             }\
         }\
     }\
+}
+
+void x264_plane_copy_c( pixel *, intptr_t, pixel *, intptr_t, int w, int h );
+
+#define PLANE_COPY(align, cpu)\
+static void x264_plane_copy_##cpu( pixel *dst, intptr_t i_dst, pixel *src, intptr_t i_src, int w, int h )\
+{\
+    int c_w = (align) / sizeof(pixel) - 1;\
+    if( w < 256 ) /* tiny resolutions don't want non-temporal hints. dunno the exact threshold. */\
+        x264_plane_copy_c( dst, i_dst, src, i_src, w, h );\
+    else if( !(w&c_w) )\
+        x264_plane_copy_core_##cpu( dst, i_dst, src, i_src, w, h );\
+    else\
+    {\
+        if( --h > 0 )\
+        {\
+            if( i_src > 0 )\
+            {\
+                x264_plane_copy_core_##cpu( dst, i_dst, src, i_src, (w+c_w)&~c_w, h );\
+                dst += i_dst * h;\
+                src += i_src * h;\
+            }\
+            else\
+                x264_plane_copy_core_##cpu( dst+i_dst, i_dst, src+i_src, i_src, (w+c_w)&~c_w, h );\
+        }\
+        /* use plain memcpy on the last line (in memory order) to avoid overreading src. */\
+        memcpy( dst, src, w*sizeof(pixel) );\
+    }\
+}
+
+void x264_plane_copy_swap_c( pixel *, intptr_t, pixel *, intptr_t, int w, int h );
+
+#define PLANE_COPY_SWAP(align, cpu)\
+static void x264_plane_copy_swap_##cpu( pixel *dst, intptr_t i_dst, pixel *src, intptr_t i_src, int w, int h )\
+{\
+    int c_w = (align>>1) / sizeof(pixel) - 1;\
+    if( !(w&c_w) )\
+        x264_plane_copy_swap_core_##cpu( dst, i_dst, src, i_src, w, h );\
+    else if( w > c_w )\
+    {\
+        if( --h > 0 )\
+        {\
+            if( i_src > 0 )\
+            {\
+                x264_plane_copy_swap_core_##cpu( dst, i_dst, src, i_src, (w+c_w)&~c_w, h );\
+                dst += i_dst * h;\
+                src += i_src * h;\
+            }\
+            else\
+                x264_plane_copy_swap_core_##cpu( dst+i_dst, i_dst, src+i_src, i_src, (w+c_w)&~c_w, h );\
+        }\
+        x264_plane_copy_swap_core_##cpu( dst, 0, src, 0, w&~c_w, 1 );\
+        for( int x = 2*(w&~c_w); x < 2*w; x += 2 )\
+        {\
+            dst[x]   = src[x+1];\
+            dst[x+1] = src[x];\
+        }\
+    }\
+    else\
+        x264_plane_copy_swap_c( dst, i_dst, src, i_src, w, h );\
+}
+
+void x264_plane_copy_deinterleave_c( pixel *dsta, intptr_t i_dsta, pixel *dstb, intptr_t i_dstb,
+                                     pixel *src, intptr_t i_src, int w, int h );
+
+/* We can utilize existing plane_copy_deinterleave() functions for YUYV/UYUV
+ * input with the additional constraint that we cannot overread src. */
+#define PLANE_COPY_YUYV(align, cpu)\
+static void x264_plane_copy_deinterleave_yuyv_##cpu( pixel *dsta, intptr_t i_dsta, pixel *dstb, intptr_t i_dstb,\
+                                                     pixel *src, intptr_t i_src, int w, int h )\
+{\
+    int c_w = (align>>1) / sizeof(pixel) - 1;\
+    if( !(w&c_w) )\
+        x264_plane_copy_deinterleave_##cpu( dsta, i_dsta, dstb, i_dstb, src, i_src, w, h );\
+    else if( w > c_w )\
+    {\
+        if( --h > 0 )\
+        {\
+            if( i_src > 0 )\
+            {\
+                x264_plane_copy_deinterleave_##cpu( dsta, i_dsta, dstb, i_dstb, src, i_src, w, h );\
+                dsta += i_dsta * h;\
+                dstb += i_dstb * h;\
+                src  += i_src  * h;\
+            }\
+            else\
+                x264_plane_copy_deinterleave_##cpu( dsta+i_dsta, i_dsta, dstb+i_dstb, i_dstb,\
+                                                    src+i_src, i_src, w, h );\
+        }\
+        x264_plane_copy_deinterleave_c( dsta, 0, dstb, 0, src, 0, w, 1 );\
+    }\
+    else\
+        x264_plane_copy_deinterleave_c( dsta, i_dsta, dstb, i_dstb, src, i_src, w, h );\
+}
+
+void x264_plane_copy_interleave_c( pixel *dst,  intptr_t i_dst,
+                                   pixel *srcu, intptr_t i_srcu,
+                                   pixel *srcv, intptr_t i_srcv, int w, int h );
+
+#define PLANE_INTERLEAVE(cpu) \
+static void x264_plane_copy_interleave_##cpu( pixel *dst,  intptr_t i_dst,\
+                                              pixel *srcu, intptr_t i_srcu,\
+                                              pixel *srcv, intptr_t i_srcv, int w, int h )\
+{\
+    int c_w = 16 / sizeof(pixel) - 1;\
+    if( !(w&c_w) )\
+        x264_plane_copy_interleave_core_##cpu( dst, i_dst, srcu, i_srcu, srcv, i_srcv, w, h );\
+    else if( w > c_w && (i_srcu ^ i_srcv) >= 0 ) /* only works correctly for strides with identical signs */\
+    {\
+        if( --h > 0 )\
+        {\
+            if( i_srcu > 0 )\
+            {\
+                x264_plane_copy_interleave_core_##cpu( dst, i_dst, srcu, i_srcu, srcv, i_srcv, (w+c_w)&~c_w, h );\
+                dst  += i_dst  * h;\
+                srcu += i_srcu * h;\
+                srcv += i_srcv * h;\
+            }\
+            else\
+                x264_plane_copy_interleave_core_##cpu( dst+i_dst, i_dst, srcu+i_srcu, i_srcu, srcv+i_srcv, i_srcv, (w+c_w)&~c_w, h );\
+        }\
+        x264_plane_copy_interleave_c( dst, 0, srcu, 0, srcv, 0, w, 1 );\
+    }\
+    else\
+        x264_plane_copy_interleave_c( dst, i_dst, srcu, i_srcu, srcv, i_srcv, w, h );\
 }
 
 struct x264_weight_t;
@@ -168,6 +293,8 @@ typedef struct
     /* may write up to 15 pixels off the end of each plane */
     void (*plane_copy_deinterleave)( pixel *dstu, intptr_t i_dstu, pixel *dstv, intptr_t i_dstv,
                                      pixel *src,  intptr_t i_src, int w, int h );
+    void (*plane_copy_deinterleave_yuyv)( pixel *dsta, intptr_t i_dsta, pixel *dstb, intptr_t i_dstb,
+                                          pixel *src,  intptr_t i_src, int w, int h );
     void (*plane_copy_deinterleave_rgb)( pixel *dsta, intptr_t i_dsta, pixel *dstb, intptr_t i_dstb,
                                          pixel *dstc, intptr_t i_dstc, pixel *src,  intptr_t i_src, int pw, int w, int h );
     void (*plane_copy_deinterleave_v210)( pixel *dsty, intptr_t i_dsty,

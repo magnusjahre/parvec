@@ -1,7 +1,7 @@
 /*****************************************************************************
  * predict-c.c: intra prediction
  *****************************************************************************
- * Copyright (C) 2003-2016 x264 project
+ * Copyright (C) 2003-2017 x264 project
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Loren Merritt <lorenm@u.washington.edu>
@@ -28,38 +28,6 @@
 #include "common/common.h"
 #include "predict.h"
 #include "pixel.h"
-
-#define PREDICT_16x16_DC(name)\
-void x264_predict_16x16_dc_##name( pixel *src )\
-{\
-    uint32_t dc = 16;\
-    for( int i = 0; i < 16; i += 2 )\
-    {\
-        dc += src[-1 + i * FDEC_STRIDE];\
-        dc += src[-1 + (i+1) * FDEC_STRIDE];\
-    }\
-    x264_predict_16x16_dc_core_##name( src, dc );\
-}
-
-PREDICT_16x16_DC( mmx2 )
-PREDICT_16x16_DC( sse2 )
-PREDICT_16x16_DC( avx2 )
-
-#define PREDICT_16x16_DC_LEFT(name)\
-static void x264_predict_16x16_dc_left_##name( pixel *src )\
-{\
-    uint32_t dc = 8;\
-    for( int i = 0; i < 16; i += 2 )\
-    {\
-        dc += src[-1 + i * FDEC_STRIDE];\
-        dc += src[-1 + (i+1) * FDEC_STRIDE];\
-    }\
-    x264_predict_16x16_dc_left_core_##name( src, dc>>4 );\
-}
-
-PREDICT_16x16_DC_LEFT( mmx2 )
-PREDICT_16x16_DC_LEFT( sse2 )
-PREDICT_16x16_DC_LEFT( avx2 )
 
 #define PREDICT_P_SUM(j,i)\
     H += i * ( src[j+i - FDEC_STRIDE ]  - src[j-i - FDEC_STRIDE ] );\
@@ -347,9 +315,6 @@ void x264_predict_16x16_init_mmx( int cpu, x264_predict_t pf[7] )
 {
     if( !(cpu&X264_CPU_MMX2) )
         return;
-    pf[I_PRED_16x16_DC]      = x264_predict_16x16_dc_mmx2;
-    pf[I_PRED_16x16_DC_TOP]  = x264_predict_16x16_dc_top_mmx2;
-    pf[I_PRED_16x16_DC_LEFT] = x264_predict_16x16_dc_left_mmx2;
     pf[I_PRED_16x16_V]       = x264_predict_16x16_v_mmx2;
     pf[I_PRED_16x16_H]       = x264_predict_16x16_h_mmx2;
 #if HIGH_BIT_DEPTH
@@ -546,8 +511,8 @@ void x264_predict_8x8_init_mmx( int cpu, x264_predict8x8_t pf[12], x264_predict_
     *predict_8x8_filter   = x264_predict_8x8_filter_ssse3;
     if( cpu&X264_CPU_CACHELINE_64 )
     {
-        pf[I_PRED_8x8_DDL]= x264_predict_8x8_ddl_ssse3_cache64;
-        pf[I_PRED_8x8_DDR]= x264_predict_8x8_ddr_ssse3_cache64;
+        pf[I_PRED_8x8_DDL]= x264_predict_8x8_ddl_cache64_ssse3;
+        pf[I_PRED_8x8_DDR]= x264_predict_8x8_ddr_cache64_ssse3;
     }
     if( !(cpu&X264_CPU_AVX) )
         return;
@@ -639,6 +604,6 @@ void x264_predict_4x4_init_mmx( int cpu, x264_predict_t pf[12] )
     pf[I_PRED_4x4_VR]  = x264_predict_4x4_vr_ssse3;
     pf[I_PRED_4x4_HD]  = x264_predict_4x4_hd_ssse3;
     if( cpu&X264_CPU_CACHELINE_64 )
-        pf[I_PRED_4x4_VR] = x264_predict_4x4_vr_ssse3_cache64;
+        pf[I_PRED_4x4_VR] = x264_predict_4x4_vr_cache64_ssse3;
 #endif // HIGH_BIT_DEPTH
 }

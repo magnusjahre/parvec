@@ -1,7 +1,7 @@
 /*****************************************************************************
  * predict.S: arm intra prediction
  *****************************************************************************
- * Copyright (C) 2009-2016 x264 project
+ * Copyright (C) 2009-2017 x264 project
  *
  * Authors: David Conrad <lessen42@gmail.com>
  *          Mans Rullgard <mans@mansr.com>
@@ -27,10 +27,9 @@
 
 #include "asm.S"
 
-.section .rodata
-.align 4
-
-p16weight: .short 1,2,3,4,5,6,7,8
+const p16weight, align=4
+.short 1,2,3,4,5,6,7,8
+endconst
 
 .text
 

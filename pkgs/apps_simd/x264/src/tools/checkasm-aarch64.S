@@ -1,7 +1,7 @@
 /****************************************************************************
  * checkasm-aarch64.S: assembly check tool
  *****************************************************************************
- * Copyright (C) 2015-2016 x264 project
+ * Copyright (C) 2015-2017 x264 project
  *
  * Authors: Martin Storsjo <martin@martin.st>
  *
@@ -25,9 +25,7 @@
 
 #include "../common/aarch64/asm.S"
 
-.section .rodata
-.align 4
-register_init:
+const register_init, align=4
 .quad 0x21f86d66c8ca00ce
 .quad 0x75b6ba21077c48ad
 .quad 0xed56bb2dcb3c7736
@@ -46,17 +44,32 @@ register_init:
 .quad 0xd229e1f5b281303f
 .quad 0x71aeaff20b095fd9
 .quad 0xab63e2e11fa38ed9
+endconst
 
 
-error_message:
+const error_message
 .asciz "failed to preserve register"
+endconst
 
 .text
 
 // max number of args used by any x264 asm function.
 #define MAX_ARGS 15
 
-#define ARG_STACK ((8*(MAX_ARGS - 6) + 15) & ~15)
+#define CLOBBER_STACK ((8*MAX_ARGS + 15) & ~15)
+
+function x264_checkasm_stack_clobber, export=1
+    mov         x3,  sp
+    mov         x2,  #CLOBBER_STACK
+1:
+    stp         x0,  x1,  [sp, #-16]!
+    subs        x2,  x2,  #16
+    b.gt        1b
+    mov         sp,  x3
+    ret
+endfunc
+
+#define ARG_STACK ((8*(MAX_ARGS - 8) + 15) & ~15)
 
 function x264_checkasm_call, export=1
     stp         x29, x30, [sp, #-16]!
@@ -86,21 +99,18 @@ function x264_checkasm_call, export=1
 
     sub         sp,  sp,  #ARG_STACK
 .equ pos, 0
-// first two stacked args are copied to x6, x7
-.rept MAX_ARGS-6
-    ldr         x9, [x29, #16 + 16 + pos]
+.rept MAX_ARGS-8
+    // Skip the first 8 args, that are loaded into registers
+    ldr         x9, [x29, #16 + 8*8 + pos]
     str         x9, [sp, #pos]
 .equ pos, pos + 8
 .endr
 
     mov         x12, x0
-    mov         x0,  x2
-    mov         x1,  x3
-    mov         x2,  x4
-    mov         x3,  x5
-    mov         x4,  x6
-    mov         x5,  x7
-    ldp         x6,  x7,  [x29, #16]
+    ldp         x0,  x1,  [x29, #16]
+    ldp         x2,  x3,  [x29, #32]
+    ldp         x4,  x5,  [x29, #48]
+    ldp         x6,  x7,  [x29, #64]
     blr         x12
     add         sp,  sp,  #ARG_STACK
     ldr         x2,  [sp]
@@ -139,7 +149,7 @@ function x264_checkasm_call, export=1
     mov         w9,  #0
     str         w9,  [x2]
     movrel      x0, error_message
-    bl          puts
+    bl          X(puts)
 0:
     ldp         x0,  x1,  [sp], #16
     ldp         d14, d15, [sp], #16

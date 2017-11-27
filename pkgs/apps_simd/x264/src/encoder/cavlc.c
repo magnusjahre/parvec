@@ -1,7 +1,7 @@
 /*****************************************************************************
  * cavlc.c: cavlc bitstream writing
  *****************************************************************************
- * Copyright (C) 2003-2016 x264 project
+ * Copyright (C) 2003-2017 x264 project
  *
  * Authors: Laurent Aimar <fenrir@via.ecp.fr>
  *          Loren Merritt <lorenm@u.washington.edu>
@@ -609,6 +609,8 @@ static int x264_partition_size_cavlc( x264_t *h, int i8, int i_pixel )
     int b_8x16 = h->mb.i_partition == D_8x16;
     int plane_count = CHROMA444 ? 3 : 1;
     int j;
+
+    h->out.bs.i_bits_encoded = 0;
 
     if( i_mb_type == P_8x8 )
     {

@@ -1,7 +1,7 @@
 /*****************************************************************************
  * quant.c: ppc quantization
  *****************************************************************************
- * Copyright (C) 2007-2016 x264 project
+ * Copyright (C) 2007-2017 x264 project
  *
  * Authors: Guillaume Poirier <gpoirier@mplayerhq.hu>
  *
@@ -71,7 +71,7 @@ int x264_quant_4x4_altivec( int16_t dct[16], uint16_t mf[16], uint16_t bias[16] 
     vec_u32_t multEvenvA, multOddvA;
     vec_u16_t mfvA;
     vec_u16_t biasvA;
-    vec_s16_t one = vec_splat_s16(1);;
+    vec_s16_t one = vec_splat_s16(1);
     vec_s16_t nz = zero_s16v;
 
     vector bool short mskB;
@@ -216,7 +216,7 @@ int x264_quant_8x8_altivec( int16_t dct[64], uint16_t mf[64], uint16_t bias[64] 
     vec_u32_t multEvenvA, multOddvA;
     vec_u16_t mfvA;
     vec_u16_t biasvA;
-    vec_s16_t one = vec_splat_s16(1);;
+    vec_s16_t one = vec_splat_s16(1);
     vec_s16_t nz = zero_s16v;
 
     vector bool short mskB;
