@@ -36,5 +36,5 @@ build_env="AS=${PARSECDIR}/pkgs/tools/nasm/inst/${PARSECPLAT}/bin/nasm PATH=\"${
 build_inplace="TRUE"
 
 # Arguments to pass to the configure script, if it exists
-build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable -Wno-error=tautological-compare ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
+build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable -Wno-error=tautological-compare -Wno-error=format-truncation ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
 #build_conf="--disable-opencl --disable-asm --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
