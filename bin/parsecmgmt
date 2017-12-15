@@ -921,16 +921,18 @@ function build_package {
   pushd ${pkgobjdir} > /dev/null
 
   # Run Autoreconf for specific pkgs
-  if [ "${pkg}" == "parsec.automake" ]
+  if [ "${pkg}" == "parsec.automake" ] || [ "${pkg}" == "parsec.simd.vips" ]
   then
-  	cd ${pkgbuildsrcdir}
+	cd ${pkgobjdir}
+    #export PKG_CONFIG_PATH=${PARSECDIR}/pkgs/libs/glib/inst/${PARSECPLAT}/lib/pkgconfig:${PARSECDIR}/pkgs/libs/libxml2/inst/${PARSECPLAT}/lib/pkgconfig:${PKG_CONFIG_PATH}
+	export ACLOCAL_PATH=${PARSECDIR}/pkgs/libs/glib/inst/${PARSECPLAT}/share/aclocal:${ACLOCAL_PATH}
 	autoreconf -fi
 	cd -
   fi
 
   if [ "${pkg}" == "parsec.nasm" ]
   then
-  	cd ${pkgbuildsrcdir}
+  	cd ${pkgobjdir}
 	./autogen.sh
 	cd -
   fi
