@@ -1,11 +1,11 @@
-This is automake.info, produced by makeinfo version 5.2 from
+This is automake.info, produced by makeinfo version 6.1 from
 automake.texi.
 
-This manual is for GNU Automake (version 1.15, 31 December 2014), a
+This manual is for GNU Automake (version 1.15.1, 17 June 2017), a
 program that creates GNU standards-compliant Makefiles from template
 files.
 
-   Copyright © 1995-2014 Free Software Foundation, Inc.
+   Copyright © 1995-2017 Free Software Foundation, Inc.
 
      Permission is granted to copy, distribute and/or modify this
      document under the terms of the GNU Free Documentation License,
@@ -31,11 +31,11 @@ File: automake.info,  Node: Top,  Next: Introduction,  Up: (dir)
 GNU Automake
 ************
 
-This manual is for GNU Automake (version 1.15, 31 December 2014), a
+This manual is for GNU Automake (version 1.15.1, 17 June 2017), a
 program that creates GNU standards-compliant Makefiles from template
 files.
 
-   Copyright © 1995-2014 Free Software Foundation, Inc.
+   Copyright © 1995-2017 Free Software Foundation, Inc.
 
      Permission is granted to copy, distribute and/or modify this
      document under the terms of the GNU Free Documentation License,
@@ -379,8 +379,8 @@ standards-compliant, and do not require ‘perl’ in order to be built.
 
    ---------- Footnotes ----------
 
-   (1) These variables are also called "make macros" in Make
-terminology, however in this manual we reserve the term "macro" for
+   (1) These variables are also called “make macros” in Make
+terminology, however in this manual we reserve the term “macro” for
 Autoconf’s macros.
 
 
@@ -392,7 +392,7 @@ File: automake.info,  Node: Autotools Introduction,  Next: Generalities,  Prev: 
 If you are new to Automake, maybe you know that it is part of a set of
 tools called _The Autotools_.  Maybe you’ve already delved into a
 package full of files named ‘configure’, ‘configure.ac’, ‘Makefile.in’,
-‘Makefile.am’, ‘aclocal.m4’, …, some of them claiming to be _generated
+‘Makefile.am’, ‘aclocal.m4’, ..., some of them claiming to be _generated
 by_ Autoconf or Automake.  But the exact purpose of these files and
 their relations is probably fuzzy.  The goal of this chapter is to
 introduce you to this machinery, to show you how it works and how
@@ -451,7 +451,7 @@ by the installer.  In its simplest scenario, all the installer has to do
 is to unpack the package, run ‘./configure && make && make install’, and
 repeat with the next package to install.
 
-   We call this build system the "GNU Build System", since it was grown
+   We call this build system the “GNU Build System”, since it was grown
 out of the GNU project.  However it is used by a vast number of other
 packages: following any existing convention has its advantages.
 
@@ -513,21 +513,21 @@ The most common installation procedure looks as follows.
      ~ % tar zxf amhello-1.0.tar.gz
      ~ % cd amhello-1.0
      ~/amhello-1.0 % ./configure
-     …
+     ...
      config.status: creating Makefile
      config.status: creating src/Makefile
-     …
+     ...
      ~/amhello-1.0 % make
-     …
+     ...
      ~/amhello-1.0 % make check
-     …
+     ...
      ~/amhello-1.0 % su
      Password:
      /home/adl/amhello-1.0 # make install
-     …
+     ...
      /home/adl/amhello-1.0 # exit
      ~/amhello-1.0 % make installcheck
-     …
+     ...
 
    The user first unpacks the package.  Here, and in the following
 examples, we will use the non-portable ‘tar zxf’ command for simplicity.
@@ -589,7 +589,7 @@ File: automake.info,  Node: Standard Targets,  Next: Standard Directory Variable
 So far we have come across four ways to run ‘make’ in the GNU Build
 System: ‘make’, ‘make check’, ‘make install’, and ‘make installcheck’.
 The words ‘check’, ‘install’, and ‘installcheck’, passed as arguments to
-‘make’, are called "targets".  ‘make’ is a shorthand for ‘make all’,
+‘make’, are called “targets”.  ‘make’ is a shorthand for ‘make all’,
 ‘all’ being the default target in the GNU Build System.
 
    Here is a list of the most useful targets that the GNU Coding
@@ -632,14 +632,14 @@ Directory variable   Default value
   ‘exec_prefix’      ‘${prefix}’
     ‘bindir’         ‘${exec_prefix}/bin’
     ‘libdir’         ‘${exec_prefix}/lib’
-    …
+    ...
   ‘includedir’       ‘${prefix}/include’
   ‘datarootdir’      ‘${prefix}/share’
     ‘datadir’        ‘${datarootdir}’
     ‘mandir’         ‘${datarootdir}/man’
     ‘infodir’        ‘${datarootdir}/info’
     ‘docdir’         ‘${datarootdir}/doc/${PACKAGE}’
-  …
+  ...
 
    Each of these directories has a role which is often obvious from its
 name.  In a package, any installable file will be installed in one of
@@ -654,11 +654,11 @@ be installed into DOCDIR, which defaults to
 could proceed as follows:
 
      ~/amhello-1.0 % ./configure --prefix ~/usr
-     …
+     ...
      ~/amhello-1.0 % make
-     …
+     ...
      ~/amhello-1.0 % make install
-     …
+     ...
 
    This would install ‘~/usr/bin/hello’ and
 ‘~/usr/share/doc/amhello/README’.
@@ -687,7 +687,7 @@ variables used during the build.  Here are some:
      linker flags
 ‘CPPFLAGS’
      C/C++ preprocessor flags
-…
+...
 
    ‘configure’ usually does a good job at setting appropriate values for
 these variables, but there are cases where you may want to override
@@ -735,7 +735,7 @@ will execute the above ‘config.site’ and define these three variables.
 
      ~/amhello-1.0 % ./configure --prefix ~/usr
      configure: loading site script /home/adl/usr/share/config.site
-     …
+     ...
 
    *Note Setting Site Defaults: (autoconf)Site Defaults, for more
 information about this feature.
@@ -773,12 +773,12 @@ in a subdirectory called ‘build/’.
      ~ % cd amhello-1.0
      ~/amhello-1.0 % mkdir build && cd build
      ~/amhello-1.0/build % ../configure
-     …
+     ...
      ~/amhello-1.0/build % make
-     …
+     ...
 
    These setups, where source and build trees are different, are often
-called "parallel builds" or "VPATH builds".  The expression _parallel
+called “parallel builds” or “VPATH builds”.  The expression _parallel
 build_ is misleading: the word _parallel_ is a reference to the way the
 build tree shadows the source tree, it is not about some concurrency in
 the way build commands are run.  For this reason we refer to such setups
@@ -793,14 +793,14 @@ sources with multiple configurations.  For instance:
      ~ % cd amhello-1.0
      ~/amhello-1.0 % mkdir debug optim && cd debug
      ~/amhello-1.0/debug % ../configure CFLAGS='-g -O0'
-     …
+     ...
      ~/amhello-1.0/debug % make
-     …
+     ...
      ~/amhello-1.0/debug % cd ../optim
      ~/amhello-1.0/optim % ../configure CFLAGS='-O3 -fomit-frame-pointer'
-     …
+     ...
      ~/amhello-1.0/optim % make
-     …
+     ...
 
    With network file systems, a similar approach can be used to build
 the same sources on different machines.  For instance, suppose that the
@@ -896,10 +896,10 @@ File: automake.info,  Node: Cross-Compilation,  Next: Renaming,  Prev: Two-Part 
 2.2.8 Cross-Compilation
 -----------------------
 
-To "cross-compile" is to build on one platform a binary that will run on
+To “cross-compile” is to build on one platform a binary that will run on
 another platform.  When speaking of cross-compilation, it is important
-to distinguish between the "build platform" on which the compilation is
-performed, and the "host platform" on which the resulting executable is
+to distinguish between the “build platform” on which the compilation is
+performed, and the “host platform” on which the resulting executable is
 expected to run.  The following ‘configure’ options are used to specify
 each of them:
 
@@ -933,9 +933,9 @@ GNU/Linux PC.
      checking whether we are using the GNU C compiler... yes
      checking whether i586-mingw32msvc-gcc accepts -g... yes
      checking for i586-mingw32msvc-gcc option to accept ANSI C...
-     …
+     ...
      ~/amhello-1.0 % make
-     …
+     ...
      ~/amhello-1.0 % cd src; file hello.exe
      hello.exe: MS Windows PE 32-bit Intel 80386 console executable not relocatable
 
@@ -952,7 +952,7 @@ architecture.
 use ‘--target=TARGET’ to specify that we want to build GCC as a
 cross-compiler for TARGET.  Mixing ‘--build’ and ‘--target’, we can
 actually cross-compile a cross-compiler; such a three-way
-cross-compilation is known as a "Canadian cross".
+cross-compilation is known as a “Canadian cross”.
 
    *Note Specifying the System Type: (autoconf)Specifying Names, for
 more information about these ‘configure’ options.
@@ -983,11 +983,11 @@ distinguish it from your vendor’s ‘tar’.
 ‘/usr/local/bin/test-hello’, for instance.
 
      ~/amhello-1.0 % ./configure --program-prefix test-
-     …
+     ...
      ~/amhello-1.0 % make
-     …
+     ...
      ~/amhello-1.0 % sudo make install
-     …
+     ...
 
 
 File: automake.info,  Node: DESTDIR,  Next: Preparing Distributions,  Prev: Renaming,  Up: Use Cases
@@ -1015,11 +1015,11 @@ and finally copy them to their final location by some means.
 a snapshot of all the files to be installed.
 
      ~/amhello-1.0 % ./configure --prefix /usr
-     …
+     ...
      ~/amhello-1.0 % make
-     …
+     ...
      ~/amhello-1.0 % make DESTDIR=$HOME/inst install
-     …
+     ...
      ~/amhello-1.0 % cd ~/inst
      ~/inst % find . -type f -print > ../files.lst
      ~/inst % tar zcvf ~/amhello-1.0-i686.tar.gz `cat ../files.lst`
@@ -1106,9 +1106,9 @@ for the dependency mechanism it supports (several mechanisms can be
 used):
 
      ~/amhello-1.0 % ./configure --prefix /usr
-     …
+     ...
      checking dependency style of gcc... gcc3
-     …
+     ...
 
    Because dependencies are only computed as a side-effect of the
 compilation, no dependency information exists the first time a package
@@ -1327,12 +1327,12 @@ to run all the targets we wish (*note Standard Targets::).  For
 instance:
 
      ~/amhello % make
-     …
+     ...
      ~/amhello % src/hello
      Hello World!
      This is amhello 1.0.
      ~/amhello % make distcheck
-     …
+     ...
      =============================================
      amhello-1.0 archives ready for distribution:
      amhello-1.0.tar.gz
@@ -1419,13 +1419,13 @@ macros in ‘configure.ac’.  In our case, the ‘AC_INIT’ macro already
 defined a few of them.  Here is an excerpt of ‘config.h’ after
 ‘configure’ has run:
 
-     …
+     ...
      /* Define to the address where bug reports for this package should be sent. */
      #define PACKAGE_BUGREPORT "bug-automake@gnu.org"
 
      /* Define to the full name and version of this package. */
      #define PACKAGE_STRING "amhello 1.0"
-     …
+     ...
 
    As you probably noticed, ‘src/main.c’ includes ‘config.h’ so it can
 use ‘PACKAGE_STRING’.  In a real-world project, ‘config.h’ can grow
@@ -1471,7 +1471,7 @@ along without interpretation.
 
    Variables that end with ‘_PROGRAMS’ are special variables that list
 programs that the resulting ‘Makefile’ should build.  In Automake speak,
-this ‘_PROGRAMS’ suffix is called a "primary"; Automake recognizes other
+this ‘_PROGRAMS’ suffix is called a “primary”; Automake recognizes other
 primaries such as ‘_SCRIPTS’, ‘_DATA’, ‘_LIBRARIES’, etc. corresponding
 to different types of files.
 
@@ -1626,7 +1626,7 @@ While Automake is intended to be used by maintainers of GNU packages, it
 does make some effort to accommodate those who wish to use it, but do
 not want to use all the GNU conventions.
 
-   To this end, Automake supports three levels of "strictness"—the
+   To this end, Automake supports three levels of “strictness”—the
 strictness indicating how stringently Automake should check standards
 conformance.
 
@@ -1647,8 +1647,8 @@ conformance.
      standards for packages.  This is the default.
 
 ‘gnits’
-     Automake will check for compliance to the as-yet-unwritten "Gnits
-     standards".  These are based on the GNU standards, but are even
+     Automake will check for compliance to the as-yet-unwritten “Gnits
+     standards”.  These are based on the GNU standards, but are even
      more detailed.  Unless you are a Gnits standards contributor, it is
      recommended that you avoid this option until such time as the Gnits
      standard is actually published (which may never happen).
@@ -1662,7 +1662,7 @@ File: automake.info,  Node: Uniform,  Next: Length Limitations,  Prev: Strictnes
 3.3 The Uniform Naming Scheme
 =============================
 
-Automake variables generally follow a "uniform naming scheme" that makes
+Automake variables generally follow a “uniform naming scheme” that makes
 it easy to decide how programs (and other derived objects) are built,
 and how they are installed.  This scheme also supports ‘configure’ time
 determination of what should be built.
@@ -1672,7 +1672,7 @@ are to be built.  The variable names are made of several pieces that are
 concatenated together.
 
    The piece that tells ‘automake’ what is being built is commonly
-called the "primary".  For instance, the primary ‘PROGRAMS’ holds a list
+called the “primary”.  For instance, the primary ‘PROGRAMS’ holds a list
 of programs that are to be compiled and linked.
 
    A different set of names is used to decide where the built objects
@@ -1786,13 +1786,13 @@ Automake, so your help may be needed.  Typically, you can split long
 file lists manually and use different installation directory names for
 each list.  For example,
 
-     data_DATA = file1 … fileN fileN+1 … file2N
+     data_DATA = file1 ... fileN fileN+1 ... file2N
 
 may also be written as
 
-     data_DATA = file1 … fileN
+     data_DATA = file1 ... fileN
      data2dir = $(datadir)
-     data2_DATA = fileN+1 … file2N
+     data2_DATA = fileN+1 ... file2N
 
 and will cause Automake to treat the two lists separately during ‘make
 install’.  See *note The Two Parts of Install:: for choosing directory
@@ -1996,7 +1996,7 @@ commands that ‘automake’ needs.  The way to do this is to add an
 
      AC_INIT([zardoz], [1.0])
      AM_INIT_AUTOMAKE
-     …
+     ...
 
    Since your program doesn’t have any complicating factors (e.g., it
 doesn’t use ‘gettext’, it doesn’t want to build a shared library),
@@ -2005,10 +2005,10 @@ you’re done with this part.  That was easy!
    Now you must regenerate ‘configure’.  But to do that, you’ll need to
 tell ‘autoconf’ how to find the new macro you’ve used.  The easiest way
 to do this is to use the ‘aclocal’ program to generate your ‘aclocal.m4’
-for you.  But wait… maybe you already have an ‘aclocal.m4’, because you
-had to write some hairy macros for your program.  The ‘aclocal’ program
-lets you put your own macros into ‘acinclude.m4’, so simply rename and
-then run:
+for you.  But wait... maybe you already have an ‘aclocal.m4’, because
+you had to write some hairy macros for your program.  The ‘aclocal’
+program lets you put your own macros into ‘acinclude.m4’, so simply
+rename and then run:
 
      mv aclocal.m4 acinclude.m4
      aclocal
@@ -2312,13 +2312,13 @@ run by ‘AM_INIT_AUTOMAKE’:
      These two macros are usually invoked as follows near the end of
      ‘configure.ac’.
 
-          …
+          ...
           AC_CONFIG_FILES([
             Makefile
             doc/Makefile
             src/Makefile
             src/lib/Makefile
-            …
+            ...
           ])
           AC_OUTPUT
 
@@ -2352,7 +2352,7 @@ run by ‘AM_INIT_AUTOMAKE’:
      the missing bits by hand.  For instance, on
 
           file=input
-          …
+          ...
           AC_CONFIG_FILES([output:$file],, [file=$file])
 
      ‘automake’ will output rules to clean ‘output’, and rebuild it.
@@ -2364,7 +2364,7 @@ run by ‘AM_INIT_AUTOMAKE’:
 
           file=output
           file2=out:in
-          …
+          ...
           AC_CONFIG_FILES([$file:input],, [file=$file])
           AC_CONFIG_FILES([$file2],, [file2=$file2])
 
@@ -2382,8 +2382,8 @@ run by ‘AM_INIT_AUTOMAKE’:
      instance, here is how the Automake package itself generates
      versioned scripts for its test suite:
 
-          AC_SUBST([APIVERSION], …)
-          …
+          AC_SUBST([APIVERSION], ...)
+          ...
           AC_CONFIG_FILES(
             [tests/aclocal-${APIVERSION}:tests/aclocal.in],
             [chmod +x tests/aclocal-${APIVERSION}],
@@ -3216,11 +3216,11 @@ rules.  Hopefully you won’t need to worry about things breaking, when
 If otherwise you used to call ‘aclocal’ directly yourself or from some
 script, you will quickly notice the change.
 
-   Many packages come with a script called ‘bootstrap.sh’ or
-‘autogen.sh’, that will just call ‘aclocal’, ‘libtoolize’, ‘gettextize’
-or ‘autopoint’, ‘autoconf’, ‘autoheader’, and ‘automake’ in the right
+   Many packages come with a script called ‘bootstrap’ or ‘autogen.sh’,
+that will just call ‘aclocal’, ‘libtoolize’, ‘gettextize’ or
+‘autopoint’, ‘autoconf’, ‘autoheader’, and ‘automake’ in the right
 order.  Actually this is precisely what ‘autoreconf’ can do for you.  If
-your package has such a ‘bootstrap.sh’ or ‘autogen.sh’ script, consider
+your package has such a ‘bootstrap’ or ‘autogen.sh’ script, consider
 using ‘autoreconf’.  That should simplify its logic a lot (less things
 to maintain, yum!), it’s even likely you will not need the script
 anymore, and more to the point you will not call ‘aclocal’ directly
@@ -3634,10 +3634,10 @@ File: automake.info,  Node: Subdirectories with AM_CONDITIONAL,  Next: Subdirect
 ‘configure’ should output the ‘Makefile’ for each directory and define a
 condition into which ‘opt/’ should be built.
 
-     …
+     ...
      AM_CONDITIONAL([COND_OPT], [test "$want_opt" = yes])
      AC_CONFIG_FILES([Makefile src/Makefile opt/Makefile])
-     …
+     ...
 
    Then ‘SUBDIRS’ can be defined in the top-level ‘Makefile.am’ as
 follows.
@@ -3667,7 +3667,7 @@ File: automake.info,  Node: Subdirectories with AC_SUBST,  Next: Unconfigured Su
 Another possibility is to define ‘MAYBE_OPT’ from ‘./configure’ using
 ‘AC_SUBST’:
 
-     …
+     ...
      if test "$want_opt" = yes; then
        MAYBE_OPT=opt
      else
@@ -3675,7 +3675,7 @@ Another possibility is to define ‘MAYBE_OPT’ from ‘./configure’ using
      fi
      AC_SUBST([MAYBE_OPT])
      AC_CONFIG_FILES([Makefile src/Makefile opt/Makefile])
-     …
+     ...
 
    In this case the top-level ‘Makefile.am’ should look as follows.
 
@@ -4025,10 +4025,10 @@ like (abridged):
      LDADD = ../lib/libcpio.a $(INTLLIBS)
      rmt_LDADD =
 
-     cpio_SOURCES = …
-     pax_SOURCES = …
-     mt_SOURCES = …
-     rmt_SOURCES = …
+     cpio_SOURCES = ...
+     pax_SOURCES = ...
+     mt_SOURCES = ...
+     rmt_SOURCES = ...
 
    ‘PROG_LDADD’ is inappropriate for passing program-specific linker
 flags (except for ‘-l’, ‘-L’, ‘-dlopen’ and ‘-dlpreopen’).  So, use the
@@ -4104,13 +4104,13 @@ appropriate ‘EXTRA_’ variable.  For instance, if ‘hello-linux.c’ or
 You can then setup the ‘$(HELLO_SYSTEM)’ substitution from
 ‘configure.ac’:
 
-     …
+     ...
      case $host in
        *linux*) HELLO_SYSTEM='hello-linux.$(OBJEXT)' ;;
        *)       HELLO_SYSTEM='hello-generic.$(OBJEXT)' ;;
      esac
      AC_SUBST([HELLO_SYSTEM])
-     …
+     ...
 
    In this case, the variable ‘HELLO_SYSTEM’ should be replaced by
 either ‘hello-linux.o’ or ‘hello-generic.o’, and added to both
@@ -4214,7 +4214,7 @@ For instance, to create a library named ‘libcpio.a’, but not install it,
 you would write:
 
      noinst_LIBRARIES = libcpio.a
-     libcpio_a_SOURCES = …
+     libcpio_a_SOURCES = ...
 
    The sources that go into a library are determined exactly as they are
 for programs, via the ‘_SOURCES’ variables.  Note that the library name
@@ -4253,10 +4253,10 @@ for this program.  In the following example, the program ‘cpio’ is
 statically linked with the library ‘libcpio.a’.
 
      noinst_LIBRARIES = libcpio.a
-     libcpio_a_SOURCES = …
+     libcpio_a_SOURCES = ...
 
      bin_PROGRAMS = cpio
-     cpio_SOURCES = cpio.c …
+     cpio_SOURCES = cpio.c ...
      cpio_LDADD = libcpio.a
 
 
@@ -4288,7 +4288,7 @@ File: automake.info,  Node: Libtool Concept,  Next: Libtool Libraries,  Up: A Sh
 -------------------------
 
 Libtool abstracts shared and static libraries into a unified concept
-henceforth called "libtool libraries".  Libtool libraries are files
+henceforth called “libtool libraries”.  Libtool libraries are files
 using the ‘.la’ suffix, and can designate a static library, a shared
 library, or maybe both.  Their exact nature cannot be determined until
 ‘./configure’ is run: not all platforms support all kinds of libraries,
@@ -4298,7 +4298,7 @@ and users can explicitly select which libraries should be built.
 
    Because object files for shared and static libraries must be compiled
 differently, libtool is also used during compilation.  Object files
-built by libtool are called "libtool objects": these are files using the
+built by libtool are called “libtool objects”: these are files using the
 ‘.lo’ suffix.  Libtool libraries are built from these libtool objects.
 
    You should not assume anything about the structure of ‘.la’ or ‘.lo’
@@ -4333,7 +4333,7 @@ build.  For instance, to create a libtool library named ‘libgettext.la’,
 and install it in ‘libdir’, write:
 
      lib_LTLIBRARIES = libgettext.la
-     libgettext_la_SOURCES = gettext.c gettext.h …
+     libgettext_la_SOURCES = gettext.c gettext.h ...
 
    Automake predefines the variable ‘pkglibdir’, so you can use
 ‘pkglib_LTLIBRARIES’ to install libraries in ‘$(libdir)/@PACKAGE@/’.
@@ -4345,8 +4345,8 @@ the latter should be internal headers that are not part of the public
 interface.
 
      lib_LTLIBRARIES = libgettext.la
-     libgettext_la_SOURCES = gettext.c …
-     include_HEADERS = gettext.h …
+     libgettext_la_SOURCES = gettext.c ...
+     include_HEADERS = gettext.h ...
 
    A package can build and install such a library along with other
 programs that use it.  This dependency should be specified using
@@ -4354,10 +4354,10 @@ programs that use it.  This dependency should be specified using
 linked with ‘libgettext.la’.
 
      lib_LTLIBRARIES = libgettext.la
-     libgettext_la_SOURCES = gettext.c …
+     libgettext_la_SOURCES = gettext.c ...
 
      bin_PROGRAMS = hello
-     hello_SOURCES = hello.c …
+     hello_SOURCES = hello.c ...
      hello_LDADD = libgettext.la
 
 Whether ‘hello’ is statically or dynamically linked with ‘libgettext.la’
@@ -4400,9 +4400,9 @@ argument must be explicitly supplied.
 
      EXTRA_LTLIBRARIES = libfoo.la libbar.la
      lib_LTLIBRARIES = $(WANTEDLIBS)
-     libfoo_la_SOURCES = foo.c …
+     libfoo_la_SOURCES = foo.c ...
      libfoo_la_LDFLAGS = -rpath '$(libdir)'
-     libbar_la_SOURCES = bar.c …
+     libbar_la_SOURCES = bar.c ...
      libbar_la_LDFLAGS = -rpath '$(libdir)'
 
    Here is how the same ‘Makefile.am’ would look using Automake
@@ -4417,8 +4417,8 @@ both libraries will end up in ‘$(libdir)’ if they are installed.
      if WANT_LIBBAR
      lib_LTLIBRARIES += libbar.la
      endif
-     libfoo_la_SOURCES = foo.c …
-     libbar_la_SOURCES = bar.c …
+     libfoo_la_SOURCES = foo.c ...
+     libbar_la_SOURCES = bar.c ...
 
 
 File: automake.info,  Node: Conditional Libtool Sources,  Next: Libtool Convenience Libraries,  Prev: Conditional Libtool Libraries,  Up: A Shared Library
@@ -4462,7 +4462,7 @@ File: automake.info,  Node: Libtool Convenience Libraries,  Next: Libtool Module
 -----------------------------------
 
 Sometimes you want to build libtool libraries that should not be
-installed.  These are called "libtool convenience libraries" and are
+installed.  These are called “libtool convenience libraries” and are
 typically used to encapsulate many sublibraries, later gathered into one
 big installed library.
 
@@ -4484,27 +4484,27 @@ compilation).
 subdirectories into one main ‘libtop.la’ library.
 
      # -- Top-level Makefile.am --
-     SUBDIRS = sub1 sub2 …
+     SUBDIRS = sub1 sub2 ...
      lib_LTLIBRARIES = libtop.la
      libtop_la_SOURCES =
      libtop_la_LIBADD = \
        sub1/libsub1.la \
        sub2/libsub2.la \
-       …
+       ...
 
      # -- sub1/Makefile.am --
      noinst_LTLIBRARIES = libsub1.la
-     libsub1_la_SOURCES = …
+     libsub1_la_SOURCES = ...
 
      # -- sub2/Makefile.am --
      # showing nested convenience libraries
-     SUBDIRS = sub2.1 sub2.2 …
+     SUBDIRS = sub2.1 sub2.2 ...
      noinst_LTLIBRARIES = libsub2.la
      libsub2_la_SOURCES =
      libsub2_la_LIBADD = \
        sub21/libsub21.la \
        sub22/libsub22.la \
-       …
+       ...
 
    When using such setup, beware that ‘automake’ will assume ‘libtop.la’
 is to be linked with the C linker.  This is because ‘libtop_la_SOURCES’
@@ -4518,7 +4518,7 @@ pretend that there is such a non-C file among the sources of the
 library, thus forcing ‘automake’ to select the appropriate linker.  Here
 is the top-level ‘Makefile’ of our example updated to force C++ linking.
 
-     SUBDIRS = sub1 sub2 …
+     SUBDIRS = sub1 sub2 ...
      lib_LTLIBRARIES = libtop.la
      libtop_la_SOURCES =
      # Dummy C++ source to cause C++ linking.
@@ -4526,7 +4526,7 @@ is the top-level ‘Makefile’ of our example updated to force C++ linking.
      libtop_la_LIBADD = \
        sub1/libsub1.la \
        sub2/libsub2.la \
-       …
+       ...
 
    ‘EXTRA_*_SOURCES’ variables are used to keep track of source files
 that might be compiled (this is mostly useful when doing conditional
@@ -4652,7 +4652,7 @@ none of Automake’s business.  Instead, that functionality has been moved
 into the ‘autoreconf’ command (*note Using ‘autoreconf’:
 (autoconf)autoreconf Invocation.).  If you do not want to remember what
 to run and when, just learn the ‘autoreconf’ command.  Hopefully,
-replacing existing ‘bootstrap.sh’ or ‘autogen.sh’ scripts by a call to
+replacing existing ‘bootstrap’ or ‘autogen.sh’ scripts by a call to
 ‘autoreconf’ should also free you from any similar incompatible change
 in the future.
 
@@ -4669,10 +4669,10 @@ library).
    Let’s consider the following ‘Makefile.am’.
 
      bin_PROGRAMS = prog
-     prog_SOURCES = prog.c foo.c …
+     prog_SOURCES = prog.c foo.c ...
 
      lib_LTLIBRARIES = libfoo.la
-     libfoo_la_SOURCES = foo.c …
+     libfoo_la_SOURCES = foo.c ...
 
 (In this trivial case the issue could be avoided by linking ‘libfoo.la’
 with ‘prog’ instead of listing ‘foo.c’ in ‘prog_SOURCES’.  But let’s
@@ -4692,11 +4692,11 @@ different basenames.  As explained in *note Renamed Objects::, this
 happens automatically when per-targets flags are used.
 
      bin_PROGRAMS = prog
-     prog_SOURCES = prog.c foo.c …
+     prog_SOURCES = prog.c foo.c ...
      prog_CFLAGS = $(AM_CFLAGS)
 
      lib_LTLIBRARIES = libfoo.la
-     libfoo_la_SOURCES = foo.c …
+     libfoo_la_SOURCES = foo.c ...
 
 Adding ‘prog_CFLAGS = $(AM_CFLAGS)’ is almost a no-op, because when the
 ‘prog_CFLAGS’ is defined, it is used instead of ‘AM_CFLAGS’.  However as
@@ -4889,8 +4889,8 @@ libraries differ.
      per-library) basis.  A single source file can be included in
      several programs, and it will potentially be compiled with
      different flags for each program.  This works for any language
-     directly supported by Automake.  These "per-target compilation
-     flags" are ‘_CCASFLAGS’, ‘_CFLAGS’, ‘_CPPFLAGS’, ‘_CXXFLAGS’,
+     directly supported by Automake.  These “per-target compilation
+     flags” are ‘_CCASFLAGS’, ‘_CFLAGS’, ‘_CPPFLAGS’, ‘_CXXFLAGS’,
      ‘_FFLAGS’, ‘_GCJFLAGS’, ‘_LFLAGS’, ‘_OBJCFLAGS’, ‘_OBJCXXFLAGS’,
      ‘_RFLAGS’, ‘_UPCFLAGS’, and ‘_YFLAGS’.
 
@@ -4907,7 +4907,7 @@ libraries differ.
      So for instance, if you want the hypothetical ‘maude’ compilations
      to also use the value of ‘AM_CFLAGS’, you would need to write:
 
-          maude_CFLAGS = … your flags … $(AM_CFLAGS)
+          maude_CFLAGS = ... your flags ... $(AM_CFLAGS)
 
      *Note Flag Variables Ordering::, for more discussion about the
      interaction between user variables, ‘AM_’ shadow variables, and
@@ -4923,7 +4923,7 @@ libraries differ.
           bin_PROGRAMS = maude
           maude_CPPFLAGS = -DSOMEFLAG
           maude_SHORTNAME = m
-          maude_SOURCES = sample.c …
+          maude_SOURCES = sample.c ...
 
      the object file would be named ‘m-sample.o’ rather than
      ‘maude-sample.o’.
@@ -5029,14 +5029,14 @@ setup.  First, ‘configure.ac’ contains some checks that affect either
 ‘LIBOBJS’ or ‘ALLOCA’.
 
      # configure.ac
-     …
+     ...
      AC_CONFIG_LIBOBJ_DIR([lib])
-     …
+     ...
      AC_FUNC_MALLOC             dnl May add malloc.$(OBJEXT) to LIBOBJS
      AC_FUNC_MEMCMP             dnl May add memcmp.$(OBJEXT) to LIBOBJS
      AC_REPLACE_FUNCS([strdup]) dnl May add strdup.$(OBJEXT) to LIBOBJS
      AC_FUNC_ALLOCA             dnl May add alloca.$(OBJEXT) to ALLOCA
-     …
+     ...
      AC_CONFIG_FILES([
        lib/Makefile
        src/Makefile
@@ -5079,9 +5079,9 @@ directory.
      # Link all programs in this directory with libcompat.a
      LDADD = ../lib/libcompat.a
 
-     bin_PROGRAMS = tool1 tool2 …
-     tool1_SOURCES = …
-     tool2_SOURCES = …
+     bin_PROGRAMS = tool1 tool2 ...
+     tool1_SOURCES = ...
+     tool2_SOURCES = ...
 
    When option ‘subdir-objects’ is not used, as in the above example,
 the variables ‘$(LIBOBJS)’ or ‘$(ALLOCA)’ can only be used in the
@@ -5096,9 +5096,9 @@ could be changed as follows.
      AUTOMAKE_OPTIONS = subdir-objects
      LDADD = $(LIBOBJS) $(ALLOCA)
 
-     bin_PROGRAMS = tool1 tool2 …
-     tool1_SOURCES = …
-     tool2_SOURCES = …
+     bin_PROGRAMS = tool1 tool2 ...
+     tool1_SOURCES = ...
+     tool2_SOURCES = ...
 
    Because ‘$(LIBOBJS)’ and ‘$(ALLOCA)’ contain object file names that
 end with ‘.$(OBJEXT)’, they are not suitable for Libtool libraries
@@ -5235,7 +5235,7 @@ listing the header file in ‘BUILT_SOURCES’ (*note Sources::) as follows.
      BUILT_SOURCES = parser.h
      AM_YFLAGS = -d
      bin_PROGRAMS = foo
-     foo_SOURCES = … parser.y …
+     foo_SOURCES = ... parser.y ...
 
    If a ‘lex’ source file is seen, then your ‘configure.ac’ must define
 the variable ‘LEX’.  You can use ‘AC_PROG_LEX’ to do this (*note
@@ -5655,7 +5655,7 @@ to choose the linker, and defaults to the C linker.  Sometimes this is
 inconvenient because you are linking against a library written in
 another language and would like to set the linker more appropriately.
 *Note Libtool Convenience Libraries::, for a trick with
-‘nodist_EXTRA_…_SOURCES’.
+‘nodist_EXTRA_..._SOURCES’.
 
    A per-target ‘_LINK’ variable will override the above selection.
 Per-target link flags will cause Automake to write a per-target ‘_LINK’
@@ -5965,7 +5965,7 @@ handled:
                  -e 's,[@]PERL[@],$(PERL),g' \
                  -e 's,[@]PACKAGE[@],$(PACKAGE),g' \
                  -e 's,[@]VERSION[@],$(VERSION),g' \
-                 …
+                 ...
 
      automake: automake.in Makefile
              $(do_subst) < $(srcdir)/automake.in > automake
@@ -6062,7 +6062,7 @@ basis.
 
    Here is how Automake declares its auxiliary data files:
 
-     dist_pkgdata_DATA = clean-kr.am clean.am …
+     dist_pkgdata_DATA = clean-kr.am clean.am ...
 
 
 File: automake.info,  Node: Sources,  Prev: Data,  Up: Other Objects
@@ -6422,7 +6422,7 @@ the distribution, you should use the ‘dist_’ prefix to distribute them.
 the ‘.class’ files resulting from their compilation.
 
      javadir = $(datadir)/java
-     dist_java_JAVA = a.java b.java …
+     dist_java_JAVA = a.java b.java ...
 
    Currently Automake enforces the restriction that only one ‘_JAVA’
 primary can be used in a given ‘Makefile.am’.  The reason for this

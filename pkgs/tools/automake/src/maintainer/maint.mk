@@ -1,6 +1,6 @@
 # Maintainer makefile rules for Automake.
 #
-# Copyright (C) 1995-2014 Free Software Foundation, Inc.
+# Copyright (C) 1995-2017 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -174,9 +174,8 @@ git-tag-release: maintainer-check
 	  ""|[nN]|[nN]o|NO) run="";; \
 	  *) run="echo Running:";; \
 	esac; \
-	$(determine_release_type); \
 	$(git_must_have_clean_workdir); \
-	$$run $(GIT) tag -s "v$(VERSION)" -m "$$release_type $(VERSION)"
+	$$run $(GIT) tag -s "v$(VERSION)" -m "$(PACKAGE) $(VERSION)"
 
 git-upload-release:
 	@# Check this is a version we can cut a release (either test
@@ -223,7 +222,7 @@ autodiffs:
 	       && cd tmp \
 	       && $(GIT) checkout -q "$$rev" \
 	       && echo "$@: bootstrapping $$rev" \
-	       && $(SHELL) ./bootstrap.sh \
+	       && $(SHELL) ./bootstrap \
 	       && echo "$@: copying files from $$rev" \
 	       && makefile_ins=`find . -name Makefile.in` \
 	       && (tar cf - configure aclocal.m4 $$makefile_ins) | \
@@ -331,22 +330,20 @@ CLEANFILES += announcement
 git-sv-host = git.savannah.gnu.org
 
 # Some repositories we sync files from.
-SV_CVS    = 'http://savannah.gnu.org/cgi-bin/viewcvs/~checkout~/'
-SV_GIT_CF = 'http://$(git-sv-host)/gitweb/?p=config.git;a=blob_plain;hb=HEAD;f='
-SV_GIT_AC = 'http://$(git-sv-host)/gitweb/?p=autoconf.git;a=blob_plain;hb=HEAD;f='
-SV_GIT_GL = 'http://$(git-sv-host)/gitweb/?p=gnulib.git;a=blob_plain;hb=HEAD;f='
+SV_GIT_CF = 'https://$(git-sv-host)/gitweb/?p=config.git;a=blob_plain;hb=HEAD;f='
+SV_GIT_GL = 'https://$(git-sv-host)/gitweb/?p=gnulib.git;a=blob_plain;hb=HEAD;f='
 
 # Files that we fetch and which we compare against.
 # Note that the 'lib/COPYING' file must still be synced by hand.
 FETCHFILES = \
   $(SV_GIT_CF)config.guess \
   $(SV_GIT_CF)config.sub \
-  $(SV_CVS)texinfo/texinfo/doc/texinfo.tex \
-  $(SV_CVS)texinfo/texinfo/util/gendocs.sh \
-  $(SV_CVS)texinfo/texinfo/util/gendocs_template \
+  $(SV_GIT_GL)build-aux/texinfo.tex \
+  $(SV_GIT_GL)build-aux/gendocs.sh \
   $(SV_GIT_GL)build-aux/gitlog-to-changelog \
   $(SV_GIT_GL)build-aux/gnupload \
   $(SV_GIT_GL)build-aux/update-copyright \
+  $(SV_GIT_GL)doc/gendocs_template \
   $(SV_GIT_GL)doc/INSTALL
 
 # Fetch the latest versions of few scripts and files we care about.
@@ -417,7 +414,7 @@ web-manual-update:
 	     exit 1;; \
 	esac
 	$(AM_V_at)test -f $(web_manual_dir)/$(PACKAGE).html || { \
-	  echo 'You have to run "$(MAKE) web-manuals" before' \
+	  echo 'You have to run "$(MAKE) web-manual" before' \
 	       'invoking "$(MAKE) $@"' >&2; \
 	  exit 1; \
 	}
@@ -489,7 +486,7 @@ update-copyright:
 	    || { echo "$@: cannot get current year" >&2; exit 1; }; \
 	fi; \
 	sed -i "/^RELEASE_YEAR=/s/=.*$$/=$$current_year/" \
-	  bootstrap.sh configure.ac; \
+	  bootstrap configure.ac; \
 	excluded_re=`( \
 	  for url in $(FETCHFILES); do echo "$$url"; done \
 	    | sed -e 's!^.*/!!' -e 's!^.*=!!' -e 's!^!lib/!' \

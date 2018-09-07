@@ -1,3 +1,259 @@
+2017-06-18  Mathieu Lirzin  <mthl@gnu.org>
+
+	version 1.15.1
+
+	* configure.ac (AC_INIT): Bump version number to 1.15.1.
+	* m4/amversion.m4: Likewise (auto-updated by "make bootstrap").
+
+2017-06-18  Mathieu Lirzin  <mthl@gnu.org>
+
+	maint: Update 'git-tag-release' rule
+
+	* maintainer/maint.mk (git-tag-release): Use a Git tag message similar
+	to what the 'do-release-commit-and-tag' script from Gnulib do.
+
+2017-06-18  Mathieu Lirzin  <mthl@gnu.org>
+
+	maint: Update files from upstream with 'make fetch'
+
+	* lib/config.guess: Update.
+	* lib/config.sub: Likewise.
+	* lib/texinfo.tex: Likewise.
+
+2017-06-18  Mathieu Lirzin  <mthl@gnu.org>
+
+	maint: Update NEWS
+
+	* NEWS: Announce important bug fixes.
+
+2017-05-20  Mathieu Lirzin  <mthl@gnu.org>
+
+	bootstrap: Add a rationale for the bootstrap process.
+
+	* bootstrap: Explain why we can't simply run 'autoreconf -i'.
+
+2017-05-20  Mathieu Lirzin  <mthl@gnu.org>
+
+	bootstrap: Rename 'bootstrap.sh' to 'bootstrap'.
+
+	Follow Gnulib's convention of using either "bootstrap" or "autogen.sh"
+	file names for development bootstrap scripts.
+
+	* bootstrap.sh: Rename to ...
+	* bootstrap: ... this.
+	* GNUmakefile (bootstrap): Adapt.
+	* HACKING: Likewise.
+	* Makefile.am (EXTRA_DIST): Likewise.
+	* doc/automake.texi (Future of aclocal)
+	(Error required file ltmain.sh not found): Likewise.
+	* maintainer/maint.mk (autodiffs, update-copyright): Likewise.
+
+2017-05-20  Mathieu Lirzin  <mthl@gnu.org>
+
+	automake: Update 'read_am_file' docstring.
+
+	* bin/automake.in (read_am_file): Update docstring which was referring
+	to a non existent '%contents' variable.
+
+2017-04-16  Bruno Haible  <bruno@clisp.org>
+
+	tests: Never invoke gettextize.
+
+	This change fixes automake bug#26514.
+
+	* t/gettext-macros.sh: Never invoke gettextize.
+
+2017-04-13  Mathieu Lirzin  <mthl@gnu.org>
+
+	tests: Update "t/txinfo-no-clutter.sh".
+
+	This is workaround to a regression introduced by
+	48107579abadbe857c8299c38d2ca0a3f8f354c8.  With current
+	"lib/texinfo.tex", 'texi2dvi' is not able to produce a valid output
+	for a Texinfo document containing a @synindex command.  As a
+	consequence the test "t/txinfo-no-clutter.sh" was failing.
+
+	* t/txinfo-no-clutter.sh: Remove use of @synindex command.
+
+2017-03-05  Mathieu Lirzin  <mthl@gnu.org>
+
+	maint: Update "lib/texinfo.tex".
+
+	This fixes a regression in 48107579abadbe857c8299c38d2ca0a3f8f354c8
+	where 'texi2dvi' was not able to produce a valid output for a Texinfo
+	document without text.  As a consequence the test "t/silent-texi.sh"
+	was failing.
+
+	* lib/texinfo.tex: Update to 2017-03-05.09.
+
+2017-03-02  Mathieu Lirzin  <mthl@gnu.org>
+
+	maint: Update copyright years to 2017.
+
+	This update has been made with 'make update-copyright'.
+
+2017-03-02  Mathieu Lirzin  <mthl@gnu.org>
+
+	maint: Update files from upstream with 'make fetch'.
+
+	* lib/INSTALL: Update.
+	* lib/config.guess: Likewise.
+	* lib/config.sub: Likewise.
+	* lib/gendocs.sh: Likewise.
+	* lib/gendocs_template: Likewise.
+	* lib/gitlog-to-changelog: Likewise.
+	* lib/gnupload: Likewise.
+	* lib/texinfo.tex: Likewise.
+	* lib/update-copyright: Likewise.
+
+2017-03-02  Mathieu Lirzin  <mthl@gnu.org>
+
+	maint: Update fetch URLs.
+
+	* maintainer/maint.mk (SV_CVS, SV_GIT_AC): Remove.
+	(SV_GIT_CF, SV_GIT_GL): Use https for Savannah Git repositories.
+	(FETCHFILES): Use Gnulib repository as the source of "texinfo.tex",
+	"gendocs.sh", and "gendocs_template" files.
+
+2017-02-23  Mathieu Lirzin  <mthl@gnu.org>
+
+	doc: fix typo "requited" => "required"
+
+	This change fixes automake bug#25413.
+
+	* doc/automake.texi (Serial Test Harness): Fix typo.
+
+2016-09-09  Jim Meyering  <meyering@fb.com>
+
+	automake: do not emit rule with two dependents
+
+	On a system using our replacement alloca, make would emit
+	this warning:
+	  target '.deps/alloca.Po' given more than once in the same rule
+	That arose because automake would emit a rule depending on both
+	./.deps/alloca.Po and .deps/alloca.Po. Normally, duplicate
+	dependents are avoided by virtue of their names being keys in
+	the %dep_files hash, but in this case, that particular file
+	was specified in two different ways.
+	* bin/automake.in (handle_ALLOCA): When the $dir prefix is empty,
+	make it './', to ensure that when we add ./.deps/alloca.Po
+	it is deduped.
+	See: http://bugs/gnu/org/22702
+
+2016-04-21  Paul Eggert  <eggert@cs.ucla.edu>
+
+	python: add python3.5, python3.4
+
+	* m4/python.m4 (AM_PATH_PYTHON): Add python3.5, python3.4.
+
+2016-04-01  Paul Eggert  <eggert@cs.ucla.edu>
+
+	automake: port to Perl 5.22 and later
+
+	Without this change, Perl 5.22 complains "Unescaped left brace in
+	regex is deprecated" and this is planned to become a hard error in
+	Perl 5.26.  See:
+	http://search.cpan.org/dist/perl-5.22.0/pod/perldelta.pod#A_literal_%22{%22_should_now_be_escaped_in_a_pattern
+	* bin/automake.in (substitute_ac_subst_variables): Escape left brace.
+
+2016-03-29  Paul Eggert  <eggert at>
+
+	automake: port better to future gzip
+
+	* lib/am/distdir.am (dist-gzip, dist-shar, distcheck):
+	Port better to future versions of gzip, which are planned to
+	deprecate the GZIP environment variable (Bug#20132).
+
+2016-01-12  Paul Eggert  <eggert@cs.ucla.edu>
+
+	maint: port time-stamp-time-zone to strict POSIX
+
+	Set time-stamp-time-zone to "UTC0", not to "UTC", as POSIX defines
+	TZ="UTC0" not TZ="UTC".
+
+2015-11-24  Jonathan L Peyton  <jonathan.l.peyton@intel.com>  (tiny change)
+
+	compile: add icl to compile wrapper script
+
+	* lib/compile: Have icl be treated similarly to cl
+	(scriptversion): Update.
+	* t/ax/am-test-lib.sh (require_tool): Handle icl.
+	* t/compile7.sh: Add new test file for icl...
+	* t/list-of-tests.mk (handwritten_TESTS): ...and use it.
+	* NEWS: Update.
+	* THANKS: Update.
+
+2015-01-06  Stefano Lattarini  <stefano.lattarini@gmail.com>
+
+	tests: fix a typo-induced bug
+
+	* t/subobj-vpath-pr13928.sh: Here; we were using $FGREP instead of
+	$EGREP, oops.
+
+2015-01-06  Stefano Lattarini  <stefano.lattarini@gmail.com>
+
+	NEWS: fix a typo
+
+2015-01-05  Stefano Lattarini  <stefano.lattarini@gmail.com>
+
+	maint: update copyright years to 2015 (branch 'micro')
+
+2015-01-05  Stefano Lattarini  <stefano.lattarini@gmail.com>
+
+	sync: update third-part files from upstream
+
+	* lib/config.sub: This.
+	* lib/INSTALL, lib/config.guess, lib/gitlog-to-changelog, lib/gnupload,
+	lib/update-copyright: And this (but only for copyright year update, no
+	real semantic change)
+
+2015-01-05  Stefano Lattarini  <stefano.lattarini@gmail.com>
+
+	maint: fix typo in error message of a maintainer-only rule
+
+	* maintainer/maint.mk (web-manual-update): Here.
+
+2015-01-05  Stefano Lattarini  <stefano.lattarini@gmail.com>
+
+	Merge branch 'minor' into micro after 1.15 release
+
+	And bump version number: 1.15 -> 1.15.0a
+
+	* minor:
+	  release: stable minor release 1.15
+	  NEWS: minor improvements and fixed some typos and grammaros
+	  docs: "make distcheck" implementation details are not to be abused
+	  NEWS: improve and adjust in light of the oncoming 1.15 release
+	  Fix dumb logic error preventing $install_sh from being be overridden
+	  Expose automake bug#19311
+	  build: fix race in parallel builds
+	  init: ensure $ac_aux_dir is defined before being used
+	  plans: enabling subdir-object by default is blocked on bug#13928
+	  maint: update copyright years
+	  maint: sync files from upstream ("make fetch")
+	  Typofixes in warning messages and manual
+	  NEWS: a typofix, and better word wrapping
+	  parallel-tests: avoid possible implicit "make all" in test-suite.log rule
+	  Allow user to extend .PRECIOUS target
+	  cosmetics: remove a couple of extra trailing white spaces
+	  tests: fix a spurious failure on Mac OS X
+	  docs: make clear the JAVA primary is frozen
+	  install-sh: a slightly better diagnostic, and tests enhancements
+	  install-sh: be stricter in catching invalid usages
+	  tests: more significant names for some tests
+	  tests: some cosmetic fixes
+	  tests: more significant names for a test
+	  docs: drop a few obsolescent FIXME/TODO comments, and associated text
+	  testsuite harness: report test exit status in log file
+	  TAP driver: no need to invoke AC_PROG_AWK directly
+	  TAP driver: remove perl implementation (move it into contrib/)
+	  NEWS: stop reporting "new" Automake versioning scheme
+	  cosmetics: untabify the install-sh script
+	  install-sh: assume that "set -f" and "set +f" work...
+	  install-sh: assume ${var:-value} works as expected
+	  install-sh: assume 'dirname' is available and working correctly
+	  post-release: micro version bump (1.14a)
+
 2014-12-31  Stefano Lattarini  <stefano.lattarini@gmail.com>
 
 	release: stable minor release 1.15

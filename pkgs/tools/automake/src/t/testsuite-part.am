@@ -54,6 +54,8 @@ t/compile5-w.log: t/compile5.sh
 t/compile5-w.log: t/compile5.log
 t/compile6-w.log: t/compile6.sh
 t/compile6-w.log: t/compile6.log
+t/compile7-w.log: t/compile7.sh
+t/compile7-w.log: t/compile7.log
 t/exeext4-w.log: t/exeext4.sh
 t/exeext4-w.log: t/exeext4.log
 t/install-sh-option-C-w.log: t/install-sh-option-C.sh
@@ -105,6 +107,7 @@ generated_TESTS += t/compile3-w.sh
 generated_TESTS += t/compile4-w.sh
 generated_TESTS += t/compile5-w.sh
 generated_TESTS += t/compile6-w.sh
+generated_TESTS += t/compile7-w.sh
 generated_TESTS += t/exeext4-w.sh
 generated_TESTS += t/install-sh-option-C-w.sh
 generated_TESTS += t/install-sh-unittests-w.sh

@@ -1,6 +1,6 @@
 # -*- shell-script -*-
 #
-# Copyright (C) 1996-2014 Free Software Foundation, Inc.
+# Copyright (C) 1996-2017 Free Software Foundation, Inc.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -778,6 +778,17 @@ require_tool ()
       # if its standard input is not redirected.  See automake bug#14707.
       $CC -? </dev/null \
         || skip_all_ "Microsoft C compiler '$CC' not available"
+      ;;
+    icl)
+      CC=icl
+      # Don't export CFLAGS, as that could have been initialized to only
+      # work with the C compiler detected at configure time.  If the user
+      # wants CFLAGS to also influence 'icl', he can still export CFLAGS
+      # in the environment "by hand" before calling the testsuite.
+      export CC CPPFLAGS
+      echo "$me: running $CC -?"
+      $CC -? >/dev/null \
+        || skip_all_ "Intel C compiler '$CC' not available"
       ;;
     etags)
       # Exuberant Ctags will create a TAGS file even
