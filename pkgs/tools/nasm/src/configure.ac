@@ -226,7 +226,7 @@ dnl which -W options are possible for this compiler.
 PA_ADD_CFLAGS([-Werror=unknown-warning-option])
 dnl Suppress format warning on Windows targets due to their <inttypes.h>
 PA_ADD_CFLAGS([-Wpedantic-ms-format],[-Wno-pedantic-ms-format])
-PA_ADD_CFLAGS([-Wc90-c99-compat])
+dnl PA_ADD_CFLAGS([-Wc90-c99-compat])
 PA_ADD_CFLAGS([-Wlong-long],[-Wno-long-long])
 dnl PA_ADD_CFLAGS([-Wwrite-strings])
 PA_ARG_ENABLED([werror],

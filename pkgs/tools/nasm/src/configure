@@ -7581,7 +7581,7 @@ rm -f core conftest.err conftest.$ac_objext \
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking if $CC accepts -Wc90-c99-compat" >&5
 $as_echo_n "checking if $CC accepts -Wc90-c99-compat... " >&6; }
  pa_add_cflags__old_cflags="$CFLAGS"
- CFLAGS="$CFLAGS -Wc90-c99-compat"
+ CFLAGS="$CFLAGS"
  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 $ac_includes_default
@@ -7596,7 +7596,7 @@ _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-  CFLAGS="$pa_add_cflags__old_cflags -Wc90-c99-compat"
+  CFLAGS="$pa_add_cflags__old_cflags"
 else
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
@@ -9242,4 +9242,3 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
   { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: unrecognized options: $ac_unrecognized_opts" >&5
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
-
