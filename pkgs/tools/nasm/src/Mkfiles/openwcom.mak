@@ -675,7 +675,8 @@ x86/disp8.$(O): x86/disp8.c asm/directiv.h asm/pptok.h asm/preproc.h &
  include/opflags.h include/perfhash.h include/strlist.h include/tables.h &
  x86/insnsi.h x86/regs.h
 x86/iflag.$(O): x86/iflag.c config/msvc.h config/unknown.h config/watcom.h &
- include/compiler.h include/iflag.h include/nasmint.h x86/iflaggen.h
+ include/compiler.h include/iflag.h include/nasmint.h include/nasmlib.h &
+ x86/iflaggen.h
 x86/insnsa.$(O): x86/insnsa.c asm/directiv.h asm/pptok.h asm/preproc.h &
  asm/tokens.h config/msvc.h config/unknown.h config/watcom.h &
  include/compiler.h include/iflag.h include/insns.h include/nasm.h &

@@ -691,9 +691,11 @@ ac_user_opts='
 enable_option_checking
 enable_largefile
 enable_optimization
+enable_gdb
 enable_pdf_compression
 enable_sections
 enable_lto
+enable_sanitizer
 enable_werror
 enable_ccache
 '
@@ -1315,10 +1317,13 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --disable-largefile     omit support for large files
   --disable-optimization  compile without optimization (-O0) to help debugging
+  --enable-gdb            disable optimization and compile with extra debug
+                          information for GDB debugger
   --disable-pdf-compression
                           generate an uncompressed documentation PDF
   --enable-sections       compile with function/data section support
   --enable-lto            compile with gcc-style link time optimization
+  --enable-sanitizer      compile with sanitizers enabled
   --enable-werror         compile with -Werror to error out on any warning
   --enable-ccache         compile with ccache
 
@@ -1647,6 +1652,52 @@ $as_echo "$ac_res" >&6; }
 
 } # ac_fn_c_check_header_compile
 
+# ac_fn_c_try_link LINENO
+# -----------------------
+# Try to link conftest.$ac_ext, and return whether this succeeded.
+ac_fn_c_try_link ()
+{
+  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
+  rm -f conftest.$ac_objext conftest$ac_exeext
+  if { { ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
+$as_echo "$ac_try_echo"; } >&5
+  (eval "$ac_link") 2>conftest.err
+  ac_status=$?
+  if test -s conftest.err; then
+    grep -v '^ *+' conftest.err >conftest.er1
+    cat conftest.er1 >&5
+    mv -f conftest.er1 conftest.err
+  fi
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 test -x conftest$ac_exeext
+       }; then :
+  ac_retval=0
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_retval=1
+fi
+  # Delete the IPA/IPO (Inter Procedural Analysis/Optimization) information
+  # created by the PGI compiler (conftest_ipa8_conftest.oo), as it would
+  # interfere with the next link command; also delete a directory that is
+  # left behind by Apple's compiler.  We do this before executing the actions.
+  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
+  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
+  as_fn_set_status $ac_retval
+
+} # ac_fn_c_try_link
+
 # ac_fn_c_check_type LINENO TYPE VAR INCLUDES
 # -------------------------------------------
 # Tests whether TYPE exists after having included INCLUDES, setting cache
@@ -1700,52 +1751,6 @@ $as_echo "$ac_res" >&6; }
   eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
 
 } # ac_fn_c_check_type
-
-# ac_fn_c_try_link LINENO
-# -----------------------
-# Try to link conftest.$ac_ext, and return whether this succeeded.
-ac_fn_c_try_link ()
-{
-  as_lineno=${as_lineno-"$1"} as_lineno_stack=as_lineno_stack=$as_lineno_stack
-  rm -f conftest.$ac_objext conftest$ac_exeext
-  if { { ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval ac_try_echo="\"\$as_me:${as_lineno-$LINENO}: $ac_try_echo\""
-$as_echo "$ac_try_echo"; } >&5
-  (eval "$ac_link") 2>conftest.err
-  ac_status=$?
-  if test -s conftest.err; then
-    grep -v '^ *+' conftest.err >conftest.er1
-    cat conftest.er1 >&5
-    mv -f conftest.er1 conftest.err
-  fi
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext && {
-	 test "$cross_compiling" = yes ||
-	 test -x conftest$ac_exeext
-       }; then :
-  ac_retval=0
-else
-  $as_echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_retval=1
-fi
-  # Delete the IPA/IPO (Inter Procedural Analysis/Optimization) information
-  # created by the PGI compiler (conftest_ipa8_conftest.oo), as it would
-  # interfere with the next link command; also delete a directory that is
-  # left behind by Apple's compiler.  We do this before executing the actions.
-  rm -rf conftest.dSYM conftest_ipa8_conftest.oo
-  eval $as_lineno_stack; ${as_lineno_stack:+:} unset as_lineno
-  as_fn_set_status $ac_retval
-
-} # ac_fn_c_try_link
 
 # ac_fn_c_check_func LINENO FUNC VAR
 # ----------------------------------
@@ -4772,8 +4777,77 @@ else
   pa_optimize=-O3
 fi
 
+
+# Check whether --enable-gdb was given.
+if test "${enable_gdb+set}" = set; then :
+  enableval=$enable_gdb;
+else
+  enableval=no
+fi
+
+ if test x"$enableval" != xno; then :
+  pa_optimize='-O0'
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking if $CC accepts -ggdb3" >&5
+$as_echo_n "checking if $CC accepts -ggdb3... " >&6; }
+ pa_add_cflags__old_cflags="$CFLAGS"
+ CFLAGS="$CFLAGS -ggdb3"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+printf("Hello, World!\n");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+  CFLAGS="$pa_add_cflags__old_cflags -ggdb3"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+  CFLAGS="$pa_add_cflags__old_cflags"
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+
+
 if test x"$pa_init_cflags" = x; then :
   CFLAGS=`echo "$CFLAGS" | sed -e "s/-O2/$pa_optimize/"`
+fi
+
+if test x"$pa_optimize" = "x-O0"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking if $CC accepts -fno-omit-frame-pointer" >&5
+$as_echo_n "checking if $CC accepts -fno-omit-frame-pointer... " >&6; }
+ pa_add_cflags__old_cflags="$CFLAGS"
+ CFLAGS="$CFLAGS -fno-omit-frame-pointer"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+printf("Hello, World!\n");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+  CFLAGS="$pa_add_cflags__old_cflags -fno-omit-frame-pointer"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+  CFLAGS="$pa_add_cflags__old_cflags"
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
 fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for suffix of library files" >&5
@@ -7146,6 +7220,7 @@ rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 fi
 
+
 # Check whether --enable-lto was given.
 if test "${enable_lto+set}" = set; then :
   enableval=$enable_lto;
@@ -7273,6 +7348,103 @@ done
 test -n "$CC_RANLIB" || CC_RANLIB="$ac_cv_prog_RANLIB"
 
   RANLIB="$CC_RANLIB"
+fi
+
+
+# Check whether --enable-sanitizer was given.
+if test "${enable_sanitizer+set}" = set; then :
+  enableval=$enable_sanitizer;
+else
+  enableval=no
+fi
+
+ if test x"$enableval" != xno; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking if $CC accepts -fno-omit-frame-pointer" >&5
+$as_echo_n "checking if $CC accepts -fno-omit-frame-pointer... " >&6; }
+ pa_add_cflags__old_cflags="$CFLAGS"
+ CFLAGS="$CFLAGS -fno-omit-frame-pointer"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+printf("Hello, World!\n");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+  CFLAGS="$pa_add_cflags__old_cflags -fno-omit-frame-pointer"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+  CFLAGS="$pa_add_cflags__old_cflags"
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking if $CC accepts -fsanitize=address" >&5
+$as_echo_n "checking if $CC accepts -fsanitize=address... " >&6; }
+ pa_add_cldflags__old_cflags="$CFLAGS"
+ CFLAGS="$CFLAGS -fsanitize=address"
+ pa_add_cldflags__old_ldflags="$LDFLAGS"
+ LDFLAGS="$LDFLAGS -fsanitize=address"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+printf("Hello, World!\n");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+  CFLAGS="$pa_add_cldflags__old_cflags -fsanitize=address"
+  LDFLAGS="$pa_add_cldflags__old_ldflags -fsanitize=address"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+  CFLAGS="$pa_add_cldflags__old_cflags"
+  LDFLAGS="$pa_add_cldflags__old_ldflags"
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking if $CC accepts -fsanitize=undefined" >&5
+$as_echo_n "checking if $CC accepts -fsanitize=undefined... " >&6; }
+ pa_add_cldflags__old_cflags="$CFLAGS"
+ CFLAGS="$CFLAGS -fsanitize=undefined"
+ pa_add_cldflags__old_ldflags="$LDFLAGS"
+ LDFLAGS="$LDFLAGS -fsanitize=undefined"
+ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+$ac_includes_default
+int
+main ()
+{
+printf("Hello, World!\n");
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+  CFLAGS="$pa_add_cldflags__old_cflags -fsanitize=undefined"
+  LDFLAGS="$pa_add_cldflags__old_ldflags -fsanitize=undefined"
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+  CFLAGS="$pa_add_cldflags__old_cflags"
+  LDFLAGS="$pa_add_cldflags__old_ldflags"
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
 fi
 
 

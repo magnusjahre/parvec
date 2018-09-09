@@ -5,7 +5,7 @@
 
 #include "directiv.h"
 
-const char * const directive_tbl[28] = {
+const char * const directive_tbl[29] = {
     "absolute",
     "bits",
     "common",
@@ -33,7 +33,8 @@ const char * const directive_tbl[28] = {
     "uppercase",
     "subsections_via_symbols",
     "no_dead_strip",
-    "maxdump"
+    "maxdump",
+    "nodepend"
 };
 
 #define UNUSED (65536/3)
@@ -60,7 +61,7 @@ static const int16_t directive_hashvals[64] = {
     UNUSED,
     -9,
     UNUSED,
-    24,
+    2,
     18,
     3,
     -16,
@@ -84,7 +85,7 @@ static const int16_t directive_hashvals[64] = {
     0,
     30,
     0,
-    0,
+    22,
     3,
     UNUSED,
     UNUSED,
@@ -101,14 +102,14 @@ static const int16_t directive_hashvals[64] = {
     5,
     UNUSED,
     UNUSED,
-    -4,
+    18,
     UNUSED
 };
 
 const struct perfect_hash directive_hash = {
     UINT64_C(0x076259c3e291c26c),
     UINT32_C(0x1f),
-    UINT32_C(28),
+    UINT32_C(29),
     3,
     (D_unknown),
     directive_hashvals,

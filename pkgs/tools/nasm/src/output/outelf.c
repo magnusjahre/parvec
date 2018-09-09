@@ -2435,6 +2435,10 @@ static void debug_typevalue(int32_t type)
             ssize = 32;
             stype = STT_OBJECT;
             break;
+        case TY_ZWORD:
+            ssize = 64;
+            stype = STT_OBJECT;
+            break;
         case TY_COMMON:
             ssize = 0;
             stype = STT_COMMON;
@@ -3134,6 +3138,8 @@ static void dwarf_generate(void)
     saa_write8(pabbrev,DW_AT_frame_base);
     saa_write8(pabbrev,DW_FORM_data4);
     saa_write16(pabbrev,0);     /* end of entry */
+    /* Terminal zero entry */
+    saa_write8(pabbrev,0);
     abbrevlen = saalen = pabbrev->datalen;
     abbrevbuf = pbuf = nasm_malloc(saalen);
     saa_rnbytes(pabbrev, pbuf, saalen);
@@ -3247,6 +3253,9 @@ static void dwarf_generate(void)
     loclen = 16;
     locbuf = pbuf = nasm_malloc(loclen);
     if (is_elf32()) {
+        WRITELONG(pbuf,0);  /* null  beginning offset */
+        WRITELONG(pbuf,0);  /* null  ending offset */
+    } else if (is_elfx32()) {
         WRITELONG(pbuf,0);  /* null  beginning offset */
         WRITELONG(pbuf,0);  /* null  ending offset */
     } else {

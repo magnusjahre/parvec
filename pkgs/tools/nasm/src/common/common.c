@@ -66,7 +66,7 @@ const char *prefix_name(int token)
 /*
  * initialized data bytes length from opcode
  */
-int idata_bytes(int opcode)
+int idata_bytes(enum opcode opcode)
 {
     switch (opcode) {
     case I_DB:
@@ -84,6 +84,35 @@ int idata_bytes(int opcode)
     case I_DY:
         return 32;
     case I_DZ:
+        return 64;
+    case I_none:
+        return -1;
+    default:
+        return 0;
+    }
+}
+
+/*
+ * Uninitialized data bytes length from opcode
+ */
+int resv_bytes(enum opcode opcode)
+{
+    switch (opcode) {
+    case I_RESB:
+        return 1;
+    case I_RESW:
+        return 2;
+    case I_RESD:
+        return 4;
+    case I_RESQ:
+        return 8;
+    case I_REST:
+        return 10;
+    case I_RESO:
+        return 16;
+    case I_RESY:
+        return 32;
+    case I_RESZ:
         return 64;
     case I_none:
         return -1;

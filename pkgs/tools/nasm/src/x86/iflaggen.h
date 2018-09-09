@@ -19,6 +19,7 @@
 #define IF_AR3               14 /* SB, SW, SD applies to argument 3                                 */
 #define IF_AR4               15 /* SB, SW, SD applies to argument 4                                 */
 #define IF_OPT               16 /* Optimizing assembly only                                         */
+                                /* 17...31 unused                                                   */
 #define IF_PRIV              32 /* Privileged instruction                                           */
 #define IF_SMM               33 /* Only valid in SMM                                                */
 #define IF_PROT              34 /* Protected mode only                                              */
@@ -42,29 +43,33 @@
 #define IF_SSE41             52 /* SSE4.1                                                           */
 #define IF_SSE42             53 /* SSE4.2                                                           */
 #define IF_SSE5              54 /* SSE5                                                             */
-#define IF_AVX               55 /* AVX (128b)                                                       */
-#define IF_AVX2              56 /* AVX2 (256b)                                                      */
+#define IF_AVX               55 /* AVX  (256-bit floating point)                                    */
+#define IF_AVX2              56 /* AVX2 (256-bit integer)                                           */
 #define IF_FMA               57 /*                                                                  */
 #define IF_BMI1              58 /*                                                                  */
 #define IF_BMI2              59 /*                                                                  */
 #define IF_TBM               60 /*                                                                  */
 #define IF_RTM               61 /*                                                                  */
 #define IF_INVPCID           62 /*                                                                  */
-#define IF_AVX512            64 /* AVX-512F (512b)                                                  */
-#define IF_AVX512CD          65 /* AVX-512 Conflict Detection                                       */
-#define IF_AVX512ER          66 /* AVX-512 Exponential and Reciprocal                               */
-#define IF_AVX512PF          67 /* AVX-512 Prefetch                                                 */
-#define IF_MPX               68 /* MPX                                                              */
-#define IF_SHA               69 /* SHA                                                              */
-#define IF_PREFETCHWT1       70 /* PREFETCHWT1                                                      */
-#define IF_AVX512VL          71 /* AVX-512 Vector Length Orthogonality                              */
-#define IF_AVX512DQ          72 /* AVX-512 Dword and Qword                                          */
-#define IF_AVX512BW          73 /* AVX-512 Byte and Word                                            */
-#define IF_AVX512IFMA        74 /* AVX-512 IFMA instructions                                        */
-#define IF_AVX512VBMI        75 /* AVX-512 VBMI instructions                                        */
-#define IF_OBSOLETE          93 /* Instruction removed from architecture                            */
-#define IF_VEX               94 /* VEX or XOP encoded instruction                                   */
-#define IF_EVEX              95 /* EVEX encoded instruction                                         */
+#define IF_AVX512            63 /* AVX-512F (512-bit base architecture)                             */
+#define IF_AVX512CD          64 /* AVX-512 Conflict Detection                                       */
+#define IF_AVX512ER          65 /* AVX-512 Exponential and Reciprocal                               */
+#define IF_AVX512PF          66 /* AVX-512 Prefetch                                                 */
+#define IF_MPX               67 /* MPX                                                              */
+#define IF_SHA               68 /* SHA                                                              */
+#define IF_PREFETCHWT1       69 /* PREFETCHWT1                                                      */
+#define IF_AVX512VL          70 /* AVX-512 Vector Length Orthogonality                              */
+#define IF_AVX512DQ          71 /* AVX-512 Dword and Qword                                          */
+#define IF_AVX512BW          72 /* AVX-512 Byte and Word                                            */
+#define IF_AVX512IFMA        73 /* AVX-512 IFMA instructions                                        */
+#define IF_AVX512VBMI        74 /* AVX-512 VBMI instructions                                        */
+#define IF_AES               75 /* AES instructions                                                 */
+#define IF_VAES              76 /* AES AVX instructions                                             */
+#define IF_VPCLMULQDQ        77 /* Carry-Less Multiplication extention                              */
+#define IF_OBSOLETE          78 /* Instruction removed from architecture                            */
+#define IF_VEX               79 /* VEX or XOP encoded instruction                                   */
+#define IF_EVEX              80 /* EVEX encoded instruction                                         */
+                                /* 81...95 unused                                                   */
 #define IF_8086              96 /* 8086                                                             */
 #define IF_186               97 /* 186+                                                             */
 #define IF_286               98 /* 286+                                                             */
@@ -81,13 +86,14 @@
 #define IF_SANDYBRIDGE      109 /* Sandy Bridge                                                     */
 #define IF_FUTURE           110 /* Future processor (not yet disclosed)                             */
 #define IF_IA64             111 /* IA64 (in x86 mode)                                               */
-#define IF_CYRIX            126 /* Cyrix-specific                                                   */
-#define IF_AMD              127 /* AMD-specific                                                     */
+#define IF_CYRIX            112 /* Cyrix-specific                                                   */
+#define IF_AMD              113 /* AMD-specific                                                     */
 
+#define IF_FIELD_COUNT 4
 typedef struct {
-    uint32_t field[4];
+    uint32_t field[IF_FIELD_COUNT];
 } iflag_t;
 
-extern const iflag_t insns_flags[235];
+extern const iflag_t insns_flags[242];
 
 #endif /* NASM_IFLAGGEN_H */

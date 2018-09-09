@@ -948,7 +948,9 @@ static Token *tokenize(char *line)
                     case '\'':
                     case '\"':
                     case '`':
-                        p = nasm_skip_string(p - 1) + 1;
+                        p = nasm_skip_string(p - 1);
+                        if (*p)
+                            p++;
                         break;
                     default:
                         break;
@@ -1252,7 +1254,8 @@ static char *detoken(Token * tlist, bool expand_locals)
     int len = 0;
 
     list_for_each(t, tlist) {
-        if (t->type == TOK_PREPROC_ID && t->text[1] == '!') {
+        if (t->type == TOK_PREPROC_ID && t->text &&
+            t->text[0] && t->text[1] == '!') {
             char *v;
             char *q = t->text;
 
@@ -1280,8 +1283,8 @@ static char *detoken(Token * tlist, bool expand_locals)
                     t->text = nasm_zalloc(2);
                 } else
                     t->text = nasm_strdup(p);
+		nasm_free(q);
             }
-            nasm_free(q);
         }
 
         /* Expand local macros here and not during preprocessing */
@@ -1574,6 +1577,9 @@ static FILE *inc_fopen(const char *file,
     hp = hash_find(&FileHash, file, &hi);
     if (hp) {
         path = *hp;
+        if (path || omode != INC_NEEDED) {
+            nasm_add_string_to_strlist(dhead, path ? path : file);
+        }
     } else {
         /* Need to do the actual path search */
         size_t file_len;
@@ -1933,9 +1939,11 @@ static bool if_condition(Token * tline, enum preproc_token ct)
                     nasm_error(ERR_NONFATAL,
                           "unable to parse parameter count `%s'",
                           tline->text);
-                if (searching.nparam_min > searching.nparam_max)
+                if (searching.nparam_min > searching.nparam_max) {
                     nasm_error(ERR_NONFATAL,
                           "minimum parameter count exceeds maximum");
+                    searching.nparam_max = searching.nparam_min;
+                }
             }
         }
         if (tline && tok_is_(tline->next, "+")) {
@@ -2164,6 +2172,7 @@ static bool parse_mmacro_spec(Token *tline, MMacro *def, const char *directive)
             }
             if (def->nparam_min > def->nparam_max) {
                 nasm_error(ERR_NONFATAL, "minimum parameter count exceeds maximum");
+                def->nparam_max = def->nparam_min;
             }
         }
     }
@@ -3706,6 +3715,8 @@ static int find_cc(Token * t)
         return -1;              /* Probably a %+ without a space */
 
     skip_white_(t);
+    if (!t)
+        return -1;
     if (t->type != TOK_ID)
         return -1;
     tt = t->next;
@@ -3838,16 +3849,22 @@ static bool paste_tokens(Token **head, const struct tokseq_match *m,
                     next = next->next;
                 }
 
-                /* No match */
-                if (tok == next)
+                /* No match or no text to process */
+                if (tok == next || len == 0)
                     break;
 
                 len += strlen(tok->text);
                 p = buf = nasm_malloc(len + 1);
 
+                strcpy(p, tok->text);
+                p = strchr(p, '\0');
+                tok = delete_Token(tok);
+
                 while (tok != next) {
-                    strcpy(p, tok->text);
-                    p = strchr(p, '\0');
+                    if (PP_CONCAT_MATCH(tok, m[i].mask_tail)) {
+                        strcpy(p, tok->text);
+                        p = strchr(p, '\0');
+                    }
                     tok = delete_Token(tok);
                 }
 
@@ -4416,6 +4433,16 @@ again:
                                                         ttt->text, 0);
                                 ptail = &pt->next;
                                 ttt = ttt->next;
+                                if (!ttt && i > 0) {
+                                    /*
+                                     * FIXME: Need to handle more gracefully,
+                                     * exiting early on agruments analysis.
+                                     */
+                                    nasm_error(ERR_FATAL,
+                                               "macro `%s' expects %d args",
+                                               mstart->text,
+                                               (int)paramsize[t->type - TOK_SMAC_PARAM]);
+                                }
                             }
                             tline = pcopy;
                         } else if (t->type == TOK_PREPROC_Q) {
@@ -5095,8 +5122,18 @@ static char *pp_getline(void)
                             nasm_free(m->paramlen);
                             l->finishes->in_progress = 0;
                         }
-                    } else
+                    }
+
+                    /*
+                     * FIXME It is incorrect to always free_mmacro here.
+                     * It leads to usage-after-free.
+                     *
+                     * https://bugzilla.nasm.us/show_bug.cgi?id=3392414
+                     */
+#if 0
+                    else
                         free_mmacro(m);
+#endif
                 }
                 istk->expansion = l->next;
                 nasm_free(l);

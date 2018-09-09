@@ -41,6 +41,8 @@
 #include "compiler.h"
 
 #include <stdio.h>
+#include <time.h>
+
 #include "nasmlib.h"
 #include "strlist.h"
 #include "preproc.h"
@@ -48,6 +50,16 @@
 #include "directiv.h"   /* For enum directive */
 #include "opflags.h"
 #include "regs.h"
+
+/* Time stamp for the official start of compilation */
+struct compile_time {
+    time_t t;
+    bool have_local, have_gm, have_posix;
+    int64_t posix;
+    struct tm local;
+    struct tm gm;
+};
+extern struct compile_time official_compile_time;
 
 #define NO_SEG -1L              /* null segment value */
 #define SEG_ABS 0x40000000L     /* mask for far-absolute segments */
@@ -372,6 +384,9 @@ struct preproc_ops {
 
 extern const struct preproc_ops nasmpp;
 extern const struct preproc_ops preproc_nop;
+
+/* List of dependency files */
+extern StrList *depend_list;
 
 /*
  * Some lexical properties of the NASM source language, included
@@ -1053,6 +1068,7 @@ extern const struct dfmt *dfmt;
 #define TY_TBYTE   0x38
 #define TY_OWORD   0x40
 #define TY_YWORD   0x48
+#define TY_ZWORD   0x50
 #define TY_COMMON  0xE0
 #define TY_SEG     0xE8
 #define TY_EXTERN  0xF0

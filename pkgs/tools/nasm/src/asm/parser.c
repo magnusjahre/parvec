@@ -444,6 +444,9 @@ restart_parse:
     stdscan_set(buffer);
     i = stdscan(NULL, &tokval);
 
+    nasm_static_assert(P_none == 0);
+    memset(result->prefixes, P_none, sizeof(result->prefixes));
+    result->times       = 1;    /* No TIMES either yet */
     result->label       = NULL; /* Assume no label */
     result->eops        = NULL; /* must do this, whatever happens */
     result->operands    = 0;    /* must initialize this */
@@ -491,10 +494,6 @@ restart_parse:
     if (i == TOKEN_EOS)
         goto fail;
 
-    nasm_static_assert(P_none == 0);
-    memset(result->prefixes, P_none, sizeof(result->prefixes));
-    result->times = 1L;
-
     while (i == TOKEN_PREFIX ||
            (i == TOKEN_REG && IS_SREG(tokval.t_integer))) {
         first = false;
@@ -516,9 +515,8 @@ restart_parse:
                 result->times = 1L;
             } else {
                 result->times = value->value;
-                if (value->value < 0 && pass0 == 2) {
-                    nasm_error(ERR_NONFATAL, "TIMES value %"PRId64" is negative",
-                          value->value);
+                if (value->value < 0) {
+                    nasm_error(ERR_NONFATAL|ERR_PASS2, "TIMES value %"PRId64" is negative", value->value);
                     result->times = 0;
                 }
             }
@@ -581,11 +579,7 @@ restart_parse:
     } else
         critical = (pass == 2 ? 2 : 0);
 
-    if (result->opcode == I_DB || result->opcode == I_DW ||
-        result->opcode == I_DD || result->opcode == I_DQ ||
-        result->opcode == I_DT || result->opcode == I_DO ||
-        result->opcode == I_DY || result->opcode == I_DZ ||
-        result->opcode == I_INCBIN) {
+    if (opcode_is_db(result->opcode) || result->opcode == I_INCBIN) {
         extop *eop, **tail = &result->eops, **fixptr;
         int oper_num = 0;
         int32_t sign;
@@ -1133,37 +1127,11 @@ is_expression:
     /*
      * Transform RESW, RESD, RESQ, REST, RESO, RESY, RESZ into RESB.
      */
-    switch (result->opcode) {
-    case I_RESW:
+    if (opcode_is_resb(result->opcode)) {
+        result->oprs[0].offset *= resv_bytes(result->opcode);
+        result->oprs[0].offset *= result->times;
+        result->times = 1;
         result->opcode = I_RESB;
-        result->oprs[0].offset *= 2;
-        break;
-    case I_RESD:
-        result->opcode = I_RESB;
-        result->oprs[0].offset *= 4;
-        break;
-    case I_RESQ:
-        result->opcode = I_RESB;
-        result->oprs[0].offset *= 8;
-        break;
-    case I_REST:
-        result->opcode = I_RESB;
-        result->oprs[0].offset *= 10;
-        break;
-    case I_RESO:
-        result->opcode = I_RESB;
-        result->oprs[0].offset *= 16;
-        break;
-    case I_RESY:
-        result->opcode = I_RESB;
-        result->oprs[0].offset *= 32;
-        break;
-    case I_RESZ:
-        result->opcode = I_RESB;
-        result->oprs[0].offset *= 64;
-        break;
-    default:
-        break;
     }
 
     return result;

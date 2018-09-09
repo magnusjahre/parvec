@@ -191,7 +191,7 @@ int64_t readstrnum(char *str, int length, bool *warn);
  * seg_init: Initialise the segment-number allocator.
  * seg_alloc: allocate a hitherto unused segment number.
  */
-void pure_func seg_init(void);
+void seg_init(void);
 int32_t pure_func seg_alloc(void);
 
 /*
@@ -448,6 +448,7 @@ const void *nasm_map_file(FILE *fp, off_t start, off_t len);
 void nasm_unmap_file(const void *p, size_t len);
 off_t nasm_file_size(FILE *f);
 off_t nasm_file_size_by_path(const char *pathname);
+bool nasm_file_time(time_t *t, const char *pathname);
 void fwritezero(off_t bytes, FILE *fp);
 
 static inline bool const_func overflow_general(int64_t value, int bytes)
@@ -460,7 +461,7 @@ static inline bool const_func overflow_general(int64_t value, int bytes)
 
     sbit = (bytes << 3) - 1;
     vmax =  ((int64_t)2 << sbit) - 1;
-    vmin = -((int64_t)1 << sbit);
+    vmin = -((int64_t)2 << sbit);
 
     return value < vmin || value > vmax;
 }
@@ -504,8 +505,6 @@ static inline int64_t const_func signed_bits(int64_t value, int bits)
     }
     return value;
 }
-
-int const_func idata_bytes(int opcode);
 
 /* check if value is power of 2 */
 #define is_power2(v)   ((v) && ((v) & ((v) - 1)) == 0)
