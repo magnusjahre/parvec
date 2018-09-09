@@ -1,7 +1,7 @@
 /*****************************************************************************
  * osdep.c: platform-specific code
  *****************************************************************************
- * Copyright (C) 2003-2017 x264 project
+ * Copyright (C) 2003-2018 x264 project
  *
  * Authors: Steven Walters <kemuri9@gmail.com>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -25,7 +25,7 @@
  * For more information, contact us at licensing@x264.com.
  *****************************************************************************/
 
-#include "common.h"
+#include "osdep.h"
 
 #ifdef _WIN32
 #include <windows.h>
@@ -51,6 +51,10 @@ int64_t x264_mdate( void )
     struct timeb tb;
     ftime( &tb );
     return ((int64_t)tb.time * 1000 + (int64_t)tb.millitm) * 1000;
+#elif HAVE_CLOCK_GETTIME
+    struct timespec ts;
+    clock_gettime( CLOCK_MONOTONIC, &ts );
+    return (int64_t)ts.tv_sec * 1000000 + (int64_t)ts.tv_nsec / 1000;
 #else
     struct timeval tv_date;
     gettimeofday( &tv_date, NULL );
@@ -60,9 +64,9 @@ int64_t x264_mdate( void )
 
 #if HAVE_WIN32THREAD || PTW32_STATIC_LIB
 /* state of the threading library being initialized */
-static volatile LONG x264_threading_is_init = 0;
+static volatile LONG threading_is_init = 0;
 
-static void x264_threading_destroy( void )
+static void threading_destroy( void )
 {
 #if PTW32_STATIC_LIB
     pthread_win32_thread_detach_np();
@@ -72,11 +76,8 @@ static void x264_threading_destroy( void )
 #endif
 }
 
-int x264_threading_init( void )
+static int threading_init( void )
 {
-    /* if already init, then do nothing */
-    if( InterlockedCompareExchange( &x264_threading_is_init, 1, 0 ) )
-        return 0;
 #if PTW32_STATIC_LIB
     /* if static pthread-win32 is already initialized, then do nothing */
     if( ptw32_processInitialized )
@@ -88,8 +89,25 @@ int x264_threading_init( void )
         return -1;
 #endif
     /* register cleanup to run at process termination */
-    atexit( x264_threading_destroy );
+    atexit( threading_destroy );
+    return 0;
+}
 
+int x264_threading_init( void )
+{
+    LONG state;
+    while( (state = InterlockedCompareExchange( &threading_is_init, -1, 0 )) != 0 )
+    {
+        /* if already init, then do nothing */
+        if( state > 0 )
+            return 0;
+    }
+    if( threading_init() < 0 )
+    {
+        InterlockedExchange( &threading_is_init, 0 );
+        return -1;
+    }
+    InterlockedExchange( &threading_is_init, 1 );
     return 0;
 }
 #endif

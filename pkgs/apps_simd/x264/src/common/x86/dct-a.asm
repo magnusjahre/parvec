@@ -1,7 +1,7 @@
 ;*****************************************************************************
 ;* dct-a.asm: x86 transform and zigzag
 ;*****************************************************************************
-;* Copyright (C) 2003-2017 x264 project
+;* Copyright (C) 2003-2018 x264 project
 ;*
 ;* Authors: Holger Lubitz <holger@lubitz.org>
 ;*          Loren Merritt <lorenm@u.washington.edu>
@@ -510,8 +510,7 @@ cglobal add8x8_idct, 2,3,8
     add    r0, 4*FDEC_STRIDE
     pxor   m7, m7
     TAIL_CALL .skip_prologue, 0
-global current_function %+ .skip_prologue
-.skip_prologue:
+cglobal_label .skip_prologue
     ; TRANSPOSE4x4Q
     mova       xm0, [r1+ 0]
     mova       xm1, [r1+32]
@@ -622,8 +621,8 @@ cglobal sub16x16_dct, 3,3,6
     SBUTTERFLY wd, 1, 0, 2
     paddw      m2, m1, m0
     psubw      m3, m1, m0
-    paddw      m2 {k1}, m1       ; 0+1+2+3 0<<1+1-2-3<<1
-    psubw      m3 {k1}, m0       ; 0-1-2+3 0-1<<1+2<<1-3
+    vpaddw     m2 {k1}, m1       ; 0+1+2+3 0<<1+1-2-3<<1
+    vpsubw     m3 {k1}, m0       ; 0-1-2+3 0-1<<1+2<<1-3
     shufps     m1, m2, m3, q2323 ; a3 b3 a2 b2 c3 d3 c2 d2
     punpcklqdq m2, m3            ; a0 b0 a1 b1 c0 d0 c1 d1
     SUMSUB_BA   w, 1, 2, 3
@@ -631,8 +630,8 @@ cglobal sub16x16_dct, 3,3,6
     shufps     m1, m2, q2020     ; a0+a3 b0+b3 c0+c3 d0+d3 a0-a3 b0-b3 c0-c3 d0-d3
     paddw      m2, m1, m3
     psubw      m0, m1, m3
-    paddw      m2 {k2}, m1       ; 0'+1'+2'+3' 0'<<1+1'-2'-3'<<1
-    psubw      m0 {k2}, m3       ; 0'-1'-2'+3' 0'-1'<<1+2'<<1-3'
+    vpaddw     m2 {k2}, m1       ; 0'+1'+2'+3' 0'<<1+1'-2'-3'<<1
+    vpsubw     m0 {k2}, m3       ; 0'-1'-2'+3' 0'-1'<<1+2'<<1-3'
 %endmacro
 
 INIT_XMM avx512
@@ -744,7 +743,7 @@ cglobal sub8x8_dct_dc, 3,3
     paddw      xmm0, xmm2       ; 0+1 0+1 2+3 2+3
     punpckldq  xmm0, xmm1       ; 0+1 0+1 0-1 0-1 2+3 2+3 2-3 2-3
     punpcklqdq xmm1, xmm0, xmm0
-    psubw      xmm0 {k1}, xm3, xmm0
+    vpsubw     xmm0 {k1}, xm3, xmm0
     paddw      xmm0, xmm1       ; 0+1+2+3 0+1-2-3 0-1+2-3 0-1-2+3
     movhps     [r0], xmm0
     RET

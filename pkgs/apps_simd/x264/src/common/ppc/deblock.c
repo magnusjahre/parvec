@@ -1,7 +1,7 @@
 /*****************************************************************************
  * deblock.c: ppc deblocking
  *****************************************************************************
- * Copyright (C) 2007-2017 x264 project
+ * Copyright (C) 2007-2018 x264 project
  *
  * Authors: Guillaume Poirier <gpoirier@mplayerhq.hu>
  *
@@ -25,6 +25,7 @@
 
 #include "common/common.h"
 #include "ppccommon.h"
+#include "deblock.h"
 
 #if !HIGH_BIT_DEPTH
 #define transpose4x16(r0, r1, r2, r3)        \
@@ -140,11 +141,7 @@ static inline void write16x4( uint8_t *dst, int dst_stride,
 // out: o = |x-y| < a
 static inline vec_u8_t diff_lt_altivec( register vec_u8_t x, register vec_u8_t y, register vec_u8_t a )
 {
-    register vec_u8_t diff = vec_subs(x, y);
-    register vec_u8_t diffneg = vec_subs(y, x);
-    register vec_u8_t o = vec_or(diff, diffneg); /* |x-y| */
-    o = (vec_u8_t)vec_cmplt(o, a);
-    return o;
+    return (vec_u8_t)vec_cmplt(vec_absd(x, y), a);
 }
 
 static inline vec_u8_t h264_deblock_mask( register vec_u8_t p0, register vec_u8_t p1, register vec_u8_t q0,

@@ -1,7 +1,7 @@
 ;*****************************************************************************
 ;* pixel.asm: x86 pixel metrics
 ;*****************************************************************************
-;* Copyright (C) 2003-2017 x264 project
+;* Copyright (C) 2003-2018 x264 project
 ;*
 ;* Authors: Loren Merritt <lorenm@u.washington.edu>
 ;*          Holger Lubitz <holger@lubitz.org>
@@ -4280,7 +4280,7 @@ cglobal pixel_hadamard_ac_%1x%2, 2,4,11
 
 ; instantiate satds
 
-%if ARCH_X86_64 == 0
+%if ARCH_X86_64 == 0 && HIGH_BIT_DEPTH == 0
 cextern pixel_sa8d_8x8_internal_mmx2
 INIT_MMX mmx2
 SA8D
@@ -4744,7 +4744,7 @@ cglobal intra_sad_x9_8x8, 5,7,8
 %endmacro
 
 %macro SATD_AVX512_END 0-1 0 ; sa8d
-    paddw          m0 {k1}{z}, m1 ; zero-extend to dwords
+    vpaddw         m0 {k1}{z}, m1 ; zero-extend to dwords
 %if ARCH_X86_64
 %if mmsize == 64
     vextracti32x8 ym1, m0, 1

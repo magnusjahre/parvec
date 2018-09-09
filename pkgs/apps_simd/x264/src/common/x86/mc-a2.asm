@@ -1,7 +1,7 @@
 ;*****************************************************************************
 ;* mc-a2.asm: x86 motion compensation
 ;*****************************************************************************
-;* Copyright (C) 2005-2017 x264 project
+;* Copyright (C) 2005-2018 x264 project
 ;*
 ;* Authors: Loren Merritt <lorenm@u.washington.edu>
 ;*          Fiona Glaser <fiona@x264.com>
@@ -64,10 +64,11 @@ hpel_shuf: times 2 db 0,8,1,9,2,10,3,11,4,12,5,13,6,14,7,15
 mbtree_prop_list_avx512_shuf: dw 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7
 mbtree_fix8_unpack_shuf: db -1,-1, 1, 0,-1,-1, 3, 2,-1,-1, 5, 4,-1,-1, 7, 6
                          db -1,-1, 9, 8,-1,-1,11,10,-1,-1,13,12,-1,-1,15,14
-mbtree_fix8_pack_shuf:   db  1, 0, 3, 2, 5, 4, 7, 6, 9, 8,11,10,13,12,15,14
+; bits 0-3: pshufb, bits 4-7: AVX-512 vpermq
+mbtree_fix8_pack_shuf:   db 0x01,0x20,0x43,0x62,0x15,0x34,0x57,0x76,0x09,0x08,0x0b,0x0a,0x0d,0x0c,0x0f,0x0e
 
-pf_256:    times 4 dd 256.0
-pf_inv256: times 4 dd 0.00390625
+pf_256:         times 4 dd 256.0
+pf_inv16777216: times 4 dd 0x1p-24
 
 pd_16: times 4 dd 16
 
@@ -1016,6 +1017,143 @@ PLANE_COPY_CORE 0
 INIT_YMM avx2
 PLANE_COPY_CORE 1
 
+%macro PLANE_COPY_AVX512 1 ; swap
+%if %1
+cglobal plane_copy_swap, 6,7
+    vbroadcasti32x4 m4, [copy_swap_shuf]
+%else
+cglobal plane_copy, 6,7
+%endif
+    movsxdifnidn r4, r4d
+%if %1 && HIGH_BIT_DEPTH
+    %define %%mload vmovdqu32
+    lea         r2, [r2+4*r4-64]
+    lea         r0, [r0+4*r4-64]
+    neg         r4
+    mov        r6d, r4d
+    shl         r4, 2
+    or         r6d, 0xffff0010
+    shrx       r6d, r6d, r6d ; (1 << (w & 15)) - 1
+    kmovw       k1, r6d
+%elif %1 || HIGH_BIT_DEPTH
+    %define %%mload vmovdqu16
+    lea         r2, [r2+2*r4-64]
+    lea         r0, [r0+2*r4-64]
+    mov        r6d, -1
+    neg         r4
+    shrx       r6d, r6d, r4d
+    add         r4, r4
+    kmovd       k1, r6d
+%else
+    %define %%mload vmovdqu8
+    lea         r2, [r2+1*r4-64]
+    lea         r0, [r0+1*r4-64]
+    mov         r6, -1
+    neg         r4
+    shrx        r6, r6, r4
+%if ARCH_X86_64
+    kmovq       k1, r6
+%else
+    kmovd       k1, r6d
+    test       r4d, 32
+    jnz .l32
+    kxnord      k2, k2, k2
+    kunpckdq    k1, k1, k2
+.l32:
+%endif
+%endif
+    FIX_STRIDES r3, r1
+    add         r4, 4*64
+    jge .small
+    mov         r6, r4
+
+.loop: ; >256 bytes/row
+    PREFETCHNT_ITER r2+r4+64, 4*64
+    movu        m0, [r2+r4-3*64]
+    movu        m1, [r2+r4-2*64]
+    movu        m2, [r2+r4-1*64]
+    movu        m3, [r2+r4-0*64]
+%if %1
+    pshufb      m0, m4
+    pshufb      m1, m4
+    pshufb      m2, m4
+    pshufb      m3, m4
+%endif
+    movnta [r0+r4-3*64], m0
+    movnta [r0+r4-2*64], m1
+    movnta [r0+r4-1*64], m2
+    movnta [r0+r4-0*64], m3
+    add         r4, 4*64
+    jl .loop
+    PREFETCHNT_ITER r2+r4+64, 4*64
+    sub         r4, 3*64
+    jge .tail
+.loop2:
+    movu        m0, [r2+r4]
+%if %1
+    pshufb      m0, m4
+%endif
+    movnta [r0+r4], m0
+    add         r4, 64
+    jl .loop2
+.tail:
+    %%mload     m0 {k1}{z}, [r2+r4]
+%if %1
+    pshufb      m0, m4
+%endif
+    movnta [r0+r4], m0
+    add         r2, r3
+    add         r0, r1
+    mov         r4, r6
+    dec        r5d
+    jg .loop
+    sfence
+    RET
+
+.small: ; 65-256 bytes/row. skip non-temporal stores
+    sub         r4, 3*64
+    jge .tiny
+    mov         r6, r4
+.small_loop:
+    PREFETCHNT_ITER r2+r4+64, 64
+    movu        m0, [r2+r4]
+%if %1
+    pshufb      m0, m4
+%endif
+    mova   [r0+r4], m0
+    add         r4, 64
+    jl .small_loop
+    PREFETCHNT_ITER r2+r4+64, 64
+    %%mload     m0 {k1}{z}, [r2+r4]
+%if %1
+    pshufb      m0, m4
+%endif
+    mova   [r0+r4], m0
+    add         r2, r3
+    add         r0, r1
+    mov         r4, r6
+    dec        r5d
+    jg .small_loop
+    RET
+
+.tiny: ; 1-64 bytes/row. skip non-temporal stores
+    PREFETCHNT_ITER r2+r4+64, 64
+    %%mload     m0 {k1}{z}, [r2+r4]
+%if %1
+    pshufb      m0, m4
+%endif
+    mova   [r0+r4], m0
+    add         r2, r3
+    add         r0, r1
+    dec        r5d
+    jg .tiny
+    RET
+%endmacro
+
+INIT_ZMM avx512
+PLANE_COPY_AVX512 0
+PLANE_COPY_AVX512 1
+
 %macro INTERLEAVE 4-5 ; dst, srcu, srcv, is_aligned, nt_hint
 %if HIGH_BIT_DEPTH
 %assign x 0
@@ -1258,22 +1396,55 @@ cglobal load_deinterleave_chroma_fdec, 4,4
     RET
 %endmacro ; LOAD_DEINTERLEAVE_CHROMA
 
+%macro LOAD_DEINTERLEAVE_CHROMA_FDEC_AVX512 0
+cglobal load_deinterleave_chroma_fdec, 4,5
+    vbroadcasti32x8 m0, [deinterleave_shuf32a]
+    mov            r4d, 0x3333ff00
+    kmovd           k1, r4d
+    lea             r4, [r2*3]
+    kshiftrd        k2, k1, 16
+.loop:
+    vbroadcasti128 ym1, [r1]
+    vbroadcasti32x4 m1 {k1}, [r1+r2]
+    vbroadcasti128 ym2, [r1+r2*2]
+    vbroadcasti32x4 m2 {k1}, [r1+r4]
+    lea             r1, [r1+r2*4]
+    pshufb          m1, m0
+    pshufb          m2, m0
+    vmovdqa32 [r0] {k2}, m1
+    vmovdqa32 [r0+mmsize] {k2}, m2
+    add            r0, 2*mmsize
+    sub           r3d, 4
+    jg .loop
+    RET
+%endmacro
+
 %macro LOAD_DEINTERLEAVE_CHROMA_FENC_AVX2 0
 cglobal load_deinterleave_chroma_fenc, 4,5
     vbroadcasti128 m0, [deinterleave_shuf]
     lea            r4, [r2*3]
 .loop:
-    mova          xm1, [r1]
-    vinserti128    m1, m1, [r1+r2], 1
-    mova          xm2, [r1+r2*2]
-    vinserti128    m2, m2, [r1+r4], 1
+    mova          xm1, [r1]         ; 0
+    vinserti128   ym1, [r1+r2], 1   ; 1
+%if mmsize == 64
+    mova          xm2, [r1+r2*4]    ; 4
+    vinserti32x4   m1, [r1+r2*2], 2 ; 2
+    vinserti32x4   m2, [r1+r4*2], 2 ; 6
+    vinserti32x4   m1, [r1+r4], 3   ; 3
+    lea            r1, [r1+r2*4]
+    vinserti32x4   m2, [r1+r2], 1   ; 5
+    vinserti32x4   m2, [r1+r4], 3   ; 7
+%else
+    mova          xm2, [r1+r2*2]    ; 2
+    vinserti128    m2, [r1+r4], 1   ; 3
+%endif
+    lea            r1, [r1+r2*4]
     pshufb         m1, m0
     pshufb         m2, m0
-    mova [r0+0*FENC_STRIDE], m1
-    mova [r0+2*FENC_STRIDE], m2
-    lea            r1, [r1+r2*4]
-    add            r0, 4*FENC_STRIDE
-    sub           r3d, 4
+    mova         [r0], m1
+    mova  [r0+mmsize], m2
+    add            r0, 2*mmsize
+    sub           r3d, mmsize/8
     jg .loop
     RET
 %endmacro ; LOAD_DEINTERLEAVE_CHROMA_FENC_AVX2
@@ -1498,6 +1669,9 @@ PLANE_DEINTERLEAVE_RGB
 INIT_YMM avx2
 LOAD_DEINTERLEAVE_CHROMA_FENC_AVX2
 PLANE_DEINTERLEAVE_RGB
+INIT_ZMM avx512
+LOAD_DEINTERLEAVE_CHROMA_FDEC_AVX512
+LOAD_DEINTERLEAVE_CHROMA_FENC_AVX2
 %endif
 
 ; These functions are not general-use; not only do they require aligned input, but memcpy
@@ -2481,8 +2655,8 @@ cglobal mbtree_propagate_list_internal, 5,7,21
     paddd           m6, m7             ; i_mb_x += 8
     pand            m3, m8             ; {x, y}
     vprold          m1, m3, 20         ; {y, x} << 4
-    psubw           m3 {k4}, m9, m3    ; {32-x, 32-y}, {32-x, y}
-    psubw           m1 {k5}, m10, m1   ; ({32-y, x}, {y, x}) << 4
+    vpsubw          m3 {k4}, m9, m3    ; {32-x, 32-y}, {32-x, y}
+    vpsubw          m1 {k5}, m10, m1   ; ({32-y, x}, {y, x}) << 4
     pmullw          m3, m1
     paddsw          m3, m3             ; prevent signed overflow in idx0 (32*32<<5 == 0x8000)
     pmulhrsw        m2, m3, m4         ; idx01weight idx23weightp
@@ -2493,11 +2667,11 @@ cglobal mbtree_propagate_list_internal, 5,7,21
     vpcmpuw         k2, ym1, ym20, 1    ; {mbx, mbx+1} < width
     kunpckwd        k2, k2, k2
     psrad           m1, m0, 16
-    paddd           m1 {k6}, m11
+    vpaddd          m1 {k6}, m11
     vpcmpud         k1 {k1}, m1, m13, 1 ; mby < height | mby+1 < height
 
     pmaddwd         m0, m15
-    paddd           m0 {k6}, m14        ; idx0 | idx2
+    vpaddd          m0 {k6}, m14        ; idx0 | idx2
     vmovdqu16       m2 {k2}{z}, m2      ; idx01weight | idx23weight
     vptestmd        k1 {k1}, m2, m2     ; mask out offsets with no changes
 
@@ -2589,9 +2763,9 @@ cglobal mbtree_fix8_pack, 3,4
 ;-----------------------------------------------------------------------------
 cglobal mbtree_fix8_unpack, 3,4
 %if mmsize == 32
-    vbroadcastf128 m2, [pf_inv256]
+    vbroadcastf128 m2, [pf_inv16777216]
 %else
-    movaps       m2, [pf_inv256]
+    movaps       m2, [pf_inv16777216]
     mova         m4, [mbtree_fix8_unpack_shuf+16]
 %endif
     mova         m3, [mbtree_fix8_unpack_shuf]
@@ -2612,8 +2786,6 @@ cglobal mbtree_fix8_unpack, 3,4
     pshufb       m0, m1, m3
     pshufb       m1, m4
 %endif
-    psrad        m0, 16 ; sign-extend
-    psrad        m1, 16
     cvtdq2ps     m0, m0
     cvtdq2ps     m1, m1
     mulps        m0, m2
@@ -2627,8 +2799,7 @@ cglobal mbtree_fix8_unpack, 3,4
     jz .end
 .scalar:
     movzx       r3d, word [r1+2*r2+mmsize]
-    rol         r3w, 8
-    movsx       r3d, r3w
+    bswap       r3d
     ; Use 3-arg cvtsi2ss as a workaround for the fact that the instruction has a stupid dependency on
     ; dst which causes terrible performance when used in a loop otherwise. Blame Intel for poor design.
     cvtsi2ss    xm0, xm2, r3d
@@ -2644,3 +2815,69 @@ INIT_XMM ssse3
 MBTREE_FIX8
 INIT_YMM avx2
 MBTREE_FIX8
+
+%macro MBTREE_FIX8_AVX512_END 0
+    add      r2, mmsize/2
+    jle .loop
+    cmp     r2d, mmsize/2
+    jl .tail
+    RET
+.tail:
+    ; Do the final loop iteration with partial masking to handle the remaining elements.
+    shrx    r3d, r3d, r2d ; (1 << count) - 1
+    kmovd    k1, r3d
+    kshiftrd k2, k1, 16
+    jmp .loop
+%endmacro
+
+INIT_ZMM avx512
+cglobal mbtree_fix8_pack, 3,4
+    vbroadcastf32x4 m2, [pf_256]
+    vbroadcasti32x4 m3, [mbtree_fix8_pack_shuf]
+    psrld       xm4, xm3, 4
+    pmovzxbq     m4, xm4
+    sub         r2d, mmsize/2
+    mov         r3d, -1
+    movsxdifnidn r2, r2d
+    lea          r1, [r1+4*r2]
+    lea          r0, [r0+2*r2]
+    neg          r2
+    jg .tail
+    kmovd        k1, r3d
+    kmovw        k2, k1
+.loop:
+    vmulps       m0 {k1}{z}, m2, [r1+4*r2]
+    vmulps       m1 {k2}{z}, m2, [r1+4*r2+mmsize]
+    cvttps2dq    m0, m0
+    cvttps2dq    m1, m1
+    packssdw     m0, m1
+    pshufb       m0, m3
+    vpermq       m0, m4, m0
+    vmovdqu16 [r0+2*r2] {k1}, m0
+    MBTREE_FIX8_AVX512_END
+
+cglobal mbtree_fix8_unpack, 3,4
+    vbroadcasti32x8 m3, [mbtree_fix8_unpack_shuf]
+    vbroadcastf32x4 m2, [pf_inv16777216]
+    sub         r2d, mmsize/2
+    mov         r3d, -1
+    movsxdifnidn r2, r2d
+    lea          r1, [r1+2*r2]
+    lea          r0, [r0+4*r2]
+    neg          r2
+    jg .tail
+    kmovw        k1, r3d
+    kmovw        k2, k1
+.loop:
+    mova         m1, [r1+2*r2]
+    vshufi32x4   m0, m1, m1, q1100
+    vshufi32x4   m1, m1, m1, q3322
+    pshufb       m0, m3
+    pshufb       m1, m3
+    cvtdq2ps     m0, m0
+    cvtdq2ps     m1, m1
+    mulps        m0, m2
+    mulps        m1, m2
+    vmovaps [r0+4*r2] {k1}, m0
+    vmovaps [r0+4*r2+mmsize] {k2}, m1
+    MBTREE_FIX8_AVX512_END
