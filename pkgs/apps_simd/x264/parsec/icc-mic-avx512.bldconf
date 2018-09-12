@@ -2,4 +2,4 @@
 
 source ${PARSECDIR}/pkgs/apps_simd/x264/parsec/icc-mic.bldconf
 
-build_conf="--disable-opencl --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable -Wno-error=tautological-compare ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""
+build_conf="--disable-opencl --extra-asflags=\"${ASFLAGS}\" --extra-cflags=\"-Wno-error=unused-but-set-variable -Wno-error=tautological-compare -Wno-error=format-truncation ${CFLAGS}\" --extra-ldflags=\"${LDFLAGS} ${LIBS}\""

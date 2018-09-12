@@ -1,7 +1,7 @@
 /*****************************************************************************
  * osdep.h: platform-specific code
  *****************************************************************************
- * Copyright (C) 2007-2018 x264 project
+ * Copyright (C) 2007-2017 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -72,11 +72,11 @@ int x264_vsnprintf( char *s, size_t n, const char *fmt, va_list arg );
 #define isfinite finite
 #endif
 
-#if !HAVE_STRTOK_R && !defined(strtok_r)
+#ifdef _WIN32
+#ifndef strtok_r
 #define strtok_r(str,delim,save) strtok(str,delim)
 #endif
 
-#ifdef _WIN32
 #define utf8_to_utf16( utf8, utf16 )\
     MultiByteToWideChar( CP_UTF8, MB_ERR_INVALID_CHARS, utf8, -1, utf16, sizeof(utf16)/sizeof(wchar_t) )
 FILE *x264_fopen( const char *filename, const char *mode );
@@ -102,9 +102,6 @@ int x264_is_pipe( const char *path );
 #define x264_vfprintf vfprintf
 #define x264_is_pipe(x) 0
 #endif
-
-#define x264_glue3_expand(x,y,z) x##_##y##_##z
-#define x264_glue3(x,y,z) x264_glue3_expand(x,y,z)
 
 #ifdef _MSC_VER
 #define DECLARE_ALIGNED( var, n ) __declspec(align(n)) var
@@ -322,7 +319,7 @@ static ALWAYS_INLINE uint16_t endian_fix16( uint16_t x )
 #endif
 
 /* For values with 4 bits or less. */
-static ALWAYS_INLINE int x264_ctz_4bit( uint32_t x )
+static int ALWAYS_INLINE x264_ctz_4bit( uint32_t x )
 {
     static uint8_t lut[16] = {4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0};
     return lut[x];
@@ -332,7 +329,7 @@ static ALWAYS_INLINE int x264_ctz_4bit( uint32_t x )
 #define x264_clz(x) __builtin_clz(x)
 #define x264_ctz(x) __builtin_ctz(x)
 #else
-static ALWAYS_INLINE int x264_clz( uint32_t x )
+static int ALWAYS_INLINE x264_clz( uint32_t x )
 {
     static uint8_t lut[16] = {4,3,2,2,1,1,1,1,0,0,0,0,0,0,0,0};
     int y, z = (((x >> 16) - 1) >> 27) & 16;
@@ -344,7 +341,7 @@ static ALWAYS_INLINE int x264_clz( uint32_t x )
     return z + lut[x];
 }
 
-static ALWAYS_INLINE int x264_ctz( uint32_t x )
+static int ALWAYS_INLINE x264_ctz( uint32_t x )
 {
     static uint8_t lut[16] = {4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0};
     int y, z = (((x & 0xffff) - 1) >> 27) & 16;

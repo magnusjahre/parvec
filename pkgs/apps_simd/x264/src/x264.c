@@ -1,7 +1,7 @@
 /*****************************************************************************
  * x264: top-level x264cli functions
  *****************************************************************************
- * Copyright (C) 2003-2018 x264 project
+ * Copyright (C) 2003-2017 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -39,15 +39,17 @@
 
 #include <signal.h>
 #include <getopt.h>
+#include "common/common.h"
 #include "x264cli.h"
 #include "input/input.h"
 #include "output/output.h"
 #include "filters/filters.h"
 
-#define QP_MAX_SPEC (51+6*2)
-#define QP_MAX (QP_MAX_SPEC+18)
-
 #define FAIL_IF_ERROR( cond, ... ) FAIL_IF_ERR( cond, "x264", __VA_ARGS__ )
+
+#ifdef ENABLE_PARSEC_HOOKS
+#include <hooks.h>
+#endif
 
 #if HAVE_LAVF
 #undef DECLARE_ALIGNED
@@ -199,9 +201,6 @@ static const char * const pulldown_names[] = { "none", "22", "32", "64", "double
 static const char * const log_level_names[] = { "none", "error", "warning", "info", "debug", 0 };
 static const char * const output_csp_names[] =
 {
-#if !X264_CHROMA_FORMAT || X264_CHROMA_FORMAT == X264_CSP_I400
-    "i400",
-#endif
 #if !X264_CHROMA_FORMAT || X264_CHROMA_FORMAT == X264_CSP_I420
     "i420",
 #endif
@@ -216,7 +215,6 @@ static const char * const output_csp_names[] =
 static const char * const chroma_format_names[] =
 {
     [0] = "all",
-    [X264_CSP_I400] = "i400",
     [X264_CSP_I420] = "i420",
     [X264_CSP_I422] = "i422",
     [X264_CSP_I444] = "i444"
@@ -337,8 +335,8 @@ static void print_version_info( void )
 #else
     printf( "using an unknown compiler\n" );
 #endif
-    printf( "x264 configuration: --chroma-format=%s\n", chroma_format_names[X264_CHROMA_FORMAT] );
-    printf( "libx264 configuration: --chroma-format=%s\n", chroma_format_names[x264_chroma_format] );
+    printf( "x264 configuration: --bit-depth=%d --chroma-format=%s\n", X264_BIT_DEPTH, chroma_format_names[X264_CHROMA_FORMAT] );
+    printf( "libx264 configuration: --bit-depth=%d --chroma-format=%s\n", x264_bit_depth, chroma_format_names[x264_chroma_format] );
     printf( "x264 license: " );
 #if HAVE_GPL
     printf( "GPL version 2 or later\n" );
@@ -355,11 +353,24 @@ static void print_version_info( void )
 #endif
 }
 
-static int main_internal( int argc, char **argv )
+int main( int argc, char **argv )
 {
     x264_param_t param;
     cli_opt_t opt = {0};
     int ret = 0;
+
+#ifdef PARSEC_VERSION
+#define __PARSEC_STRING(x) #x
+#define __PARSEC_XSTRING(x) __PARSEC_STRING(x)
+    printf("PARSEC Benchmark Suite Version " __PARSEC_XSTRING(PARSEC_VERSION)"\n");
+    fflush(NULL);
+#else
+    printf("PARSEC Benchmark Suite\n");
+    fflush(NULL);
+#endif //PARSEC_VERSION
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_bench_begin(__parsec_x264);
+#endif
 
     FAIL_IF_ERROR( x264_threading_init(), "unable to initialize threading\n" );
 
@@ -404,12 +415,11 @@ static int main_internal( int argc, char **argv )
     free( argv );
 #endif
 
-    return ret;
-}
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_bench_end();
+#endif
 
-int main( int argc, char **argv )
-{
-    return x264_stack_align( main_internal, argc, argv );
+    return ret;
 }
 
 static char const *strtable_lookup( const char * const table[], int idx )
@@ -494,7 +504,7 @@ static void help( x264_param_t *defaults, int longhelp )
         " .mkv -> Matroska\n"
         " .flv -> Flash Video\n"
         " .mp4 -> MP4 if compiled with GPAC or L-SMASH support (%s)\n"
-        "Output bit depth: %s\n."
+        "Output bit depth: %d (configured at compile time)\n"
         "\n"
         "Options:\n"
         "\n"
@@ -525,15 +535,7 @@ static void help( x264_param_t *defaults, int longhelp )
 #else
         "no",
 #endif
-#if HAVE_BITDEPTH8 && HAVE_BITDEPTH10
-        "8/10"
-#elif HAVE_BITDEPTH8
-        "8"
-#elif HAVE_BITDEPTH10
-        "10"
-#else
-        "none"
-#endif
+        x264_bit_depth
       );
     H0( "Example usage:\n" );
     H0( "\n" );
@@ -558,9 +560,8 @@ static void help( x264_param_t *defaults, int longhelp )
     H0( "      --profile <string>      Force the limits of an H.264 profile\n"
         "                                  Overrides all settings.\n" );
     H2(
-#if !X264_CHROMA_FORMAT || X264_CHROMA_FORMAT <= X264_CSP_I420
-#if HAVE_BITDEPTH8
-#if !X264_CHROMA_FORMAT || X264_CHROMA_FORMAT == X264_CSP_I420
+#if X264_CHROMA_FORMAT <= X264_CSP_I420
+#if X264_BIT_DEPTH==8
         "                                  - baseline:\n"
         "                                    --no-8x8dct --bframes 0 --no-cabac\n"
         "                                    --cqm flat --weightp 0\n"
@@ -569,17 +570,14 @@ static void help( x264_param_t *defaults, int longhelp )
         "                                  - main:\n"
         "                                    --no-8x8dct --cqm flat\n"
         "                                    No lossless.\n"
-#endif
         "                                  - high:\n"
         "                                    No lossless.\n"
 #endif
-#if HAVE_BITDEPTH10
         "                                  - high10:\n"
         "                                    No lossless.\n"
         "                                    Support for bit depth 8-10.\n"
 #endif
-#endif
-#if !X264_CHROMA_FORMAT || X264_CHROMA_FORMAT == X264_CSP_I422
+#if X264_CHROMA_FORMAT <= X264_CSP_I422
         "                                  - high422:\n"
         "                                    No lossless.\n"
         "                                    Support for bit depth 8-10.\n"
@@ -590,21 +588,17 @@ static void help( x264_param_t *defaults, int longhelp )
         "                                    Support for 4:2:0/4:2:2/4:4:4 chroma subsampling.\n" );
         else H0(
         "                                  - "
-#if !X264_CHROMA_FORMAT || X264_CHROMA_FORMAT <= X264_CSP_I420
-#if HAVE_BITDEPTH8
-#if !X264_CHROMA_FORMAT || X264_CHROMA_FORMAT == X264_CSP_I420
-        "baseline,main,"
+#if X264_CHROMA_FORMAT <= X264_CSP_I420
+#if X264_BIT_DEPTH==8
+        "baseline,main,high,"
 #endif
-        "high,"
-#endif
-#if HAVE_BITDEPTH10
         "high10,"
 #endif
-#endif
-#if !X264_CHROMA_FORMAT || X264_CHROMA_FORMAT == X264_CSP_I422
+#if X264_CHROMA_FORMAT <= X264_CSP_I422
         "high422,"
 #endif
-        "high444\n" );
+        "high444\n"
+               );
     H0( "      --preset <string>       Use a preset to select encoding settings [medium]\n"
         "                                  Overridden by user settings.\n" );
     H2( "                                  - ultrafast:\n"
@@ -753,7 +747,7 @@ static void help( x264_param_t *defaults, int longhelp )
     H2( "      --crf-max <float>       With CRF+VBV, limit RF to this value\n"
         "                                  May cause VBV underflows!\n" );
     H2( "      --qpmin <integer>       Set min QP [%d]\n", defaults->rc.i_qp_min );
-    H2( "      --qpmax <integer>       Set max QP [%d]\n", X264_MIN( defaults->rc.i_qp_max, QP_MAX ) );
+    H2( "      --qpmax <integer>       Set max QP [%d]\n", defaults->rc.i_qp_max );
     H2( "      --qpstep <integer>      Set max QP step [%d]\n", defaults->rc.i_qp_step );
     H2( "      --ratetol <float>       Tolerance of ABR ratecontrol and VBV [%.1f]\n", defaults->rc.f_rate_tolerance );
     H2( "      --ipratio <float>       QP factor between I and P [%.2f]\n", defaults->rc.f_ip_factor );
@@ -879,21 +873,16 @@ static void help( x264_param_t *defaults, int longhelp )
         "                                  - undef, bt709, bt470m, bt470bg, smpte170m,\n"
         "                                    smpte240m, linear, log100, log316,\n"
         "                                    iec61966-2-4, bt1361e, iec61966-2-1,\n"
-        "                                    bt2020-10, bt2020-12, smpte2084, smpte428,\n"
-        "                                    arib-std-b67\n",
+        "                                    bt2020-10, bt2020-12, smpte2084, smpte428\n",
                                        strtable_lookup( x264_transfer_names, defaults->vui.i_transfer ) );
     H2( "      --colormatrix <string>  Specify color matrix setting [\"%s\"]\n"
         "                                  - undef, bt709, fcc, bt470bg, smpte170m,\n"
         "                                    smpte240m, GBR, YCgCo, bt2020nc, bt2020c,\n"
-        "                                    smpte2085, chroma-derived-nc,\n"
-        "                                    chroma-derived-c, ICtCp\n",
+        "                                    smpte2085\n",
                                        strtable_lookup( x264_colmatrix_names, defaults->vui.i_colmatrix ) );
     H2( "      --chromaloc <integer>   Specify chroma sample location (0 to 5) [%d]\n",
                                        defaults->vui.i_chroma_loc );
-    H2( "      --alternative-transfer <string> Specify an alternative transfer\n"
-        "                              characteristics [\"%s\"]\n"
-        "                                  - same values as --transfer\n",
-                                       strtable_lookup( x264_transfer_names, defaults->i_alternative_transfer ) );
+
     H2( "      --nal-hrd <string>      Signal HRD information (requires vbv-bufsize)\n"
         "                                  - none, vbr, cbr (cbr not allowed in .mp4)\n" );
     H2( "      --filler                Force hard-CBR and generate filler (implied by\n"
@@ -914,15 +903,8 @@ static void help( x264_param_t *defaults, int longhelp )
     H1( "      --input-csp <string>    Specify input colorspace format for raw input\n" );
     print_csp_names( longhelp );
     H1( "      --output-csp <string>   Specify output colorspace [\"%s\"]\n"
-        "                                  - %s\n",
-#if X264_CHROMA_FORMAT
-        output_csp_names[0],
-#else
-        "i420",
-#endif
-        stringify_names( buf, output_csp_names ) );
+        "                                  - %s\n", output_csp_names[0], stringify_names( buf, output_csp_names ) );
     H1( "      --input-depth <integer> Specify input bit depth for raw input\n" );
-    H1( "      --output-depth <integer> Specify output bit depth\n" );
     H1( "      --input-range <string>  Specify input color range [\"%s\"]\n"
         "                                  - %s\n", range_names[0], stringify_names( buf, range_names ) );
     H1( "      --input-res <intxint>   Specify input resolution (width x height)\n" );
@@ -935,8 +917,6 @@ static void help( x264_param_t *defaults, int longhelp )
     H1( "      --bluray-compat         Enable compatibility hacks for Blu-ray support\n" );
     H1( "      --avcintra-class <integer> Use compatibility hacks for AVC-Intra class\n"
         "                                  - 50, 100, 200\n" );
-    H1( "      --avcintra-flavor <string> AVC-Intra flavor [\"%s\"]\n"
-        "                                  - %s\n", x264_avcintra_flavor_names[0], stringify_names( buf, x264_avcintra_flavor_names ) );
     H1( "      --stitchable            Don't optimize headers based on video content\n"
         "                              Ensures ability to recombine a segmented encode\n" );
     H1( "\n" );
@@ -1013,7 +993,6 @@ typedef enum
     OPT_INPUT_RES,
     OPT_INPUT_CSP,
     OPT_INPUT_DEPTH,
-    OPT_OUTPUT_DEPTH,
     OPT_DTS_COMPRESSION,
     OPT_OUTPUT_CSP,
     OPT_INPUT_RANGE,
@@ -1040,7 +1019,6 @@ static struct option long_options[] =
     { "open-gop",          no_argument, NULL, 0 },
     { "bluray-compat",     no_argument, NULL, 0 },
     { "avcintra-class", required_argument, NULL, 0 },
-    { "avcintra-flavor", required_argument, NULL, 0 },
     { "min-keyint",  required_argument, NULL, 'i' },
     { "keyint",      required_argument, NULL, 'I' },
     { "intra-refresh",     no_argument, NULL, 0 },
@@ -1176,14 +1154,12 @@ static struct option long_options[] =
     { "pulldown",    required_argument, NULL, OPT_PULLDOWN },
     { "fake-interlaced",   no_argument, NULL, 0 },
     { "frame-packing",     required_argument, NULL, 0 },
-    { "alternative-transfer", required_argument, NULL, 0 },
     { "vf",          required_argument, NULL, OPT_VIDEO_FILTER },
     { "video-filter", required_argument, NULL, OPT_VIDEO_FILTER },
     { "input-fmt",   required_argument, NULL, OPT_INPUT_FMT },
     { "input-res",   required_argument, NULL, OPT_INPUT_RES },
     { "input-csp",   required_argument, NULL, OPT_INPUT_CSP },
     { "input-depth", required_argument, NULL, OPT_INPUT_DEPTH },
-    { "output-depth", required_argument, NULL, OPT_OUTPUT_DEPTH },
     { "dts-compress",      no_argument, NULL, OPT_DTS_COMPRESSION },
     { "output-csp",  required_argument, NULL, OPT_OUTPUT_CSP },
     { "input-range", required_argument, NULL, OPT_INPUT_RANGE },
@@ -1343,9 +1319,7 @@ static int init_vid_filters( char *sequence, hnd_t *handle, video_info_t *info, 
     /* force the output csp to what the user specified (or the default) */
     param->i_csp = info->csp;
     int csp = info->csp & X264_CSP_MASK;
-    if( output_csp == X264_CSP_I400 && csp != X264_CSP_I400 )
-        param->i_csp = X264_CSP_I400;
-    else if( output_csp == X264_CSP_I420 && (csp < X264_CSP_I420 || csp >= X264_CSP_I422) )
+    if( output_csp == X264_CSP_I420 && (csp < X264_CSP_I420 || csp >= X264_CSP_I422) )
         param->i_csp = X264_CSP_I420;
     else if( output_csp == X264_CSP_I422 && (csp < X264_CSP_I422 || csp >= X264_CSP_I444) )
         param->i_csp = X264_CSP_I422;
@@ -1361,11 +1335,10 @@ static int init_vid_filters( char *sequence, hnd_t *handle, video_info_t *info, 
     if( x264_init_vid_filter( "resize", handle, &filter, info, param, NULL ) )
         return -1;
 
-    char args[20], name[20];
-    sprintf( args, "bit_depth=%d", param->i_bitdepth );
-    sprintf( name, "depth_%d", param->i_bitdepth );
+    char args[20];
+    sprintf( args, "bit_depth=%d", x264_bit_depth );
 
-    if( x264_init_vid_filter( name, handle, &filter, info, param, args ) )
+    if( x264_init_vid_filter( "depth", handle, &filter, info, param, args ) )
         return -1;
 
     return 0;
@@ -1564,9 +1537,6 @@ static int parse( int argc, char **argv, x264_param_t *param, cli_opt_t *opt )
             case OPT_INPUT_DEPTH:
                 input_opt.bit_depth = atoi( optarg );
                 break;
-            case OPT_OUTPUT_DEPTH:
-                param->i_bitdepth = atoi( optarg );
-                break;
             case OPT_DTS_COMPRESSION:
                 output_opt.use_dts_compress = 1;
                 break;
@@ -1576,7 +1546,7 @@ static int parse( int argc, char **argv, x264_param_t *param, cli_opt_t *opt )
 #if X264_CHROMA_FORMAT
                 static const uint8_t output_csp_fix[] = { X264_CHROMA_FORMAT, X264_CSP_RGB };
 #else
-                static const uint8_t output_csp_fix[] = { X264_CSP_I400, X264_CSP_I420, X264_CSP_I422, X264_CSP_I444, X264_CSP_RGB };
+                static const uint8_t output_csp_fix[] = { X264_CSP_I420, X264_CSP_I422, X264_CSP_I444, X264_CSP_RGB };
 #endif
                 param->i_csp = output_csp = output_csp_fix[output_csp];
                 break;
@@ -1678,23 +1648,15 @@ generic_option:
 
     /* init threaded input while the information about the input video is unaltered by filtering */
 #if HAVE_THREAD
-    const cli_input_t *thread_input;
-    if( HAVE_BITDEPTH8 && param->i_bitdepth == 8 )
-        thread_input = &thread_8_input;
-    else if( HAVE_BITDEPTH10 && param->i_bitdepth == 10 )
-        thread_input = &thread_10_input;
-    else
-        thread_input = NULL;
-
-    if( thread_input && info.thread_safe && (b_thread_input || param->i_threads > 1
+    if( info.thread_safe && (b_thread_input || param->i_threads > 1
         || (param->i_threads == X264_THREADS_AUTO && x264_cpu_num_processors() > 1)) )
     {
-        if( thread_input->open_file( NULL, &opt->hin, &info, NULL ) )
+        if( thread_input.open_file( NULL, &opt->hin, &info, NULL ) )
         {
             fprintf( stderr, "x264 [error]: threaded input failed\n" );
             return -1;
         }
-        cli_input = *thread_input;
+        cli_input = thread_input;
     }
 #endif
 
@@ -1863,9 +1825,9 @@ static int encode_frame( x264_t *h, hnd_t hout, x264_picture_t *pic, int64_t *la
 
 static int64_t print_status( int64_t i_start, int64_t i_previous, int i_frame, int i_frame_total, int64_t i_file, x264_param_t *param, int64_t last_ts )
 {
-    char buf[200];
+//    char buf[200];
     int64_t i_time = x264_mdate();
-    if( i_previous && i_time - i_previous < UPDATE_INTERVAL )
+    /*  if( i_previous && i_time - i_previous < UPDATE_INTERVAL )
         return i_previous;
     int64_t i_elapsed = i_time - i_start;
     double fps = i_elapsed > 0 ? i_frame * 1000000. / i_elapsed : 0;
@@ -1886,6 +1848,7 @@ static int64_t print_status( int64_t i_start, int64_t i_previous, int i_frame, i
     fprintf( stderr, "%s  \r", buf+5 );
     x264_cli_set_console_title( buf );
     fflush( stderr ); // needed in windows
+    */
     return i_time;
 }
 
@@ -1955,6 +1918,10 @@ static int encode( x264_param_t *param, cli_opt_t *opt )
     FAIL_IF_ERROR2( cli_output.set_param( opt->hout, param ), "can't set outfile param\n" );
 
     i_start = x264_mdate();
+
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_roi_begin();
+#endif
 
     /* ticks/frame = ticks/second / frames/second */
     ticks_per_frame = (int64_t)param->i_timebase_den * param->i_fps_den / param->i_timebase_num / param->i_fps_num;
@@ -2067,6 +2034,10 @@ fail:
     else
         duration = (double)(2 * largest_pts - second_largest_pts) * param->i_timebase_num / param->i_timebase_den;
 
+#ifdef ENABLE_PARSEC_HOOKS
+    __parsec_roi_end();
+#endif
+
     i_end = x264_mdate();
     /* Erase progress indicator before printing encoding stats. */
     if( opt->b_progress )
@@ -2081,6 +2052,7 @@ fail:
     cli_output.close_file( opt->hout, largest_pts, second_largest_pts );
     opt->hout = NULL;
 
+/*
     if( i_frame_output > 0 )
     {
         double fps = (double)i_frame_output * (double)1000000 /
@@ -2089,6 +2061,6 @@ fail:
         fprintf( stderr, "encoded %d frames, %.2f fps, %.2f kb/s\n", i_frame_output, fps,
                  (double) i_file * 8 / ( 1000 * duration ) );
     }
-
+*/
     return retval;
 }

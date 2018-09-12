@@ -1,7 +1,7 @@
 /*****************************************************************************
  * pixel.c: ppc pixel metrics
  *****************************************************************************
- * Copyright (C) 2003-2018 x264 project
+ * Copyright (C) 2003-2017 x264 project
  *
  * Authors: Eric Petit <eric.petit@lapsus.org>
  *          Guillaume Poirier <gpoirier@mplayerhq.hu>
@@ -26,7 +26,6 @@
 
 #include "common/common.h"
 #include "ppccommon.h"
-#include "pixel.h"
 
 #if !HIGH_BIT_DEPTH
 /***********************************************************************
@@ -47,7 +46,8 @@ static int name( uint8_t *pix1, intptr_t i_pix1,       \
         pix1v = vec_vsx_ld( 0, pix1 );                 \
         pix2v = vec_vsx_ld( 0, pix2 );                 \
         sumv = (vec_s32_t) vec_sum4s(                  \
-                   vec_absd( pix1v, pix2v ),           \
+                   vec_sub( vec_max( pix1v, pix2v ),   \
+                            vec_min( pix1v, pix2v ) ), \
                    (vec_u32_t) sumv );                 \
         pix1 += i_pix1;                                \
         pix2 += i_pix2;                                \
@@ -635,10 +635,10 @@ static void pixel_sad_x4_16x16_altivec( uint8_t *fenc,
         pix3v = vec_vsx_ld( 0, pix3 );
         pix3 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
-        sum3v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix3v ), (vec_u32_t) sum3v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+        sum3v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix3v ), vec_min( fencv, pix3v ) ), (vec_u32_t) sum3v );
 
         pix0v = vec_vsx_ld( 0, pix0 );
         pix0 += i_stride;
@@ -655,11 +655,10 @@ static void pixel_sad_x4_16x16_altivec( uint8_t *fenc,
         pix3v = vec_vsx_ld( 0, pix3 );
         pix3 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
-        sum3v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix3v ), (vec_u32_t) sum3v );
-
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+        sum3v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix3v ), vec_min( fencv, pix3v ) ), (vec_u32_t) sum3v );
     }
 
     sum0v = vec_sums( sum0v, zero_s32v );
@@ -713,9 +712,10 @@ static void pixel_sad_x3_16x16_altivec( uint8_t *fenc, uint8_t *pix0,
         pix2v = vec_vsx_ld( 0, pix2 );
         pix2 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+
         pix0v = vec_vsx_ld( 0, pix0 );
         pix0 += i_stride;
 
@@ -729,9 +729,9 @@ static void pixel_sad_x3_16x16_altivec( uint8_t *fenc, uint8_t *pix0,
         pix2v = vec_vsx_ld( 0, pix2 );
         pix2 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
     }
 
     sum0v = vec_sums( sum0v, zero_s32v );
@@ -785,10 +785,10 @@ static void pixel_sad_x4_16x8_altivec( uint8_t *fenc, uint8_t *pix0, uint8_t *pi
         pix3v = vec_vsx_ld( 0, pix3 );
         pix3 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
-        sum3v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix3v ), (vec_u32_t) sum3v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+        sum3v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix3v ), vec_min( fencv, pix3v ) ), (vec_u32_t) sum3v );
 
         pix0v = vec_vsx_ld( 0, pix0 );
         pix0 += i_stride;
@@ -805,10 +805,10 @@ static void pixel_sad_x4_16x8_altivec( uint8_t *fenc, uint8_t *pix0, uint8_t *pi
         pix3v = vec_vsx_ld( 0, pix3 );
         pix3 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
-        sum3v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix3v ), (vec_u32_t) sum3v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+        sum3v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix3v ), vec_min( fencv, pix3v ) ), (vec_u32_t) sum3v );
     }
 
     sum0v = vec_sums( sum0v, zero_s32v );
@@ -862,9 +862,9 @@ static void pixel_sad_x3_16x8_altivec( uint8_t *fenc, uint8_t *pix0,
         pix2v = vec_vsx_ld(0, pix2);
         pix2 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
 
         pix0v = vec_vsx_ld(0, pix0);
         pix0 += i_stride;
@@ -878,9 +878,9 @@ static void pixel_sad_x3_16x8_altivec( uint8_t *fenc, uint8_t *pix0,
         pix2v = vec_vsx_ld(0, pix2);
         pix2 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
     }
 
     sum0v = vec_sums( sum0v, zero_s32v );
@@ -937,10 +937,10 @@ static void pixel_sad_x4_8x16_altivec( uint8_t *fenc,
         pix3v = vec_vsx_ld(0, pix3);
         pix3 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
-        sum3v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix3v ), (vec_u32_t) sum3v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+        sum3v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix3v ), vec_min( fencv, pix3v ) ), (vec_u32_t) sum3v );
 
         pix0v = vec_vsx_ld(0, pix0);
         pix0 += i_stride;
@@ -957,10 +957,10 @@ static void pixel_sad_x4_8x16_altivec( uint8_t *fenc,
         pix3v = vec_vsx_ld(0, pix3);
         pix3 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
-        sum3v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix3v ), (vec_u32_t) sum3v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+        sum3v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix3v ), vec_min( fencv, pix3v ) ), (vec_u32_t) sum3v );
     }
 
     sum0v = vec_sum2s( sum0v, zero_s32v );
@@ -1014,9 +1014,9 @@ static void pixel_sad_x3_8x16_altivec( uint8_t *fenc, uint8_t *pix0,
         pix2v = vec_vsx_ld(0, pix2);
         pix2 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
 
         pix0v = vec_vsx_ld(0, pix0);
         pix0 += i_stride;
@@ -1030,9 +1030,9 @@ static void pixel_sad_x3_8x16_altivec( uint8_t *fenc, uint8_t *pix0,
         pix2v = vec_vsx_ld(0, pix2);
         pix2 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
     }
 
     sum0v = vec_sum2s( sum0v, zero_s32v );
@@ -1088,10 +1088,10 @@ static void pixel_sad_x4_8x8_altivec( uint8_t *fenc,
         pix3v = vec_vsx_ld(0, pix3);
         pix3 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
-        sum3v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix3v ), (vec_u32_t) sum3v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+        sum3v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix3v ), vec_min( fencv, pix3v ) ), (vec_u32_t) sum3v );
 
         pix0v = vec_vsx_ld(0, pix0);
         pix0 += i_stride;
@@ -1108,10 +1108,10 @@ static void pixel_sad_x4_8x8_altivec( uint8_t *fenc,
         pix3v = vec_vsx_ld(0, pix3);
         pix3 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
-        sum3v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix3v ), (vec_u32_t) sum3v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
+        sum3v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix3v ), vec_min( fencv, pix3v ) ), (vec_u32_t) sum3v );
     }
 
     sum0v = vec_sum2s( sum0v, zero_s32v );
@@ -1165,9 +1165,9 @@ static void pixel_sad_x3_8x8_altivec( uint8_t *fenc, uint8_t *pix0,
         pix2v = vec_vsx_ld(0, pix2);
         pix2 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
 
         pix0v = vec_vsx_ld(0, pix0);
         pix0 += i_stride;
@@ -1181,9 +1181,9 @@ static void pixel_sad_x3_8x8_altivec( uint8_t *fenc, uint8_t *pix0,
         pix2v = vec_vsx_ld(0, pix2);
         pix2 += i_stride;
 
-        sum0v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix0v ), (vec_u32_t) sum0v );
-        sum1v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix1v ), (vec_u32_t) sum1v );
-        sum2v = (vec_s32_t) vec_sum4s( vec_absd( fencv, pix2v ), (vec_u32_t) sum2v );
+        sum0v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix0v ), vec_min( fencv, pix0v ) ), (vec_u32_t) sum0v );
+        sum1v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix1v ), vec_min( fencv, pix1v ) ), (vec_u32_t) sum1v );
+        sum2v = (vec_s32_t) vec_sum4s( vec_sub( vec_max( fencv, pix2v ), vec_min( fencv, pix2v ) ), (vec_u32_t) sum2v );
     }
 
     sum0v = vec_sum2s( sum0v, zero_s32v );
@@ -1215,7 +1215,7 @@ static int pixel_ssd_16x16_altivec( uint8_t *pix1, intptr_t i_stride_pix1,
     LOAD_ZERO;
     vec_u8_t  pix1vA, pix2vA, pix1vB, pix2vB;
     vec_u32_t sumv;
-    vec_u8_t diffA, diffB;
+    vec_u8_t maxA, minA, diffA, maxB, minB, diffB;
 
     sumv = vec_splat_u32(0);
 
@@ -1227,19 +1227,25 @@ static int pixel_ssd_16x16_altivec( uint8_t *pix1, intptr_t i_stride_pix1,
         pix1 += i_stride_pix1;
         pix2 += i_stride_pix2;
 
+        maxA = vec_max(pix1vA, pix2vA);
+        minA = vec_min(pix1vA, pix2vA);
+
         pix2vB = vec_vsx_ld(0, pix2);
         pix1vB = vec_ld(0, pix1);
 
-        diffA = vec_absd(pix1vA, pix2vA);
+        diffA = vec_sub(maxA, minA);
         sumv = vec_msum(diffA, diffA, sumv);
 
         pix1 += i_stride_pix1;
         pix2 += i_stride_pix2;
 
+        maxB = vec_max(pix1vB, pix2vB);
+        minB = vec_min(pix1vB, pix2vB);
+
         pix2vA = vec_vsx_ld(0, pix2);
         pix1vA = vec_ld(0, pix1);
 
-        diffB = vec_absd(pix1vB, pix2vB);
+        diffB = vec_sub(maxB, minB);
         sumv = vec_msum(diffB, diffB, sumv);
     }
 
@@ -1249,10 +1255,16 @@ static int pixel_ssd_16x16_altivec( uint8_t *pix1, intptr_t i_stride_pix1,
     pix2vB = vec_vsx_ld(0, pix2);
     pix1vB = vec_ld(0, pix1);
 
-    diffA = vec_absd(pix1vA, pix2vA);
+    maxA = vec_max(pix1vA, pix2vA);
+    minA = vec_min(pix1vA, pix2vA);
+
+    maxB = vec_max(pix1vB, pix2vB);
+    minB = vec_min(pix1vB, pix2vB);
+
+    diffA = vec_sub(maxA, minA);
     sumv = vec_msum(diffA, diffA, sumv);
 
-    diffB = vec_absd(pix1vB, pix2vB);
+    diffB = vec_sub(maxB, minB);
     sumv = vec_msum(diffB, diffB, sumv);
 
     sumv = (vec_u32_t) vec_sums((vec_s32_t) sumv, zero_s32v);
@@ -1269,7 +1281,7 @@ static int pixel_ssd_8x8_altivec( uint8_t *pix1, intptr_t i_stride_pix1,
     LOAD_ZERO;
     vec_u8_t  pix1v, pix2v;
     vec_u32_t sumv;
-    vec_u8_t diffv;
+    vec_u8_t maxv, minv, diffv;
 
     const vec_u32_t sel = (vec_u32_t)CV(-1,-1,0,0);
 
@@ -1280,7 +1292,10 @@ static int pixel_ssd_8x8_altivec( uint8_t *pix1, intptr_t i_stride_pix1,
         pix1v = vec_vsx_ld(0, pix1);
         pix2v = vec_vsx_ld(0, pix2);
 
-        diffv = vec_absd( pix1v, pix2v );
+        maxv = vec_max(pix1v, pix2v);
+        minv = vec_min(pix1v, pix2v);
+
+        diffv = vec_sub(maxv, minv);
         sumv = vec_msum(diffv, diffv, sumv);
 
         pix1 += i_stride_pix1;
@@ -1300,7 +1315,7 @@ static int pixel_ssd_8x8_altivec( uint8_t *pix1, intptr_t i_stride_pix1,
 /****************************************************************************
  * variance
  ****************************************************************************/
-static uint64_t pixel_var_16x16_altivec( uint8_t *pix, intptr_t i_stride )
+static uint64_t x264_pixel_var_16x16_altivec( uint8_t *pix, intptr_t i_stride )
 {
     ALIGNED_16(uint32_t sum_tab[4]);
     ALIGNED_16(uint32_t sqr_tab[4]);
@@ -1327,7 +1342,7 @@ static uint64_t pixel_var_16x16_altivec( uint8_t *pix, intptr_t i_stride )
     return sum + ((uint64_t)sqr<<32);
 }
 
-static uint64_t pixel_var_8x8_altivec( uint8_t *pix, intptr_t i_stride )
+static uint64_t x264_pixel_var_8x8_altivec( uint8_t *pix, intptr_t i_stride )
 {
     ALIGNED_16(uint32_t sum_tab[4]);
     ALIGNED_16(uint32_t sqr_tab[4]);
@@ -1619,7 +1634,7 @@ static const vec_u8_t hadamard_permtab[] =
        0x1C,0x0C,0x1D,0x0D, 0x1E,0x0E,0x1F,0x0F )
  };
 
-static uint64_t pixel_hadamard_ac_16x16_altivec( uint8_t *pix, intptr_t stride )
+static uint64_t x264_pixel_hadamard_ac_16x16_altivec( uint8_t *pix, intptr_t stride )
 {
     int idx =  ((uintptr_t)pix & 8) >> 3;
     vec_u8_t permh = hadamard_permtab[idx];
@@ -1631,7 +1646,7 @@ static uint64_t pixel_hadamard_ac_16x16_altivec( uint8_t *pix, intptr_t stride )
     return ((sum>>34)<<32) + ((uint32_t)sum>>1);
 }
 
-static uint64_t pixel_hadamard_ac_16x8_altivec( uint8_t *pix, intptr_t stride )
+static uint64_t x264_pixel_hadamard_ac_16x8_altivec( uint8_t *pix, intptr_t stride )
 {
     int idx =  ((uintptr_t)pix & 8) >> 3;
     vec_u8_t permh = hadamard_permtab[idx];
@@ -1641,7 +1656,7 @@ static uint64_t pixel_hadamard_ac_16x8_altivec( uint8_t *pix, intptr_t stride )
     return ((sum>>34)<<32) + ((uint32_t)sum>>1);
 }
 
-static uint64_t pixel_hadamard_ac_8x16_altivec( uint8_t *pix, intptr_t stride )
+static uint64_t x264_pixel_hadamard_ac_8x16_altivec( uint8_t *pix, intptr_t stride )
 {
     vec_u8_t perm = hadamard_permtab[ (((uintptr_t)pix & 8) >> 3) ];
     uint64_t sum = pixel_hadamard_ac_altivec( pix, stride, perm );
@@ -1649,7 +1664,7 @@ static uint64_t pixel_hadamard_ac_8x16_altivec( uint8_t *pix, intptr_t stride )
     return ((sum>>34)<<32) + ((uint32_t)sum>>1);
 }
 
-static uint64_t pixel_hadamard_ac_8x8_altivec( uint8_t *pix, intptr_t stride )
+static uint64_t x264_pixel_hadamard_ac_8x8_altivec( uint8_t *pix, intptr_t stride )
 {
     vec_u8_t perm = hadamard_permtab[ (((uintptr_t)pix & 8) >> 3) ];
     uint64_t sum = pixel_hadamard_ac_altivec( pix, stride, perm );
@@ -1724,7 +1739,7 @@ SATD_X( 4x4 )
 
 
 #define INTRA_MBCMP_8x8( mbcmp )\
-static void intra_##mbcmp##_x3_8x8_altivec( uint8_t *fenc, uint8_t edge[36], int res[3] )\
+void intra_##mbcmp##_x3_8x8_altivec( uint8_t *fenc, uint8_t edge[36], int res[3] )\
 {\
     ALIGNED_8( uint8_t pix[8*FDEC_STRIDE] );\
     x264_predict_8x8_v_c( pix, edge );\
@@ -1739,7 +1754,7 @@ INTRA_MBCMP_8x8(sad)
 INTRA_MBCMP_8x8(sa8d)
 
 #define INTRA_MBCMP( mbcmp, size, pred1, pred2, pred3, chroma )\
-static void intra_##mbcmp##_x3_##size##x##size##chroma##_altivec( uint8_t *fenc, uint8_t *fdec, int res[3] )\
+void intra_##mbcmp##_x3_##size##x##size##chroma##_altivec( uint8_t *fenc, uint8_t *fdec, int res[3] )\
 {\
     x264_predict_##size##x##size##chroma##_##pred1##_c( fdec );\
     res[0] = pixel_##mbcmp##_##size##x##size##_altivec( fdec, FDEC_STRIDE, fenc, FENC_STRIDE );\
@@ -1817,13 +1832,13 @@ void x264_pixel_init_altivec( x264_pixel_function_t *pixf )
 
     pixf->intra_sa8d_x3_8x8   = intra_sa8d_x3_8x8_altivec;
 
-    pixf->var[PIXEL_16x16] = pixel_var_16x16_altivec;
-    pixf->var[PIXEL_8x8]   = pixel_var_8x8_altivec;
+    pixf->var[PIXEL_16x16] = x264_pixel_var_16x16_altivec;
+    pixf->var[PIXEL_8x8]   = x264_pixel_var_8x8_altivec;
 
-    pixf->hadamard_ac[PIXEL_16x16] = pixel_hadamard_ac_16x16_altivec;
-    pixf->hadamard_ac[PIXEL_16x8]  = pixel_hadamard_ac_16x8_altivec;
-    pixf->hadamard_ac[PIXEL_8x16]  = pixel_hadamard_ac_8x16_altivec;
-    pixf->hadamard_ac[PIXEL_8x8]   = pixel_hadamard_ac_8x8_altivec;
+    pixf->hadamard_ac[PIXEL_16x16] = x264_pixel_hadamard_ac_16x16_altivec;
+    pixf->hadamard_ac[PIXEL_16x8]  = x264_pixel_hadamard_ac_16x8_altivec;
+    pixf->hadamard_ac[PIXEL_8x16]  = x264_pixel_hadamard_ac_8x16_altivec;
+    pixf->hadamard_ac[PIXEL_8x8]   = x264_pixel_hadamard_ac_8x8_altivec;
 
     pixf->ssim_4x4x2_core = ssim_4x4x2_core_altivec;
 #endif // !HIGH_BIT_DEPTH

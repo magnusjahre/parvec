@@ -1,7 +1,7 @@
 /*****************************************************************************
  * dct.c: transform and zigzag
  *****************************************************************************
- * Copyright (C) 2003-2018 x264 project
+ * Copyright (C) 2003-2017 x264 project
  *
  * Authors: Loren Merritt <lorenm@u.washington.edu>
  *          Laurent Aimar <fenrir@via.ecp.fr>
@@ -41,6 +41,70 @@
 #if ARCH_MIPS
 #   include "mips/dct.h"
 #endif
+
+/* the inverse of the scaling factors introduced by 8x8 fdct */
+/* uint32 is for the asm implementation of trellis. the actual values fit in uint16. */
+#define W(i) (i==0 ? FIX8(1.0000) :\
+              i==1 ? FIX8(0.8859) :\
+              i==2 ? FIX8(1.6000) :\
+              i==3 ? FIX8(0.9415) :\
+              i==4 ? FIX8(1.2651) :\
+              i==5 ? FIX8(1.1910) :0)
+const uint32_t x264_dct8_weight_tab[64] = {
+    W(0), W(3), W(4), W(3),  W(0), W(3), W(4), W(3),
+    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
+    W(4), W(5), W(2), W(5),  W(4), W(5), W(2), W(5),
+    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
+
+    W(0), W(3), W(4), W(3),  W(0), W(3), W(4), W(3),
+    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
+    W(4), W(5), W(2), W(5),  W(4), W(5), W(2), W(5),
+    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1)
+};
+#undef W
+
+#define W(i) (i==0 ? FIX8(1.76777) :\
+              i==1 ? FIX8(1.11803) :\
+              i==2 ? FIX8(0.70711) :0)
+const uint32_t x264_dct4_weight_tab[16] = {
+    W(0), W(1), W(0), W(1),
+    W(1), W(2), W(1), W(2),
+    W(0), W(1), W(0), W(1),
+    W(1), W(2), W(1), W(2)
+};
+#undef W
+
+/* inverse squared */
+#define W(i) (i==0 ? FIX8(3.125) :\
+              i==1 ? FIX8(1.25) :\
+              i==2 ? FIX8(0.5) :0)
+const uint32_t x264_dct4_weight2_tab[16] = {
+    W(0), W(1), W(0), W(1),
+    W(1), W(2), W(1), W(2),
+    W(0), W(1), W(0), W(1),
+    W(1), W(2), W(1), W(2)
+};
+#undef W
+
+#define W(i) (i==0 ? FIX8(1.00000) :\
+              i==1 ? FIX8(0.78487) :\
+              i==2 ? FIX8(2.56132) :\
+              i==3 ? FIX8(0.88637) :\
+              i==4 ? FIX8(1.60040) :\
+              i==5 ? FIX8(1.41850) :0)
+const uint32_t x264_dct8_weight2_tab[64] = {
+    W(0), W(3), W(4), W(3),  W(0), W(3), W(4), W(3),
+    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
+    W(4), W(5), W(2), W(5),  W(4), W(5), W(2), W(5),
+    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
+
+    W(0), W(3), W(4), W(3),  W(0), W(3), W(4), W(3),
+    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1),
+    W(4), W(5), W(2), W(5),  W(4), W(5), W(2), W(5),
+    W(3), W(1), W(5), W(1),  W(3), W(1), W(5), W(1)
+};
+#undef W
+
 
 static void dct4x4dc( dctcoef d[16] )
 {
@@ -437,7 +501,7 @@ static void add16x16_idct8( pixel *dst, dctcoef dct[4][64] )
     add8x8_idct8( &dst[8*FDEC_STRIDE+8], dct[3] );
 }
 
-static inline void add4x4_idct_dc( pixel *p_dst, dctcoef dc )
+static void inline add4x4_idct_dc( pixel *p_dst, dctcoef dc )
 {
     dc = (dc + 32) >> 6;
     for( int i = 0; i < 4; i++, p_dst += FDEC_STRIDE )
@@ -667,7 +731,6 @@ void x264_dct_init( int cpu, x264_dct_function_t *dctf )
         dctf->sub16x16_dct  = x264_sub16x16_dct_altivec;
 
         dctf->add8x8_idct_dc = x264_add8x8_idct_dc_altivec;
-        dctf->add16x16_idct_dc = x264_add16x16_idct_dc_altivec;
 
         dctf->add4x4_idct   = x264_add4x4_idct_altivec;
         dctf->add8x8_idct   = x264_add8x8_idct_altivec;
