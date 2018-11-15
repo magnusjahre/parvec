@@ -241,7 +241,7 @@ static inline __m128 _mm256_fullhadd_f32(__m256 A, __m256 B) {
   return _mm_add_ps(hi,lo);
 }
 
-static inline double _mm256_cvtss_f32(__m256 A) {
+static inline float _custom_mm256_cvtss_f32(__m256 A) {
   return (_mm_cvtss_f32(_mm256_extractf128_ps(A,0)));
 }
 
@@ -264,7 +264,7 @@ static inline __m128d _mm256_fullhadd_f64(__m256d A, __m256d B) {
   return _mm_add_pd(hi,lo);
 }
 
-static inline double _mm256_cvtsd_f64(__m256d A) {
+static inline double _custom_mm256_cvtsd_f64(__m256d A) {
   return (_mm_cvtsd_f64(_mm256_extractf128_pd(A,0)));
 }
 
@@ -962,10 +962,10 @@ static inline _MM_TYPE _mm256_atan_pd(_MM_TYPE A) {
 #define _MM_CMPLE _mm512_cmple_pd
 #define _MM_CMPEQ _mm512_cmpeq_pd
 #define _MM_CMPEQ_SIG _mm512_cmpeq_epi64
-#define _MM_CMPGT_MASK _mm512_cmpgt_pd_mask
-#define _MM_CMPLT_MASK _mm512_cmplt_pd_mask
-#define _MM_CMPLE_MASK _mm512_cmple_pd_mask
-#define _MM_CMPEQ_MASK _mm512_cmpeq_pd_mask
+#define _MM_CMPGT_MASK _custom_mm512_cmpgt_pd_mask
+#define _MM_CMPLT_MASK _custom_mm512_cmplt_pd_mask
+#define _MM_CMPLE_MASK _custom_mm512_cmple_pd_mask
+#define _MM_CMPEQ_MASK _custom_mm512_cmpeq_pd_mask
 #define _MM_SRLI_I _mm512_srli_epi64
 #define _MM_SLLI_I _mm512_slli_epi64
 #define _MM_ADD_I _mm512_add_epi64
@@ -1777,10 +1777,10 @@ static inline _MM_TYPE _mm256_atan_ps(_MM_TYPE A) {
 #define _MM_CMPLE _mm512_cmple_ps
 #define _MM_CMPEQ _mm512_cmpeq_ps
 #define _MM_CMPEQ_SIG _mm512_cmpeq_epi32
-#define _MM_CMPGT_MASK _mm512_cmpgt_ps_mask
-#define _MM_CMPLT_MASK _mm512_cmplt_ps_mask
-#define _MM_CMPLE_MASK _mm512_cmple_ps_mask
-#define _MM_CMPEQ_MASK _mm512_cmpeq_ps_mask
+#define _MM_CMPGT_MASK _custom_mm512_cmpgt_ps_mask
+#define _MM_CMPLT_MASK _custom_mm512_cmplt_ps_mask
+#define _MM_CMPLE_MASK _custom_mm512_cmple_ps_mask
+#define _MM_CMPEQ_MASK _custom_mm512_cmpeq_ps_mask
 #define _MM_SRLI_I _mm512_srli_epi32
 #define _MM_SLLI_I _mm512_slli_epi32
 #define _MM_ADD_I _mm512_add_epi32
@@ -1950,7 +1950,7 @@ static inline __m128 _mm512_fullhadd_f32(_MM_TYPE A, _MM_TYPE B) {
   return _mm_blend_ps(_mm_add_ps(hi_a,lo_a),_mm_add_ps(hi_b,lo_b),0b1100); // ALLB ALLA
 }
 
-static inline double _mm512_cvtss_f32(_MM_TYPE A) {
+static inline float _custom_mm512_cvtss_f32(_MM_TYPE A) {
   return (_mm_cvtss_f32(_mm512_extractf32x4_ps(A,0)));
 }
 
