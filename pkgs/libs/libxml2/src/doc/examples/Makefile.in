@@ -13,7 +13,6 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
-
 VPATH = @srcdir@
 am__is_gnu_make = { \
   if test -z '$(MAKELEVEL)'; then \
@@ -88,7 +87,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-noinst_PROGRAMS = io1$(EXEEXT) io2$(EXEEXT) parse1$(EXEEXT) \
+check_PROGRAMS = io1$(EXEEXT) io2$(EXEEXT) parse1$(EXEEXT) \
 	parse2$(EXEEXT) parse3$(EXEEXT) parse4$(EXEEXT) \
 	reader1$(EXEEXT) reader2$(EXEEXT) reader3$(EXEEXT) \
 	reader4$(EXEEXT) testWriter$(EXEEXT) tree1$(EXEEXT) \
@@ -106,7 +105,6 @@ mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
-PROGRAMS = $(noinst_PROGRAMS)
 am_io1_OBJECTS = io1.$(OBJEXT)
 io1_OBJECTS = $(am_io1_OBJECTS)
 io1_LDADD = $(LDADD)
@@ -318,6 +316,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTRA_CFLAGS = @EXTRA_CFLAGS@
 FGREP = @FGREP@
 FTP_OBJ = @FTP_OBJ@
 GREP = @GREP@
@@ -592,8 +591,8 @@ $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(am__aclocal_m4_deps):
 
-clean-noinstPROGRAMS:
-	@list='$(noinst_PROGRAMS)'; test -n "$$list" || exit 0; \
+clean-checkPROGRAMS:
+	@list='$(check_PROGRAMS)'; test -n "$$list" || exit 0; \
 	echo " rm -f" $$list; \
 	rm -f $$list || exit $$?; \
 	test -n "$(EXEEXT)" || exit 0; \
@@ -793,8 +792,9 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
+	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
 check: check-am
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile
 installdirs:
 install: install-am
 install-exec: install-exec-am
@@ -829,7 +829,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libtool clean-local clean-noinstPROGRAMS \
+clean-am: clean-checkPROGRAMS clean-generic clean-libtool clean-local \
 	mostlyclean-am
 
 distclean: distclean-am
@@ -898,21 +898,21 @@ ps-am:
 
 uninstall-am:
 
-.MAKE: install-am install-strip
+.MAKE: check-am install-am install-strip
 
-.PHONY: CTAGS GTAGS TAGS all all-am check check-am clean clean-generic \
-	clean-libtool clean-local clean-noinstPROGRAMS cscopelist-am \
-	ctags ctags-am distclean distclean-compile distclean-generic \
-	distclean-libtool distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-data \
-	install-data-am install-data-local install-dvi install-dvi-am \
-	install-exec install-exec-am install-html install-html-am \
-	install-info install-info-am install-man install-pdf \
-	install-pdf-am install-ps install-ps-am install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags tags-am uninstall uninstall-am
+.PHONY: CTAGS GTAGS TAGS all all-am check check-am clean \
+	clean-checkPROGRAMS clean-generic clean-libtool clean-local \
+	cscopelist-am ctags ctags-am distclean distclean-compile \
+	distclean-generic distclean-libtool distclean-tags distdir dvi \
+	dvi-am html html-am info info-am install install-am \
+	install-data install-data-am install-data-local install-dvi \
+	install-dvi-am install-exec install-exec-am install-html \
+	install-html-am install-info install-info-am install-man \
+	install-pdf install-pdf-am install-ps install-ps-am \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am tags tags-am uninstall uninstall-am
 
 .PRECIOUS: Makefile
 
@@ -920,7 +920,7 @@ uninstall-am:
 @REBUILD_DOCS_TRUE@rebuild: examples.xml index.html
 @REBUILD_DOCS_TRUE@.PHONY: rebuild
 
-@REBUILD_DOCS_TRUE@examples.xml: index.py $(noinst_PROGRAMS:=.c)
+@REBUILD_DOCS_TRUE@examples.xml: index.py $(check_PROGRAMS:=.c)
 @REBUILD_DOCS_TRUE@	cd $(srcdir) && $(PYTHON) index.py
 @REBUILD_DOCS_TRUE@	$(MAKE) Makefile
 
@@ -938,40 +938,41 @@ clean-local:
 valgrind: 
 	$(MAKE) CHECKER='valgrind' tests
 
-tests: $(noinst_PROGRAMS)
-	test -f Makefile.am || test -f test1.xml || $(LN_S) $(srcdir)/test?.xml .
+tests: $(check_PROGRAMS)
+	@test -f Makefile.am || test -f test1.xml || $(LN_S) $(srcdir)/test?.xml .
 	@(echo '## examples regression tests')
 	@(echo > .memdump)
-	$(CHECKER) ./io1 > io1.tmp && diff io1.tmp $(srcdir)/io1.res
+	@$(CHECKER) ./io1 > io1.tmp && diff io1.tmp $(srcdir)/io1.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./io2 > io2.tmp && diff io2.tmp $(srcdir)/io2.res
+	@$(CHECKER) ./io2 > io2.tmp && diff io2.tmp $(srcdir)/io2.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./parse1 test1.xml
+	@$(CHECKER) ./parse1 test1.xml
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./parse2 test2.xml
+	@$(CHECKER) ./parse2 test2.xml
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./parse3
+	@$(CHECKER) ./parse3
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./parse4 test3.xml
+	@$(CHECKER) ./parse4 test3.xml
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./reader1 test2.xml > reader1.tmp && diff reader1.tmp $(srcdir)/reader1.res
+	@$(CHECKER) ./reader1 test2.xml > reader1.tmp && diff reader1.tmp $(srcdir)/reader1.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./reader2 test2.xml > reader1.tmp && diff reader1.tmp $(srcdir)/reader1.res
+	@$(CHECKER) ./reader2 test2.xml > reader1.tmp && diff reader1.tmp $(srcdir)/reader1.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./reader3 > reader3.tmp && diff reader3.tmp $(srcdir)/reader3.res
+	@$(CHECKER) ./reader3 > reader3.tmp && diff reader3.tmp $(srcdir)/reader3.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./reader4 test1.xml test2.xml test3.xml > reader4.tmp && diff reader4.tmp $(srcdir)/reader4.res
+	@$(CHECKER) ./reader4 test1.xml test2.xml test3.xml > reader4.tmp && diff reader4.tmp $(srcdir)/reader4.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./testWriter && for i in 1 2 3 4 ; do diff $(srcdir)/writer.xml writer$$i.tmp || break ; done
+	@$(CHECKER) ./testWriter && for i in 1 2 3 4 ; do diff $(srcdir)/writer.xml writer$$i.tmp || break ; done
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./tree1 test2.xml > tree1.tmp && diff tree1.tmp $(srcdir)/tree1.res
+	@$(CHECKER) ./tree1 test2.xml > tree1.tmp && diff tree1.tmp $(srcdir)/tree1.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./tree2 > tree2.tmp && diff tree2.tmp $(srcdir)/tree2.res
+	@$(CHECKER) ./tree2 > tree2.tmp && diff tree2.tmp $(srcdir)/tree2.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./xpath1 test3.xml '//child2' > xpath1.tmp && diff xpath1.tmp $(srcdir)/xpath1.res
+	@$(CHECKER) ./xpath1 test3.xml '//child2' > xpath1.tmp && diff xpath1.tmp $(srcdir)/xpath1.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
-	$(CHECKER) ./xpath2 test3.xml '//discarded' discarded > xpath2.tmp && diff xpath2.tmp $(srcdir)/xpath2.res
+	@$(CHECKER) ./xpath2 test3.xml '//discarded' discarded > xpath2.tmp && diff xpath2.tmp $(srcdir)/xpath2.res
 	@grep "MORY ALLO" .memdump | grep -v "MEMORY ALLOCATED : 0" ; exit 0
+	@rm *.tmp
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

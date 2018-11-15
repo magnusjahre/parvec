@@ -244,6 +244,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EXEEXT = @EXEEXT@
+EXTRA_CFLAGS = @EXTRA_CFLAGS@
 FGREP = @FGREP@
 FTP_OBJ = @FTP_OBJ@
 GREP = @GREP@
@@ -1054,7 +1055,7 @@ uninstall-man: uninstall-man1
 
 @REBUILD_DOCS_TRUE@api: libxml2-api.xml libxml2-refs.xml $(APIPAGES) $(srcdir)/html/index.html $(WIN32_DIR)/libxml2.def.src ../elfgcchack.h $(srcdir)/site.xsl
 
-@REBUILD_DOCS_TRUE@web: $(PAGES)
+@REBUILD_DOCS_TRUE@web: $(PAGES) xmllint.html xmlcatalog_man.html
 
 @REBUILD_DOCS_TRUE@../elfgcchack.h: $(srcdir)/elfgcchack.xsl $(srcdir)/libxml2-api.xml
 @REBUILD_DOCS_TRUE@	-@(if [ -x $(XSLTPROC) ] ; then \
@@ -1119,8 +1120,14 @@ uninstall-man: uninstall-man1
 @REBUILD_DOCS_TRUE@xmllint.1: xmllint.xml
 @REBUILD_DOCS_TRUE@	-@($(XSLTPROC) --nonet xmllint.xml)
 
+@REBUILD_DOCS_TRUE@xmllint.html: xmllint.xml
+@REBUILD_DOCS_TRUE@	-@($(XSLTPROC) --nonet -o $@ http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl xmllint.xml)
+
 @REBUILD_DOCS_TRUE@xmlcatalog.1: xmlcatalog_man.xml
 @REBUILD_DOCS_TRUE@	-@($(XSLTPROC) --nonet xmlcatalog_man.xml)
+
+@REBUILD_DOCS_TRUE@xmlcatalog_man.html: xmlcatalog_man.xml
+@REBUILD_DOCS_TRUE@	-@($(XSLTPROC) --nonet -o $@ http://docbook.sourceforge.net/release/xsl/current/html/docbook.xsl xmlcatalog_man.xml)
 
 @REBUILD_DOCS_TRUE@check-extra-dist:
 @REBUILD_DOCS_TRUE@	for f in $(EXTRA_DIST_wc) ; do echo $$f; done | sort -u >tmp.EXTRA_DIST_wc
