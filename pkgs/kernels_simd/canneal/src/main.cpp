@@ -147,5 +147,5 @@ void* entry_pt(void* data)
 #ifdef ENABLE_PARSEC_HOOKS
 	__parsec_thread_end();
 #endif
-
+	return 0;
 }
