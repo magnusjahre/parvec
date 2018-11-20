@@ -19,6 +19,7 @@
 #include <pthread.h>
 #include <assert.h>
 #include <float.h>
+#include <map>
 
 #include "fluid.hpp"
 #include "cellpool.hpp"
@@ -245,9 +246,8 @@ void InitSim(char const *fileName, unsigned int threadnum)
   delta.x = range.x / nx;
   delta.y = range.y / ny;
   delta.z = range.z / nz;
-  assert(delta.x >= h && delta.y >= h && delta.z >= h);
-
   std::cout << "Grids steps over x, y, z: " << delta.x << " " << delta.y << " " << delta.z << std::endl;
+  assert(delta.x >= h && delta.y >= h && delta.z >= h);
 
   assert(nx >= XDIVS && nz >= ZDIVS);
   int gi = 0;
@@ -444,7 +444,21 @@ void InitSim(char const *fileName, unsigned int threadnum)
     ++cnumPars[index];
   }
 
+  map<int, int> histArray;
   std::cout << "Number of particles: " << numParticles << std::endl;
+  for (int i = 0; i < numCells; i++) {
+      if ( histArray.find(cnumPars[i]) == histArray.end() ) {
+	histArray[cnumPars[i]] = 1;
+      } else {
+	histArray[cnumPars[i]]++;
+      }
+  }
+  std::cout << "Histogram of particles per cell: ";
+  for(map<int,int>::iterator it = histArray.begin(); it != histArray.end(); ++it) {
+    cout << it->first << ":" << it->second << " ";
+  }
+  std::cout << std::endl;
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
