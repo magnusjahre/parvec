@@ -42,10 +42,10 @@ case "${OSTYPE}" in
   # Linux + default case
 
   # CC_HOME is installation root of the C compiler
-#    export CC_HOME="/usr"
+    export CC_HOME="/usr"
 #JMCG BEIN
-#   export CC_HOME="${HOME}/extras/gcc-6.4.0"
-  export CC_HOME="${HOME}/extras/gcc-7.3.0"
+# export CC_HOME="${HOME}/extras/gcc-6.4.0"
+# export CC_HOME="${HOME}/extras/gcc-7.3.0"
 #  export CC_HOME="${HOME}/extras/gcc-8.2.0"
 #JMCG END
   # BINUTIL_HOME is installation root of the GNU binutils
@@ -92,8 +92,8 @@ fi
 # JMCG Optimization level reduced to O2 to disable automatic vectorization in testing
 #export CFLAGS="-g3 -funroll-loops -fprefetch-loop-arrays ${PORTABILITY_FLAGS}"
 #export CXXFLAGS="-g3 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions ${PORTABILITY_FLAGS}"
-export CFLAGS="-Werror -O2 -funroll-loops -fprefetch-loop-arrays ${PORTABILITY_FLAGS}"
-export CXXFLAGS="-Werror -O2 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions ${PORTABILITY_FLAGS}"
+export CFLAGS="-O2 -funroll-loops -fprefetch-loop-arrays ${PORTABILITY_FLAGS}"
+export CXXFLAGS="-O2 -funroll-loops -fprefetch-loop-arrays -fpermissive -fno-exceptions ${PORTABILITY_FLAGS}"
 EXTRA_CFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
 EXTRA_CXXFLAGS="-I${PARSECDIR}/pkgs/libs/simd_libs"
 #JMCG END
