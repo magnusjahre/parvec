@@ -161,8 +161,10 @@ uint32_t x264_cpu_detect( void )
         xcr0 = x264_cpu_xgetbv( 0 );
         if( (xcr0&0x6) == 0x6 ) /* XMM/YMM state */
         {
+#ifdef PARSEC_USE_AVX
             if( ecx&0x10000000 )
                 cpu |= X264_CPU_AVX;
+#endif
             if( ecx&0x00001000 )
                 cpu |= X264_CPU_FMA3;
         }
@@ -179,14 +181,17 @@ uint32_t x264_cpu_detect( void )
 
         if( (xcr0&0x6) == 0x6 ) /* XMM/YMM state */
         {
+#ifdef PARSEC_USE_AVX
             if( ebx&0x00000020 )
                 cpu |= X264_CPU_AVX2;
-
+#endif
+#ifdef PARSEC_USE_AVX512
             if( (xcr0&0xE0) == 0xE0 ) /* OPMASK/ZMM state */
             {
                 if( (ebx&0xD0030000) == 0xD0030000 )
                     cpu |= X264_CPU_AVX512;
             }
+#endif
         }
     }
 
