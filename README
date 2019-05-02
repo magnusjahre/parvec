@@ -12,3 +12,10 @@ Lib requirements
 texinfo autoconf libx11-dev libxv-dev m4 libxt-dev libxmu-headers libxi-dev libxmu-dev pkg-config gettext libxext-dev texi2html texinfo libpcre3-dev
 
 e.g., sudo apt-get install texinfo....
+
+-------------
+Citing ParVec 
+-------------
+
+If you use ParVec for research, please cite our Computing paper:
+Cebrian, J.M., Jahre, M. & Natvig, L. Computing (2015) 97: 1077. https://doi.org/10.1007/s00607-015-0444-y 
