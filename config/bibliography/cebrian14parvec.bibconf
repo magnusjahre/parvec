@@ -16,17 +16,17 @@
 # the corresponding publications.
 
 # Last name of first author, followed by "et al" if there are more authors
-bib_author="Cebrian"
+bib_author="Cebrian et al."
 
 # Title of the publication
-bib_title="Optimized Hardware for Suboptimal Software: The Case for SIMD-aware Benchmarks"
+bib_title="ParVec: Vectorizing the PARSEC Benchmark Suite"
 
 # Title of the proceedings / journal / etc or type of publication
 # Please use abbreviations and omit any unnecessary words
-bib_booktitle="Proceedings of 2014 IEEE International Symposium on Performance Analysis of Systems and Software"
+bib_booktitle="Computing"
 
 # Year of the publication
-bib_year="2014"
+bib_year="2015"
 
 # Formatted bibliography entry, based on previous information. This string is
 # what will be displayed by PARSEC. Please make sure this fits into one line
